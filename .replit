@@ -14,6 +14,10 @@ author = "agent"
 task = "workflow.run"
 args = "Expo Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Expo Dev Server"
+
 [[workflows.workflow]]
 name = "Expo Server"
 author = "agent"
@@ -24,6 +28,17 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "yes | npx expo start --tunnel --clear"
+
+[[workflows.workflow]]
+name = "Expo Dev Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx expo start --dev-client"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 8081
