@@ -2,9 +2,9 @@
 
 ## Overview
 
-This is a React Native mobile application built with Expo Development Build that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). The app provides two mutually exclusive sensor modes due to hardware limitations: **Standard Mode** (HR + PPI) and **SDK Mode** (PPG + ACC + Gyro + Mag). The app is deployed to Android devices via EAS Build (cloud-based build service).
+This is a React Native mobile application built with Expo Development Build that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). The app provides two mutually exclusive sensor modes due to hardware limitations: **Standard Mode** (HR + PPI) and **SDK Mode** (PPG + ACC + Gyro). The app is deployed to Android devices via EAS Build (cloud-based build service).
 
-**Current Status**: SDK mode toggle UI implemented. Currently testing magnetometer in isolation to validate SDK mode streaming. Hardware limitation discovered: Polar Verity Sense cannot stream all 6 sensors simultaneously - PPI/HR algorithms are incompatible with SDK mode.
+**Current Status**: App restructured to correctly implement two mutually exclusive modes. Standard Mode streams HR + PPI using validated Polar algorithms. SDK Mode streams raw sensor data (PPG + ACC + Gyro) at custom rates with PPI/HR algorithms disabled. Ready for device testing.
 
 ## User Preferences
 
@@ -48,10 +48,17 @@ Preferred communication style: Simple, everyday language.
 **Polar Verity Sense Protocol Implementation**
 
 **Hardware Limitation - Mutually Exclusive Modes**
-- **Standard Mode**: HR + PPI only (validated algorithms, cannot run with SDK mode)
-- **SDK Mode**: PPG + ACC + Gyro + Mag only (disables validated HR/PPI algorithms)
-- **Critical**: Cannot stream all 6 sensors simultaneously due to algorithm incompatibility
-- **Source**: Official Polar SDK documentation confirms PPI algorithm cannot run in SDK mode
+- **Standard Mode**: HR + PPI only (validated Polar algorithms, fixed sensor settings)
+  - Uses standard BLE HR service for heart rate
+  - Uses PMD service for PPI intervals
+  - No SDK mode command sent
+  - PPI takes ~25 seconds to initialize
+- **SDK Mode**: PPG + ACC + Gyro only (raw sensor access, custom rates)
+  - Requires SDK mode command `[0x02, 0x09]` which disables HR/PPI algorithms
+  - Custom sampling rates: ACC/Gyro at 52Hz, PPG at 135Hz
+  - Cannot access PPI or validated HR in this mode
+- **Critical**: Cannot stream all sensors simultaneously due to algorithm incompatibility
+- **Source**: Official Polar SDK documentation - PPI algorithms validated at specific settings and cannot run in SDK mode
 
 **Standard BLE Heart Rate Service (UUID: 0x180D)**
 - Used for basic heart rate monitoring in Standard Mode
@@ -214,18 +221,22 @@ Byte 11+:    Actual sensor data payload
 
 ## Recent Changes (October 2025)
 
+### App Restructure - Correct Mode Separation (Oct 3, 2025)
+- **Discovered critical limitation**: PPI algorithms completely disabled in SDK mode - cannot coexist with custom sensor rates
+- **Restructured connection logic**:
+  - Standard Mode: Subscribes to HR service AND PMD service, starts PPI stream (no SDK mode command)
+  - SDK Mode: Enables SDK mode, starts PPG + ACC + Gyro only (PPI removed)
+- **Updated UI**:
+  - Standard Mode shows: HR + PPI sensor cards
+  - SDK Mode shows: PPG + ACC + Gyro sensor cards
+  - All descriptions and alerts updated to reflect correct sensor lists
+- **Removed**: Magnetometer removed from both modes (not needed for current use case)
+- **Source**: Polar SDK GitHub issue #285 confirms PPI requires fixed sensor settings and proprietary algorithms incompatible with SDK mode
+- **Validated by architect**: Mode separation approved, ready for device testing
+
 ### SDK Mode Toggle UI Implementation (Oct 3, 2025)
-- **Discovered hardware limitation**: Verified via Polar docs that all 6 sensors cannot run simultaneously
-- **Standard Mode**: HR + PPI (validated algorithms, no SDK mode)
-- **SDK Mode**: PPG + ACC + Gyro + Mag (disables HR/PPI algorithms)
 - **Added toggle switch UI**: User can enable/disable SDK mode before connecting
-- **Toggle behavior**: 
-  - Switch disabled while connected (must disconnect to change modes)
-  - Left position = SDK Mode ON (magnetometer streams)
-  - Right position = SDK Mode OFF (no sensors active)
-- **Current testing**: Magnetometer only in SDK mode to validate streaming
-- **Connection logic**: Conditionally enables SDK mode and starts magnetometer based on toggle state
-- **Validated by architect**: Toggle implementation approved, ready for device testing
+- **Toggle behavior**: Switch disabled while connected (must disconnect to change modes)
 
 ### Critical PMD Protocol Fixes
 - **Corrected measurement type IDs**: Updated switch routing to use 0x01 (PPG), 0x02 (ACC), 0x03 (PPI), 0x05 (Gyro), 0x06 (Mag)
@@ -245,10 +256,11 @@ Byte 11+:    Actual sensor data payload
 ## Known Limitations
 
 ### Hardware Limitations
-- **Cannot stream all 6 sensors simultaneously**: Polar Verity Sense has two mutually exclusive modes
-  - Standard Mode: HR + PPI only (validated algorithms)
-  - SDK Mode: PPG + ACC + Gyro + Mag only (disables HR/PPI)
-- Magnetometer requires SDK mode and PMD service (not available in Standard Mode)
+- **Cannot stream all sensors simultaneously**: Polar Verity Sense has two mutually exclusive modes
+  - Standard Mode: HR + PPI only (validated algorithms, fixed sensor settings)
+  - SDK Mode: PPG + ACC + Gyro only (raw sensors, custom rates, PPI/HR algorithms disabled)
+- **PPI limitation**: PPI uses proprietary algorithms validated at specific sensor settings (PPG 55Hz, ACC 52Hz). These algorithms are disabled in SDK mode and cannot run alongside custom sensor rates
+- **Error 0x0c when starting PPI in SDK mode**: "Invalid State" error occurs because PPI algorithms are unavailable, not a configuration issue
 
 ### Implementation Limitations
 - Only displays first sample from each PMD packet (not all samples in frame)
@@ -257,7 +269,4 @@ Byte 11+:    Actual sensor data payload
 - No error recovery for failed BLE connections
 - No data logging or export functionality
 - iOS platform not tested
-
-### Current Testing State
-- Testing magnetometer in isolation with SDK mode enabled
-- Other sensors (HR, PPI, PPG, ACC, Gyro) temporarily disabled for focused testing
+- Magnetometer not implemented (not needed for current use case)
