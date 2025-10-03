@@ -109,6 +109,22 @@ export default function App() {
     }, 10000);
   };
 
+  const enableSDKMode = async (device) => {
+    try {
+      const command = [0x02, 0x09];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('SDK Mode enabled');
+    } catch (error) {
+      console.error('Failed to enable SDK mode:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
@@ -120,6 +136,8 @@ export default function App() {
       
       await subscribeToHeartRate(connected);
       await subscribeToPMD(connected);
+      
+      await enableSDKMode(connected);
       
       await startPPIStream(connected);
       await startPPGStream(connected);
