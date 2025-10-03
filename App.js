@@ -232,6 +232,7 @@ export default function App() {
         await queryAccelerometerSettings(connected);
         await queryGyroscopeSettings(connected);
         await queryPPGSettings(connected);
+        await queryPPISettings(connected);
         console.log('Waiting for query responses...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
@@ -245,20 +246,16 @@ export default function App() {
         
         console.log('Sending PPG start command...');
         await startPPGStream(connected);
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - ACC + Gyro + PPG streaming.`);
+        console.log('Sending PPI start command...');
+        await startPPIStream(connected);
+        
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - ACC + Gyro + PPG + PPI streaming. Note: PPI may take ~25 seconds to initialize.`);
       } else {
         console.log('Subscribing to Heart Rate service...');
         await subscribeToHeartRate(connected);
-        
-        console.log('Querying PPI settings...');
-        await queryPPISettings(connected);
-        console.log('Waiting for PPI query response...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        console.log('Starting PPI stream...');
-        await startPPIStream(connected);
-        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR + PPI streaming. Note: PPI may take ~25 seconds to initialize.`);
+        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR only.`);
       }
     } catch (error) {
       console.error('Connection error:', error);
@@ -595,7 +592,7 @@ export default function App() {
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>{sdkModeEnabled ? 'SDK Mode' : 'Standard Mode'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ ACC + Gyro + PPG active' : '✅ HR + PPI active'}
+              {sdkModeEnabled ? '✅ ACC + Gyro + PPG + PPI' : '✅ HR only'}
             </Text>
           </View>
           
@@ -621,6 +618,13 @@ export default function App() {
                   {ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...'}
                 </Text>
               </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>PPI / RR Interval (ms)</Text>
+                <Text style={styles.sensorValue}>
+                  {ppi !== null ? `${ppi} ms` : 'Waiting for PPI data (~25s)...'}
+                </Text>
+              </View>
             </>
           ) : (
             <>
@@ -630,20 +634,13 @@ export default function App() {
                   {heartRate !== null ? `${heartRate} BPM` : 'Waiting for data...'}
                 </Text>
               </View>
-              
-              <View style={styles.sensorCard}>
-                <Text style={styles.sensorTitle}>PPI / RR Interval (ms)</Text>
-                <Text style={styles.sensorValue}>
-                  {ppi !== null ? `${ppi} ms` : 'Waiting for data...'}
-                </Text>
-              </View>
             </>
           )}
           
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'SDK Mode: Streaming raw sensor data (ACC, Gyro, PPG)' 
-              : 'Standard Mode: Streaming validated HR and PPI data'}
+              ? 'SDK Mode: Streaming raw sensors + PPI intervals. PPI takes ~25s to initialize.' 
+              : 'Standard Mode: Streaming validated HR only.'}
           </Text>
         </ScrollView>
         
@@ -671,7 +668,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'SDK Mode: ACC + Gyro + PPG' : 'Standard Mode: HR + PPI'}
+          {sdkModeEnabled ? 'SDK Mode: ACC + Gyro + PPG + PPI' : 'Standard Mode: HR only'}
         </Text>
       </View>
       
