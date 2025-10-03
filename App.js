@@ -181,6 +181,22 @@ export default function App() {
     }
   };
 
+  const queryPPGSettings = async (device) => {
+    try {
+      const command = [0x01, 0x01, 0x00];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      console.log('Querying PPG settings...');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+    } catch (error) {
+      console.error('Failed to query PPG settings:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
@@ -199,6 +215,7 @@ export default function App() {
         
         await queryAccelerometerSettings(connected);
         await queryGyroscopeSettings(connected);
+        await queryPPGSettings(connected);
         console.log('Waiting for query responses...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
@@ -208,8 +225,12 @@ export default function App() {
         
         console.log('Sending gyroscope start command...');
         await startGyroStream(connected);
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - ACC + Gyro streaming.`);
+        console.log('Sending PPG start command...');
+        await startPPGStream(connected);
+        
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - ACC + Gyro + PPG streaming.`);
       } else {
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode disabled - No sensors active.`);
       }
@@ -338,7 +359,9 @@ export default function App() {
 
   const startPPGStream = async (device) => {
     const command = [0x02, 0x01, 0x00, 0x01, 0x87, 0x00, 0x01, 0x01, 0x16, 0x00, 0x04, 0x01, 0x04];
+    console.log('Starting PPG stream with command (135Hz, 4 channels):', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
+    console.log('PPG stream start command sent');
   };
 
   const startACCStream = async (device) => {
@@ -541,7 +564,7 @@ export default function App() {
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>SDK Mode: {sdkModeEnabled ? 'ON' : 'OFF'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ ACC + Gyro active' : '❌ No sensors active'}
+              {sdkModeEnabled ? '✅ ACC + Gyro + PPG active' : '❌ No sensors active'}
             </Text>
           </View>
           
@@ -563,9 +586,18 @@ export default function App() {
             </Text>
           </View>
           
+          <View style={styles.sensorCard}>
+            <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
+            <Text style={styles.sensorValue}>
+              {sdkModeEnabled 
+                ? (ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...')
+                : 'SDK Mode required'}
+            </Text>
+          </View>
+          
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'Streaming ACC + Gyro in SDK mode. Check logs for PMD responses.' 
+              ? 'Streaming ACC + Gyro + PPG in SDK mode. Check logs for PMD responses.' 
               : 'SDK mode is OFF. Disconnect and enable SDK mode to test sensors.'}
           </Text>
         </ScrollView>
@@ -594,7 +626,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'ON - ACC + Gyro will stream' : 'OFF - No sensors active'}
+          {sdkModeEnabled ? 'ON - ACC + Gyro + PPG will stream' : 'OFF - No sensors active'}
         </Text>
       </View>
       
