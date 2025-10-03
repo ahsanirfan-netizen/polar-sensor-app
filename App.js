@@ -658,10 +658,12 @@ export default function App() {
           console.log('Stopping SDK mode...');
           await stopSDKMode(connectedDevice);
           await new Promise(resolve => setTimeout(resolve, 500));
-        } else {
+        } else if (ppiEnabled) {
           console.log('Stopping PPI stream...');
           await stopPPIStream(connectedDevice);
           await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          console.log('No streams to stop (HR only mode)');
         }
         
         console.log('Disconnecting...');
