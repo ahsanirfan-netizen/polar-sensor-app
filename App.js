@@ -235,7 +235,7 @@ export default function App() {
               case 0x05:
                 parseGyroData(data);
                 break;
-              case 0x06:
+              case 0x04:
                 parseMagData(data);
                 break;
               default:
@@ -284,7 +284,7 @@ export default function App() {
   };
 
   const startMagStream = async (device) => {
-    const command = [0x02, 0x06];
+    const command = [0x02, 0x04];
     await startPMDStream(device, command);
   };
 
