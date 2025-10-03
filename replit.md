@@ -58,6 +58,7 @@ Preferred communication style: Simple, everyday language.
 - **PMD Service UUID**: FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8
 - **PMD Control Characteristic**: FB005C81-02E7-F387-1CAD-8ACD2D8DF0C8 (write commands here)
 - **PMD Data Characteristic**: FB005C82-02E7-F387-1CAD-8ACD2D8DF0C8 (subscribe for notifications)
+- **SDK Mode Requirement**: MUST enable SDK mode `[0x02, 0x09]` before starting multiple PMD streams
 
 **PMD Packet Structure** (CRITICAL - Updated 2025-10)
 ```
@@ -129,6 +130,7 @@ Byte 11+:    Actual sensor data payload
 **Critical Implementation Notes**
 - Buffer polyfill MUST be imported from 'buffer' package and set globally
 - BLE data arrives base64-encoded, must convert to Buffer for parsing
+- SDK mode MUST be enabled `[0x02, 0x09]` before starting PMD streams (required for multiple sensors)
 - All PMD parsers must read from byte 11 offset (not byte 9 or 10)
 - Measurement type routing must use correct hex values (0x01, 0x02, 0x03, 0x05, 0x06)
 - Start commands must include complete configuration bytes
@@ -205,6 +207,12 @@ Byte 11+:    Actual sensor data payload
 - **Web**: Not supported (BLE not available in web browsers)
 
 ## Recent Changes (October 2025)
+
+### SDK Mode Enablement (Oct 3, 2025)
+- **Added SDK mode activation**: Implemented enableSDKMode function that sends `[0x02, 0x09]` command to PMD control
+- **Updated connection flow**: SDK mode now enabled automatically after connection and before starting sensor streams
+- **Fix for PPG/ACC/Gyro/Mag**: SDK mode requirement was preventing these sensors from streaming properly
+- **Validated**: App builds and runs successfully with SDK mode enabled in connection sequence
 
 ### Critical PMD Protocol Fixes
 - **Corrected measurement type IDs**: Updated switch routing to use 0x01 (PPG), 0x02 (ACC), 0x03 (PPI), 0x05 (Gyro), 0x06 (Mag)
