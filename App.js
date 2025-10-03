@@ -10,7 +10,8 @@ import {
   PermissionsAndroid,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  Switch
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
@@ -29,6 +30,7 @@ export default function App() {
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
+  const [sdkModeEnabled, setSdkModeEnabled] = useState(false);
   const [heartRate, setHeartRate] = useState(null);
   const [ppg, setPpg] = useState(null);
   const [ppi, setPpi] = useState(null);
@@ -134,18 +136,15 @@ export default function App() {
       await connected.discoverAllServicesAndCharacteristics();
       setConnectedDevice(connected);
       
-      await subscribeToHeartRate(connected);
       await subscribeToPMD(connected);
       
-      await enableSDKMode(connected);
-      
-      await startPPIStream(connected);
-      await startPPGStream(connected);
-      await startACCStream(connected);
-      await startGyroStream(connected);
-      await startMagStream(connected);
-      
-      Alert.alert('Connected', `Connected to ${device.name}. All sensors streaming.`);
+      if (sdkModeEnabled) {
+        await enableSDKMode(connected);
+        await startMagStream(connected);
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Magnetometer streaming.`);
+      } else {
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode disabled - No sensors active.`);
+      }
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message);
@@ -438,6 +437,18 @@ export default function App() {
     }
   };
 
+  const toggleSdkMode = (value) => {
+    if (connectedDevice) {
+      Alert.alert(
+        'SDK Mode Toggle',
+        'Please disconnect before changing SDK mode.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setSdkModeEnabled(value);
+  };
+
   const renderDevice = ({ item }) => (
     <TouchableOpacity
       style={styles.deviceItem}
@@ -455,51 +466,26 @@ export default function App() {
           <Text style={styles.title}>Polar Verity Sense Data</Text>
           <Text style={styles.deviceName}>{connectedDevice.name}</Text>
           
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Heart Rate</Text>
-            <Text style={styles.sensorValue}>
-              {heartRate !== null ? `${heartRate} BPM` : 'Waiting...'}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>PPI (RR Interval)</Text>
-            <Text style={styles.sensorValue}>
-              {ppi !== null ? `${ppi} ms` : 'Waiting...'}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
-            <Text style={styles.sensorValue}>
-              {ppg !== null ? ppg : 'Waiting...'}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
-            <Text style={styles.sensorValue}>
-              X: {accelerometer.x.toFixed(2)} | Y: {accelerometer.y.toFixed(2)} | Z: {accelerometer.z.toFixed(2)}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Gyroscope (°/s)</Text>
-            <Text style={styles.sensorValue}>
-              X: {gyroscope.x.toFixed(1)} | Y: {gyroscope.y.toFixed(1)} | Z: {gyroscope.z.toFixed(1)}
+          <View style={styles.sdkModeContainer}>
+            <Text style={styles.sdkModeLabel}>SDK Mode: {sdkModeEnabled ? 'ON' : 'OFF'}</Text>
+            <Text style={styles.sdkModeNote}>
+              {sdkModeEnabled ? '✅ Magnetometer active' : '❌ No sensors active'}
             </Text>
           </View>
           
           <View style={styles.sensorCard}>
             <Text style={styles.sensorTitle}>Magnetometer (μT)</Text>
             <Text style={styles.sensorValue}>
-              X: {magnetometer.x} | Y: {magnetometer.y} | Z: {magnetometer.z}
+              {sdkModeEnabled 
+                ? `X: ${magnetometer.x} | Y: ${magnetometer.y} | Z: ${magnetometer.z}`
+                : 'SDK Mode required'}
             </Text>
           </View>
           
           <Text style={styles.note}>
-            ✅ All 6 sensor streams active via PMD protocol{'\n'}
-            Note: PPI data may take ~25 seconds to stabilize
+            {sdkModeEnabled 
+              ? 'Testing magnetometer only. Enable SDK mode before connecting to stream data.' 
+              : 'SDK mode is OFF. Disconnect and enable SDK mode to test magnetometer.'}
           </Text>
         </ScrollView>
         
@@ -515,6 +501,21 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.title}>Polar Device Scanner</Text>
       <Text style={styles.subtitle}>Looking for Polar Verity Sense</Text>
+      
+      <View style={styles.sdkToggleContainer}>
+        <View style={styles.sdkToggleRow}>
+          <Text style={styles.sdkToggleLabel}>SDK Mode</Text>
+          <Switch
+            value={sdkModeEnabled}
+            onValueChange={toggleSdkMode}
+            trackColor={{ false: '#767577', true: '#81b0ff' }}
+            thumbColor={sdkModeEnabled ? '#007AFF' : '#f4f3f4'}
+          />
+        </View>
+        <Text style={styles.sdkToggleDescription}>
+          {sdkModeEnabled ? 'ON - Magnetometer will stream' : 'OFF - No sensors active'}
+        </Text>
+      </View>
       
       <View style={styles.buttonContainer}>
         <Button
@@ -562,6 +563,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     color: '#666',
+  },
+  sdkToggleContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 15,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  sdkToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sdkToggleLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  sdkToggleDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  sdkModeContainer: {
+    backgroundColor: '#e3f2fd',
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  sdkModeLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1976D2',
+    marginBottom: 5,
+  },
+  sdkModeNote: {
+    fontSize: 14,
+    color: '#555',
   },
   buttonContainer: {
     paddingHorizontal: 20,
