@@ -346,8 +346,8 @@ export default function App() {
   };
 
   const startGyroStream = async (device) => {
-    const command = [0x02, 0x05, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00, 0x04, 0x01, 0x03];
-    console.log('Starting Gyro stream with command (with channel mask):', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+    const command = [0x02, 0x05, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0xFA, 0x00, 0x04, 0x01, 0x03];
+    console.log('Starting Gyro stream with command (250 deg/s range):', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
     console.log('Gyro stream start command sent');
   };
