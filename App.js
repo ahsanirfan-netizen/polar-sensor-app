@@ -149,19 +149,19 @@ export default function App() {
     }
   };
 
-  const queryMagnetometerSettings = async (device) => {
+  const queryAccelerometerSettings = async (device) => {
     try {
-      const command = [0x01, 0x06, 0x00];
+      const command = [0x01, 0x02, 0x00];
       const commandBuffer = Buffer.from(command);
       const base64Command = commandBuffer.toString('base64');
-      console.log('Querying magnetometer settings...');
+      console.log('Querying accelerometer settings...');
       await device.writeCharacteristicWithResponseForService(
         PMD_SERVICE,
         PMD_CONTROL,
         base64Command
       );
     } catch (error) {
-      console.error('Failed to query magnetometer settings:', error);
+      console.error('Failed to query accelerometer settings:', error);
     }
   };
 
@@ -180,10 +180,10 @@ export default function App() {
       if (sdkModeEnabled) {
         await enableSDKMode(connected);
         await new Promise(resolve => setTimeout(resolve, 500));
-        await queryMagnetometerSettings(connected);
+        await queryAccelerometerSettings(connected);
         await new Promise(resolve => setTimeout(resolve, 500));
-        await startMagStream(connected);
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Magnetometer streaming.`);
+        await startACCStream(connected);
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Accelerometer streaming.`);
       } else {
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode disabled - No sensors active.`);
       }
@@ -313,7 +313,7 @@ export default function App() {
   };
 
   const startACCStream = async (device) => {
-    const command = [0x02, 0x02, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    const command = [0x02, 0x02, 0x00, 0x01, 0x34, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
     await startPMDStream(device, command);
   };
 
@@ -508,23 +508,23 @@ export default function App() {
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>SDK Mode: {sdkModeEnabled ? 'ON' : 'OFF'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ Magnetometer active' : '❌ No sensors active'}
+              {sdkModeEnabled ? '✅ Accelerometer active' : '❌ No sensors active'}
             </Text>
           </View>
           
           <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Magnetometer (μT)</Text>
+            <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
             <Text style={styles.sensorValue}>
               {sdkModeEnabled 
-                ? `X: ${magnetometer.x} | Y: ${magnetometer.y} | Z: ${magnetometer.z}`
+                ? `X: ${accelerometer.x.toFixed(2)} | Y: ${accelerometer.y.toFixed(2)} | Z: ${accelerometer.z.toFixed(2)}`
                 : 'SDK Mode required'}
             </Text>
           </View>
           
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'Testing magnetometer only. Enable SDK mode before connecting to stream data.' 
-              : 'SDK mode is OFF. Disconnect and enable SDK mode to test magnetometer.'}
+              ? 'Testing accelerometer in SDK mode. Check logs for PMD responses.' 
+              : 'SDK mode is OFF. Disconnect and enable SDK mode to test accelerometer.'}
           </Text>
         </ScrollView>
         
@@ -552,7 +552,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'ON - Magnetometer will stream' : 'OFF - No sensors active'}
+          {sdkModeEnabled ? 'ON - Accelerometer will stream' : 'OFF - No sensors active'}
         </Text>
       </View>
       
