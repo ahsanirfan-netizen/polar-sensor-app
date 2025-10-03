@@ -222,17 +222,17 @@ export default function App() {
       await connected.discoverAllServicesAndCharacteristics();
       setConnectedDevice(connected);
       
-      await subscribeToPMDControl(connected);
-      await subscribeToPMD(connected);
-      
       if (sdkModeEnabled) {
+        console.log('SDK Mode - Starting raw sensor streams');
+        
+        await subscribeToPMDControl(connected);
+        await subscribeToPMD(connected);
         await enableSDKMode(connected);
         await new Promise(resolve => setTimeout(resolve, 500));
         
         await queryAccelerometerSettings(connected);
         await queryGyroscopeSettings(connected);
         await queryPPGSettings(connected);
-        await queryPPISettings(connected);
         console.log('Waiting for query responses...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
@@ -246,16 +246,22 @@ export default function App() {
         
         console.log('Sending PPG start command...');
         await startPPGStream(connected);
-        await new Promise(resolve => setTimeout(resolve, 300));
         
-        console.log('Sending PPI start command...');
-        await startPPIStream(connected);
-        
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - ACC + Gyro + PPG + PPI streaming. Note: PPI may take ~25 seconds to initialize.`);
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).`);
       } else {
+        console.log('Standard Mode - Starting HR + PPI streams');
+        
         console.log('Subscribing to Heart Rate service...');
         await subscribeToHeartRate(connected);
-        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR only.`);
+        
+        await subscribeToPMDControl(connected);
+        await subscribeToPMD(connected);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log('Starting PPI stream...');
+        await startPPIStream(connected);
+        
+        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.`);
       }
     } catch (error) {
       console.error('Connection error:', error);
