@@ -291,7 +291,12 @@ export default function App() {
 
   const parsePPIData = (data) => {
     try {
-      if (data.length < 17) return;
+      console.log('PPI data received, length:', data.length, 'bytes:', Array.from(data.slice(0, 20)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+      
+      if (data.length < 17) {
+        console.log('PPI data too short');
+        return;
+      }
       
       const frameType = data[9];
       const sampleCount = data[10];
@@ -310,8 +315,13 @@ export default function App() {
         const flags = data[offset];
         offset += 1;
         
+        console.log('PPI parsed - PPI:', ppiMs, 'ms, HR:', hr, 'bpm, Error:', errorEstimate);
+        
         if (ppiMs > 0) {
           setPpi(ppiMs);
+        }
+        if (hr > 0) {
+          setHeartRate(hr);
         }
       }
     } catch (error) {
@@ -340,6 +350,7 @@ export default function App() {
 
   const parseACCData = (data) => {
     try {
+      console.log('ACC data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
       if (data.length < 17) return;
       
       const frameType = data[9];
@@ -350,6 +361,8 @@ export default function App() {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        
+        console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
         
         setAccelerometer({ 
           x: x / 1000, 
@@ -364,6 +377,7 @@ export default function App() {
 
   const parseGyroData = (data) => {
     try {
+      console.log('Gyro data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
       if (data.length < 17) return;
       
       const frameType = data[9];
@@ -374,6 +388,8 @@ export default function App() {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        
+        console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
         
         setGyroscope({ 
           x: x / 100, 
@@ -388,6 +404,7 @@ export default function App() {
 
   const parseMagData = (data) => {
     try {
+      console.log('Mag data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
       if (data.length < 17) return;
       
       const frameType = data[9];
@@ -398,6 +415,8 @@ export default function App() {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        
+        console.log('Mag raw values - x:', x, 'y:', y, 'z:', z);
         
         setMagnetometer({ x, y, z });
       }
