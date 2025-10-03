@@ -598,12 +598,19 @@ export default function App() {
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>{sdkModeEnabled ? 'SDK Mode' : 'Standard Mode'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ ACC + Gyro + PPG + PPI' : '✅ HR only'}
+              {sdkModeEnabled ? '✅ Raw sensors: PPG + ACC + Gyro' : '✅ Validated algorithms: HR + PPI'}
             </Text>
           </View>
           
           {sdkModeEnabled ? (
             <>
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>PPG (Raw Optical)</Text>
+                <Text style={styles.sensorValue}>
+                  {ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...'}
+                </Text>
+              </View>
+              
               <View style={styles.sensorCard}>
                 <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
                 <Text style={styles.sensorValue}>
@@ -617,11 +624,13 @@ export default function App() {
                   X: {gyroscope.x.toFixed(2)} | Y: {gyroscope.y.toFixed(2)} | Z: {gyroscope.z.toFixed(2)}
                 </Text>
               </View>
-              
+            </>
+          ) : (
+            <>
               <View style={styles.sensorCard}>
-                <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
+                <Text style={styles.sensorTitle}>Heart Rate (BPM)</Text>
                 <Text style={styles.sensorValue}>
-                  {ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...'}
+                  {heartRate !== null ? `${heartRate} BPM` : 'Waiting for data...'}
                 </Text>
               </View>
               
@@ -632,21 +641,12 @@ export default function App() {
                 </Text>
               </View>
             </>
-          ) : (
-            <>
-              <View style={styles.sensorCard}>
-                <Text style={styles.sensorTitle}>Heart Rate (BPM)</Text>
-                <Text style={styles.sensorValue}>
-                  {heartRate !== null ? `${heartRate} BPM` : 'Waiting for data...'}
-                </Text>
-              </View>
-            </>
           )}
           
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'SDK Mode: Streaming raw sensors + PPI intervals. PPI takes ~25s to initialize.' 
-              : 'Standard Mode: Streaming validated HR only.'}
+              ? 'SDK Mode: Raw sensor data at custom rates. PPI/HR algorithms disabled.' 
+              : 'Standard Mode: Validated HR + PPI algorithms. PPI takes ~25s to initialize.'}
           </Text>
         </ScrollView>
         
@@ -674,7 +674,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'SDK Mode: ACC + Gyro + PPG + PPI' : 'Standard Mode: HR only'}
+          {sdkModeEnabled ? 'SDK Mode: Raw PPG + ACC + Gyro' : 'Standard Mode: HR + PPI'}
         </Text>
       </View>
       
