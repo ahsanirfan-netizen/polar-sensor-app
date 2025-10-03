@@ -31,6 +31,7 @@ export default function App() {
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
   const [sdkModeEnabled, setSdkModeEnabled] = useState(false);
+  const [ppiEnabled, setPpiEnabled] = useState(false);
   const [heartRate, setHeartRate] = useState(null);
   const [ppg, setPpg] = useState(null);
   const [ppi, setPpi] = useState(null);
@@ -686,6 +687,18 @@ export default function App() {
     setSdkModeEnabled(value);
   };
 
+  const togglePpiMode = (value) => {
+    if (connectedDevice) {
+      Alert.alert(
+        'PPI Toggle',
+        'Please disconnect before changing PPI setting.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setPpiEnabled(value);
+  };
+
   const renderDevice = ({ item }) => (
     <TouchableOpacity
       style={styles.deviceItem}
@@ -782,9 +795,26 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'SDK Mode: Raw PPG + ACC + Gyro' : 'Standard Mode: HR + PPI'}
+          {sdkModeEnabled ? 'SDK Mode: Raw PPG + ACC + Gyro' : `Standard Mode: HR${ppiEnabled ? ' + PPI' : ' only'}`}
         </Text>
       </View>
+      
+      {!sdkModeEnabled && (
+        <View style={styles.sdkToggleContainer}>
+          <View style={styles.sdkToggleRow}>
+            <Text style={styles.sdkToggleLabel}>Enable PPI</Text>
+            <Switch
+              value={ppiEnabled}
+              onValueChange={togglePpiMode}
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={ppiEnabled ? '#007AFF' : '#f4f3f4'}
+            />
+          </View>
+          <Text style={styles.sdkToggleDescription}>
+            {ppiEnabled ? 'PPI intervals enabled (HR calculated from PPI)' : 'PPI disabled (HR from standard service)'}
+          </Text>
+        </View>
+      )}
       
       <View style={styles.buttonContainer}>
         <Button
