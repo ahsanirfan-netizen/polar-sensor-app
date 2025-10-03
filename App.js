@@ -41,12 +41,26 @@ export default function App() {
   const [magnetometer, setMagnetometer] = useState({ x: 0, y: 0, z: 0 });
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  
+  const [totalDisconnections, setTotalDisconnections] = useState(0);
+  const [totalReconnectAttempts, setTotalReconnectAttempts] = useState(0);
+  const [successfulReconnects, setSuccessfulReconnects] = useState(0);
+  const [failedReconnects, setFailedReconnects] = useState(0);
+  const [totalPackets, setTotalPackets] = useState(0);
+  const [packetsSinceReconnect, setPacketsSinceReconnect] = useState(0);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const lastDeviceRef = useRef(null);
   const isManualDisconnectRef = useRef(false);
+  
+  const totalDisconnectionsRef = useRef(0);
+  const totalReconnectAttemptsRef = useRef(0);
+  const successfulReconnectsRef = useRef(0);
+  const failedReconnectsRef = useRef(0);
+  const totalPacketsRef = useRef(0);
+  const packetsSinceReconnectRef = useRef(0);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -67,6 +81,14 @@ export default function App() {
   }, []);
 
   useKeepAwake();
+
+  const incrementPacketCount = () => {
+    totalPacketsRef.current = totalPacketsRef.current + 1;
+    setTotalPackets(totalPacketsRef.current);
+    
+    packetsSinceReconnectRef.current = packetsSinceReconnectRef.current + 1;
+    setPacketsSinceReconnect(packetsSinceReconnectRef.current);
+  };
 
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
@@ -322,6 +344,9 @@ export default function App() {
     reconnectAttemptsRef.current = reconnectAttemptsRef.current + 1;
     const currentAttempt = reconnectAttemptsRef.current;
     
+    totalReconnectAttemptsRef.current = totalReconnectAttemptsRef.current + 1;
+    setTotalReconnectAttempts(totalReconnectAttemptsRef.current);
+    
     console.log(`Reconnection attempt ${currentAttempt} for device ${deviceInfo.id}`);
     setReconnecting(true);
     setReconnectAttempts(currentAttempt);
@@ -331,6 +356,12 @@ export default function App() {
       await device.discoverAllServicesAndCharacteristics();
       
       console.log('Reconnected successfully!');
+      successfulReconnectsRef.current = successfulReconnectsRef.current + 1;
+      setSuccessfulReconnects(successfulReconnectsRef.current);
+      
+      packetsSinceReconnectRef.current = 0;
+      setPacketsSinceReconnect(0);
+      
       setConnectedDevice(device);
       setReconnecting(false);
       reconnectAttemptsRef.current = 0;
@@ -341,6 +372,9 @@ export default function App() {
       Alert.alert('Reconnected', `Successfully reconnected to ${deviceInfo.name}`);
     } catch (error) {
       console.error('Reconnection failed:', error);
+      
+      failedReconnectsRef.current = failedReconnectsRef.current + 1;
+      setFailedReconnects(failedReconnectsRef.current);
       
       const backoffDelay = Math.min(2000 * Math.pow(1.5, currentAttempt - 1), 30000);
       console.log(`Will retry in ${backoffDelay}ms after ${currentAttempt} failed attempts`);
@@ -359,6 +393,10 @@ export default function App() {
       
       if (!isManualDisconnectRef.current) {
         console.log('Unexpected disconnect - will attempt reconnection');
+        
+        totalDisconnectionsRef.current = totalDisconnectionsRef.current + 1;
+        setTotalDisconnections(totalDisconnectionsRef.current);
+        
         setConnectedDevice(null);
         
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -473,6 +511,8 @@ export default function App() {
           
           if (characteristic && characteristic.value) {
             console.log('HR data received');
+            incrementPacketCount();
+            
             const data = Buffer.from(characteristic.value, 'base64');
             
             const flags = data[0];
@@ -615,6 +655,7 @@ export default function App() {
   const parsePPIData = (data) => {
     try {
       console.log('PPI data received, length:', data.length, 'bytes:', Array.from(data.slice(0, 20)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+      incrementPacketCount();
       
       if (data.length < 17) {
         console.log('PPI data too short');
@@ -659,6 +700,7 @@ export default function App() {
 
   const parsePPGData = (data) => {
     try {
+      incrementPacketCount();
       if (data.length < 15) return;
       
       const frameType = data[9];
@@ -679,6 +721,7 @@ export default function App() {
   const parseACCData = (data) => {
     try {
       console.log('ACC data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
+      incrementPacketCount();
       if (data.length < 17) return;
       
       const frameType = data[9];
@@ -706,6 +749,7 @@ export default function App() {
   const parseGyroData = (data) => {
     try {
       console.log('Gyro data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
+      incrementPacketCount();
       if (data.length < 17) return;
       
       const frameType = data[9];
@@ -801,6 +845,19 @@ export default function App() {
       reconnectAttemptsRef.current = 0;
       setReconnectAttempts(0);
       lastDeviceRef.current = null;
+      
+      totalDisconnectionsRef.current = 0;
+      totalReconnectAttemptsRef.current = 0;
+      successfulReconnectsRef.current = 0;
+      failedReconnectsRef.current = 0;
+      totalPacketsRef.current = 0;
+      packetsSinceReconnectRef.current = 0;
+      setTotalDisconnections(0);
+      setTotalReconnectAttempts(0);
+      setSuccessfulReconnects(0);
+      setFailedReconnects(0);
+      setTotalPackets(0);
+      setPacketsSinceReconnect(0);
     }
   };
 
@@ -869,6 +926,36 @@ export default function App() {
             <Text style={styles.sdkModeNote}>
               {sdkModeEnabled ? '✅ Raw sensors: PPG + ACC + Gyro' : '✅ Validated algorithms: HR + PPI'}
             </Text>
+          </View>
+          
+          <View style={styles.diagnosticsCard}>
+            <Text style={styles.diagnosticsTitle}>📊 Connection Diagnostics</Text>
+            <View style={styles.diagnosticsGrid}>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Disconnections</Text>
+                <Text style={styles.diagnosticValue}>{totalDisconnections}</Text>
+              </View>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Reconnect Attempts</Text>
+                <Text style={styles.diagnosticValue}>{totalReconnectAttempts}</Text>
+              </View>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Successful Reconnects</Text>
+                <Text style={styles.diagnosticValue}>{successfulReconnects}</Text>
+              </View>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Failed Reconnects</Text>
+                <Text style={styles.diagnosticValue}>{failedReconnects}</Text>
+              </View>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Total Packets</Text>
+                <Text style={styles.diagnosticValue}>{totalPackets.toLocaleString()}</Text>
+              </View>
+              <View style={styles.diagnosticItem}>
+                <Text style={styles.diagnosticLabel}>Packets Since Reconnect</Text>
+                <Text style={styles.diagnosticValue}>{packetsSinceReconnect.toLocaleString()}</Text>
+              </View>
+            </View>
           </View>
           
           {sdkModeEnabled ? (
@@ -1166,5 +1253,45 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#155724',
     textAlign: 'center',
+  },
+  diagnosticsCard: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  diagnosticsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  diagnosticsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  diagnosticItem: {
+    width: '48%',
+    backgroundColor: '#fff',
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  diagnosticLabel: {
+    fontSize: 11,
+    color: '#6c757d',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  diagnosticValue: {
+    fontSize: 20,
+    color: '#007AFF',
+    fontWeight: 'bold',
   },
 });
