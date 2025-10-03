@@ -517,21 +517,22 @@ export default function App() {
         const errorEstimate = data.readUInt16LE(offset);
         offset += 2;
         
-        const hr = data[offset];
+        const hrByte = data[offset];
         offset += 1;
         
         const flags = data[offset];
         offset += 1;
         
-        console.log('PPI parsed - PPI:', ppiMs, 'ms, HR:', hr, 'bpm, Error:', errorEstimate);
+        const calculatedHR = ppiMs > 0 ? Math.round(60000 / ppiMs) : 0;
+        
+        console.log('PPI parsed - PPI:', ppiMs, 'ms, Calculated HR:', calculatedHR, 'bpm, HR byte:', hrByte, 'Error:', errorEstimate);
         
         if (ppiMs > 0) {
           console.log('Updating PPI state to:', ppiMs);
           setPpi(() => ppiMs);
-        }
-        if (hr > 0) {
-          console.log('Updating HR state to:', hr);
-          setHeartRate(() => hr);
+          
+          console.log('Updating HR state to:', calculatedHR);
+          setHeartRate(() => calculatedHR);
         }
       }
     } catch (error) {
