@@ -197,6 +197,22 @@ export default function App() {
     }
   };
 
+  const queryPPISettings = async (device) => {
+    try {
+      const command = [0x01, 0x03, 0x00];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      console.log('Querying PPI settings...');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+    } catch (error) {
+      console.error('Failed to query PPI settings:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
@@ -232,10 +248,17 @@ export default function App() {
         
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - ACC + Gyro + PPG streaming.`);
       } else {
+        console.log('Subscribing to Heart Rate service...');
         await subscribeToHeartRate(connected);
+        
+        console.log('Querying PPI settings...');
+        await queryPPISettings(connected);
+        console.log('Waiting for PPI query response...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
         console.log('Starting PPI stream...');
         await startPPIStream(connected);
-        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR + PPI streaming.`);
+        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR + PPI streaming. Note: PPI may take ~25 seconds to initialize.`);
       }
     } catch (error) {
       console.error('Connection error:', error);
@@ -245,6 +268,7 @@ export default function App() {
 
   const subscribeToHeartRate = async (device) => {
     try {
+      console.log('Setting up HR characteristic monitor...');
       device.monitorCharacteristicForService(
         HEART_RATE_SERVICE,
         HEART_RATE_CHARACTERISTIC,
@@ -255,6 +279,7 @@ export default function App() {
           }
           
           if (characteristic && characteristic.value) {
+            console.log('HR data received');
             const data = Buffer.from(characteristic.value, 'base64');
             
             const flags = data[0];
@@ -273,6 +298,7 @@ export default function App() {
               hr = data.readUInt16LE(offset);
               offset += 2;
             }
+            console.log('Heart Rate:', hr);
             setHeartRate(hr);
             
             if (energyExpendedPresent) {
