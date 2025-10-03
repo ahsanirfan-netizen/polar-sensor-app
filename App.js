@@ -230,9 +230,12 @@ export default function App() {
         console.log('Sending PPG start command...');
         await startPPGStream(connected);
         
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - ACC + Gyro + PPG streaming.`);
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - ACC + Gyro + PPG streaming.`);
       } else {
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode disabled - No sensors active.`);
+        await subscribeToHeartRate(connected);
+        console.log('Starting PPI stream...');
+        await startPPIStream(connected);
+        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - HR + PPI streaming.`);
       }
     } catch (error) {
       console.error('Connection error:', error);
@@ -354,7 +357,9 @@ export default function App() {
 
   const startPPIStream = async (device) => {
     const command = [0x02, 0x03];
+    console.log('Starting PPI stream with command:', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
+    console.log('PPI stream start command sent');
   };
 
   const startPPGStream = async (device) => {
@@ -562,43 +567,57 @@ export default function App() {
           <Text style={styles.deviceName}>{connectedDevice.name}</Text>
           
           <View style={styles.sdkModeContainer}>
-            <Text style={styles.sdkModeLabel}>SDK Mode: {sdkModeEnabled ? 'ON' : 'OFF'}</Text>
+            <Text style={styles.sdkModeLabel}>{sdkModeEnabled ? 'SDK Mode' : 'Standard Mode'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ ACC + Gyro + PPG active' : '❌ No sensors active'}
+              {sdkModeEnabled ? '✅ ACC + Gyro + PPG active' : '✅ HR + PPI active'}
             </Text>
           </View>
           
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
-            <Text style={styles.sensorValue}>
-              {sdkModeEnabled 
-                ? `X: ${accelerometer.x.toFixed(2)} | Y: ${accelerometer.y.toFixed(2)} | Z: ${accelerometer.z.toFixed(2)}`
-                : 'SDK Mode required'}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Gyroscope (deg/s)</Text>
-            <Text style={styles.sensorValue}>
-              {sdkModeEnabled 
-                ? `X: ${gyroscope.x.toFixed(2)} | Y: ${gyroscope.y.toFixed(2)} | Z: ${gyroscope.z.toFixed(2)}`
-                : 'SDK Mode required'}
-            </Text>
-          </View>
-          
-          <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
-            <Text style={styles.sensorValue}>
-              {sdkModeEnabled 
-                ? (ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...')
-                : 'SDK Mode required'}
-            </Text>
-          </View>
+          {sdkModeEnabled ? (
+            <>
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
+                <Text style={styles.sensorValue}>
+                  X: {accelerometer.x.toFixed(2)} | Y: {accelerometer.y.toFixed(2)} | Z: {accelerometer.z.toFixed(2)}
+                </Text>
+              </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>Gyroscope (deg/s)</Text>
+                <Text style={styles.sensorValue}>
+                  X: {gyroscope.x.toFixed(2)} | Y: {gyroscope.y.toFixed(2)} | Z: {gyroscope.z.toFixed(2)}
+                </Text>
+              </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
+                <Text style={styles.sensorValue}>
+                  {ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...'}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>Heart Rate (BPM)</Text>
+                <Text style={styles.sensorValue}>
+                  {heartRate !== null ? `${heartRate} BPM` : 'Waiting for data...'}
+                </Text>
+              </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>PPI / RR Interval (ms)</Text>
+                <Text style={styles.sensorValue}>
+                  {ppi !== null ? `${ppi} ms` : 'Waiting for data...'}
+                </Text>
+              </View>
+            </>
+          )}
           
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'Streaming ACC + Gyro + PPG in SDK mode. Check logs for PMD responses.' 
-              : 'SDK mode is OFF. Disconnect and enable SDK mode to test sensors.'}
+              ? 'SDK Mode: Streaming raw sensor data (ACC, Gyro, PPG)' 
+              : 'Standard Mode: Streaming validated HR and PPI data'}
           </Text>
         </ScrollView>
         
@@ -626,7 +645,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'ON - ACC + Gyro + PPG will stream' : 'OFF - No sensors active'}
+          {sdkModeEnabled ? 'SDK Mode: ACC + Gyro + PPG' : 'Standard Mode: HR + PPI'}
         </Text>
       </View>
       
