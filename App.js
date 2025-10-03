@@ -315,8 +315,8 @@ export default function App() {
   };
 
   const startACCStream = async (device) => {
-    const command = [0x02, 0x02, 0x00, 0x01, 0x34, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
-    console.log('Starting ACC stream with command:', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+    const command = [0x02, 0x02, 0x00, 0x01, 0x34, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00, 0x04, 0x01, 0x03];
+    console.log('Starting ACC stream with command (with channel mask):', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
     console.log('ACC stream start command sent');
   };
