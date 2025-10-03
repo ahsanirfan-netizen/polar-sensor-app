@@ -300,6 +300,9 @@ export default function App() {
               case 0x02:
                 parseACCData(data);
                 break;
+              case 0x05:
+                parseGyroData(data);
+                break;
               case 0x06:
                 parseMagData(data);
                 break;
