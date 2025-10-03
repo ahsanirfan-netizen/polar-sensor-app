@@ -526,10 +526,12 @@ export default function App() {
         console.log('PPI parsed - PPI:', ppiMs, 'ms, HR:', hr, 'bpm, Error:', errorEstimate);
         
         if (ppiMs > 0) {
-          setPpi(ppiMs);
+          console.log('Updating PPI state to:', ppiMs);
+          setPpi(() => ppiMs);
         }
         if (hr > 0) {
-          setHeartRate(hr);
+          console.log('Updating HR state to:', hr);
+          setHeartRate(() => hr);
         }
       }
     } catch (error) {
@@ -548,7 +550,7 @@ export default function App() {
       if (offset + 3 <= data.length) {
         const ppg0 = (data[offset] | (data[offset+1] << 8) | (data[offset+2] << 16)) & 0x3FFFFF;
         if (ppg0 !== 0) {
-          setPpg(ppg0);
+          setPpg(() => ppg0);
         }
       }
     } catch (error) {
@@ -572,11 +574,11 @@ export default function App() {
         
         console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
         
-        setAccelerometer({ 
+        setAccelerometer(() => ({ 
           x: x / 1000, 
           y: y / 1000, 
           z: z / 1000 
-        });
+        }));
       }
     } catch (error) {
       console.error('ACC parse error:', error);
@@ -599,11 +601,11 @@ export default function App() {
         
         console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
         
-        setGyroscope({ 
+        setGyroscope(() => ({ 
           x: x / 100, 
           y: y / 100, 
           z: z / 100 
-        });
+        }));
       }
     } catch (error) {
       console.error('Gyro parse error:', error);
