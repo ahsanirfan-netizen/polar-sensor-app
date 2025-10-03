@@ -165,6 +165,22 @@ export default function App() {
     }
   };
 
+  const queryGyroscopeSettings = async (device) => {
+    try {
+      const command = [0x01, 0x05, 0x00];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      console.log('Querying gyroscope settings...');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+    } catch (error) {
+      console.error('Failed to query gyroscope settings:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
@@ -180,12 +196,20 @@ export default function App() {
       if (sdkModeEnabled) {
         await enableSDKMode(connected);
         await new Promise(resolve => setTimeout(resolve, 500));
+        
         await queryAccelerometerSettings(connected);
+        await queryGyroscopeSettings(connected);
         console.log('Waiting for query responses...');
         await new Promise(resolve => setTimeout(resolve, 1500));
+        
         console.log('Sending accelerometer start command...');
         await startACCStream(connected);
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Accelerometer streaming.`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        console.log('Sending gyroscope start command...');
+        await startGyroStream(connected);
+        
+        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - ACC + Gyro streaming.`);
       } else {
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode disabled - No sensors active.`);
       }
@@ -322,8 +346,10 @@ export default function App() {
   };
 
   const startGyroStream = async (device) => {
-    const command = [0x02, 0x05, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    const command = [0x02, 0x05, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00, 0x04, 0x01, 0x03];
+    console.log('Starting Gyro stream with command (with channel mask):', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
+    console.log('Gyro stream start command sent');
   };
 
   const startMagStream = async (device) => {
@@ -512,7 +538,7 @@ export default function App() {
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>SDK Mode: {sdkModeEnabled ? 'ON' : 'OFF'}</Text>
             <Text style={styles.sdkModeNote}>
-              {sdkModeEnabled ? '✅ Accelerometer active' : '❌ No sensors active'}
+              {sdkModeEnabled ? '✅ ACC + Gyro active' : '❌ No sensors active'}
             </Text>
           </View>
           
@@ -525,10 +551,19 @@ export default function App() {
             </Text>
           </View>
           
+          <View style={styles.sensorCard}>
+            <Text style={styles.sensorTitle}>Gyroscope (deg/s)</Text>
+            <Text style={styles.sensorValue}>
+              {sdkModeEnabled 
+                ? `X: ${gyroscope.x.toFixed(2)} | Y: ${gyroscope.y.toFixed(2)} | Z: ${gyroscope.z.toFixed(2)}`
+                : 'SDK Mode required'}
+            </Text>
+          </View>
+          
           <Text style={styles.note}>
             {sdkModeEnabled 
-              ? 'Testing accelerometer in SDK mode. Check logs for PMD responses.' 
-              : 'SDK mode is OFF. Disconnect and enable SDK mode to test accelerometer.'}
+              ? 'Streaming ACC + Gyro in SDK mode. Check logs for PMD responses.' 
+              : 'SDK mode is OFF. Disconnect and enable SDK mode to test sensors.'}
           </Text>
         </ScrollView>
         
@@ -556,7 +591,7 @@ export default function App() {
           />
         </View>
         <Text style={styles.sdkToggleDescription}>
-          {sdkModeEnabled ? 'ON - Accelerometer will stream' : 'OFF - No sensors active'}
+          {sdkModeEnabled ? 'ON - ACC + Gyro will stream' : 'OFF - No sensors active'}
         </Text>
       </View>
       
