@@ -761,19 +761,23 @@ export default function App() {
                 </Text>
               </View>
               
-              <View style={styles.sensorCard}>
-                <Text style={styles.sensorTitle}>PPI / RR Interval (ms)</Text>
-                <Text style={styles.sensorValue}>
-                  {ppi !== null ? `${ppi} ms` : 'Waiting for PPI data (~25s)...'}
-                </Text>
-              </View>
+              {ppiEnabled && (
+                <View style={styles.sensorCard}>
+                  <Text style={styles.sensorTitle}>PPI / RR Interval (ms)</Text>
+                  <Text style={styles.sensorValue}>
+                    {ppi !== null ? `${ppi} ms` : 'Waiting for PPI data (~25s)...'}
+                  </Text>
+                </View>
+              )}
             </>
           )}
           
           <Text style={styles.note}>
             {sdkModeEnabled 
               ? 'SDK Mode: Raw sensor data at custom rates. PPI/HR algorithms disabled.' 
-              : 'Standard Mode: Validated HR + PPI algorithms. PPI takes ~25s to initialize.'}
+              : ppiEnabled
+                ? 'Standard Mode: HR + PPI. HR calculated from PPI intervals. PPI takes ~25s to initialize.'
+                : 'Standard Mode: HR only from standard BLE service.'}
           </Text>
         </ScrollView>
         
