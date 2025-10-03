@@ -528,16 +528,18 @@ export default function App() {
         const flags = data[offset];
         offset += 1;
         
-        const calculatedHR = ppiMs > 0 ? Math.round(60000 / ppiMs) : 0;
-        
-        console.log('PPI parsed - PPI:', ppiMs, 'ms, Calculated HR:', calculatedHR, 'bpm, HR byte:', hrByte, 'Error:', errorEstimate);
-        
         if (ppiMs > 0) {
           console.log('Updating PPI state to:', ppiMs);
           setPpi(() => ppiMs);
           
-          console.log('Updating HR state to:', calculatedHR);
-          setHeartRate(() => calculatedHR);
+          if (ppiEnabled) {
+            const calculatedHR = Math.round(60000 / ppiMs);
+            console.log('PPI parsed - PPI:', ppiMs, 'ms, Calculated HR:', calculatedHR, 'bpm');
+            console.log('Updating HR state to:', calculatedHR);
+            setHeartRate(() => calculatedHR);
+          } else {
+            console.log('PPI parsed - PPI:', ppiMs, 'ms (HR not calculated, using standard service)');
+          }
         }
       }
     } catch (error) {
