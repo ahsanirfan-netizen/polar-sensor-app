@@ -323,7 +323,7 @@ export default function App() {
   };
 
   const startMagStream = async (device) => {
-    const command = [0x02, 0x06];
+    const command = [0x02, 0x06, 0x00, 0x01, 0x32, 0x00, 0x01, 0x01, 0x10, 0x00];
     await startPMDStream(device, command);
   };
 
