@@ -119,8 +119,15 @@ export default function App() {
       setConnectedDevice(connected);
       
       await subscribeToHeartRate(connected);
+      await subscribeToPMD(connected);
       
-      Alert.alert('Connected', `Connected to ${device.name}`);
+      await startPPIStream(connected);
+      await startPPGStream(connected);
+      await startACCStream(connected);
+      await startGyroStream(connected);
+      await startMagStream(connected);
+      
+      Alert.alert('Connected', `Connected to ${device.name}. All sensors streaming.`);
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message);
@@ -183,6 +190,204 @@ export default function App() {
     }
   };
 
+  const subscribeToPMD = async (device) => {
+    try {
+      device.monitorCharacteristicForService(
+        PMD_SERVICE,
+        PMD_DATA,
+        (error, characteristic) => {
+          if (error) {
+            console.error('PMD monitor error:', error);
+            return;
+          }
+          
+          if (characteristic && characteristic.value) {
+            const data = Buffer.from(characteristic.value, 'base64');
+            const measurementType = data[0];
+            
+            switch (measurementType) {
+              case 0x03:
+                parsePPIData(data);
+                break;
+              case 0x01:
+                parsePPGData(data);
+                break;
+              case 0x02:
+                parseACCData(data);
+                break;
+              case 0x05:
+                parseGyroData(data);
+                break;
+              case 0x06:
+                parseMagData(data);
+                break;
+              default:
+                console.log('Unknown measurement type:', measurementType);
+            }
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Failed to subscribe to PMD:', error);
+    }
+  };
+
+  const startPMDStream = async (device, command) => {
+    try {
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+    } catch (error) {
+      console.error('Failed to start PMD stream:', error);
+    }
+  };
+
+  const startPPIStream = async (device) => {
+    const command = [0x02, 0x03];
+    await startPMDStream(device, command);
+  };
+
+  const startPPGStream = async (device) => {
+    const command = [0x02, 0x01, 0x00, 0x01, 0x87, 0x00, 0x01, 0x01, 0x16, 0x00, 0x04, 0x01, 0x04];
+    await startPMDStream(device, command);
+  };
+
+  const startACCStream = async (device) => {
+    const command = [0x02, 0x02, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    await startPMDStream(device, command);
+  };
+
+  const startGyroStream = async (device) => {
+    const command = [0x02, 0x05, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    await startPMDStream(device, command);
+  };
+
+  const startMagStream = async (device) => {
+    const command = [0x02, 0x06, 0x00, 0x01, 0xC8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    await startPMDStream(device, command);
+  };
+
+  const parsePPIData = (data) => {
+    try {
+      if (data.length < 17) return;
+      
+      const frameType = data[9];
+      const sampleCount = data[10];
+      let offset = 11;
+      
+      while (offset + 6 <= data.length) {
+        const ppiMs = data.readUInt16LE(offset);
+        offset += 2;
+        
+        const errorEstimate = data.readUInt16LE(offset);
+        offset += 2;
+        
+        const hr = data[offset];
+        offset += 1;
+        
+        const flags = data[offset];
+        offset += 1;
+        
+        if (ppiMs > 0) {
+          setPpi(ppiMs);
+        }
+      }
+    } catch (error) {
+      console.error('PPI parse error:', error);
+    }
+  };
+
+  const parsePPGData = (data) => {
+    try {
+      if (data.length < 15) return;
+      
+      const frameType = data[9];
+      const sampleCount = data[10];
+      let offset = 11;
+      
+      if (offset + 3 <= data.length) {
+        const ppg0 = (data[offset] | (data[offset+1] << 8) | (data[offset+2] << 16)) & 0x3FFFFF;
+        if (ppg0 !== 0) {
+          setPpg(ppg0);
+        }
+      }
+    } catch (error) {
+      console.error('PPG parse error:', error);
+    }
+  };
+
+  const parseACCData = (data) => {
+    try {
+      if (data.length < 17) return;
+      
+      const frameType = data[9];
+      const sampleCount = data[10];
+      let offset = 11;
+      
+      if (offset + 6 <= data.length) {
+        const x = data.readInt16LE(offset);
+        const y = data.readInt16LE(offset + 2);
+        const z = data.readInt16LE(offset + 4);
+        
+        setAccelerometer({ 
+          x: x / 1000, 
+          y: y / 1000, 
+          z: z / 1000 
+        });
+      }
+    } catch (error) {
+      console.error('ACC parse error:', error);
+    }
+  };
+
+  const parseGyroData = (data) => {
+    try {
+      if (data.length < 17) return;
+      
+      const frameType = data[9];
+      const sampleCount = data[10];
+      let offset = 11;
+      
+      if (offset + 6 <= data.length) {
+        const x = data.readInt16LE(offset);
+        const y = data.readInt16LE(offset + 2);
+        const z = data.readInt16LE(offset + 4);
+        
+        setGyroscope({ 
+          x: x / 100, 
+          y: y / 100, 
+          z: z / 100 
+        });
+      }
+    } catch (error) {
+      console.error('Gyro parse error:', error);
+    }
+  };
+
+  const parseMagData = (data) => {
+    try {
+      if (data.length < 17) return;
+      
+      const frameType = data[9];
+      const sampleCount = data[10];
+      let offset = 11;
+      
+      if (offset + 6 <= data.length) {
+        const x = data.readInt16LE(offset);
+        const y = data.readInt16LE(offset + 2);
+        const z = data.readInt16LE(offset + 4);
+        
+        setMagnetometer({ x, y, z });
+      }
+    } catch (error) {
+      console.error('Mag parse error:', error);
+    }
+  };
+
   const disconnect = async () => {
     if (connectedDevice) {
       await connectedDevice.cancelConnection();
@@ -229,28 +434,35 @@ export default function App() {
           
           <View style={styles.sensorCard}>
             <Text style={styles.sensorTitle}>PPG (Optical Sensor)</Text>
-            <Text style={styles.sensorNote}>Requires PMD service - coming soon</Text>
+            <Text style={styles.sensorValue}>
+              {ppg !== null ? ppg : 'Waiting...'}
+            </Text>
           </View>
           
           <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Accelerometer</Text>
-            <Text style={styles.sensorNote}>Requires PMD service - coming soon</Text>
+            <Text style={styles.sensorTitle}>Accelerometer (G)</Text>
+            <Text style={styles.sensorValue}>
+              X: {accelerometer.x.toFixed(2)} | Y: {accelerometer.y.toFixed(2)} | Z: {accelerometer.z.toFixed(2)}
+            </Text>
           </View>
           
           <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Gyroscope</Text>
-            <Text style={styles.sensorNote}>Requires PMD service - coming soon</Text>
+            <Text style={styles.sensorTitle}>Gyroscope (°/s)</Text>
+            <Text style={styles.sensorValue}>
+              X: {gyroscope.x.toFixed(1)} | Y: {gyroscope.y.toFixed(1)} | Z: {gyroscope.z.toFixed(1)}
+            </Text>
           </View>
           
           <View style={styles.sensorCard}>
-            <Text style={styles.sensorTitle}>Magnetometer</Text>
-            <Text style={styles.sensorNote}>Requires PMD service - coming soon</Text>
+            <Text style={styles.sensorTitle}>Magnetometer (μT)</Text>
+            <Text style={styles.sensorValue}>
+              X: {magnetometer.x} | Y: {magnetometer.y} | Z: {magnetometer.z}
+            </Text>
           </View>
           
           <Text style={styles.note}>
-            ✅ Currently showing: Heart Rate & RR Intervals (PPI){'\n'}
-            ⏳ Coming: PPG, Accelerometer, Gyroscope, Magnetometer{'\n\n'}
-            These require implementing Polar's proprietary PMD protocol.
+            ✅ All 6 sensor streams active via PMD protocol{'\n'}
+            Note: PPI data may take ~25 seconds to stabilize
           </Text>
         </ScrollView>
         
