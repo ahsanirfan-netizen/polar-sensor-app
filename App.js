@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, 
@@ -38,6 +38,12 @@ export default function App() {
   const [accelerometer, setAccelerometer] = useState({ x: 0, y: 0, z: 0 });
   const [gyroscope, setGyroscope] = useState({ x: 0, y: 0, z: 0 });
   const [magnetometer, setMagnetometer] = useState({ x: 0, y: 0, z: 0 });
+
+  const ppiEnabledRef = useRef(ppiEnabled);
+
+  useEffect(() => {
+    ppiEnabledRef.current = ppiEnabled;
+  }, [ppiEnabled]);
 
   useEffect(() => {
     requestPermissions();
@@ -386,8 +392,13 @@ export default function App() {
               hr = data.readUInt16LE(offset);
               offset += 2;
             }
-            console.log('Heart Rate:', hr);
-            setHeartRate(hr);
+            
+            if (!ppiEnabledRef.current) {
+              console.log('Heart Rate from BLE service:', hr);
+              setHeartRate(hr);
+            } else {
+              console.log('Heart Rate from BLE service:', hr, '(ignored - using PPI-calculated HR)');
+            }
             
             if (energyExpendedPresent) {
               offset += 2;
@@ -532,7 +543,7 @@ export default function App() {
           console.log('Updating PPI state to:', ppiMs);
           setPpi(() => ppiMs);
           
-          if (ppiEnabled) {
+          if (ppiEnabledRef.current) {
             const calculatedHR = Math.round(60000 / ppiMs);
             console.log('PPI parsed - PPI:', ppiMs, 'ms, Calculated HR:', calculatedHR, 'bpm');
             console.log('Updating HR state to:', calculatedHR);
