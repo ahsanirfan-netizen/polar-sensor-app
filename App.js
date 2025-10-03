@@ -330,19 +330,23 @@ export default function App() {
         
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).`);
       } else {
-        console.log('Standard Mode - Starting HR + PPI streams');
+        console.log(`Standard Mode - Starting HR${ppiEnabled ? ' + PPI' : ' only'} stream(s)`);
         
         console.log('Subscribing to Heart Rate service...');
         await subscribeToHeartRate(connected);
         
-        await subscribeToPMDControl(connected);
-        await subscribeToPMD(connected);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log('Starting PPI stream...');
-        await startPPIStream(connected);
-        
-        Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.`);
+        if (ppiEnabled) {
+          await subscribeToPMDControl(connected);
+          await subscribeToPMD(connected);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          console.log('Starting PPI stream...');
+          await startPPIStream(connected);
+          
+          Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.`);
+        } else {
+          Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR only.`);
+        }
       }
     } catch (error) {
       console.error('Connection error:', error);
