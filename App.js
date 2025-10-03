@@ -127,6 +127,44 @@ export default function App() {
     }
   };
 
+  const subscribeToPMDControl = async (device) => {
+    try {
+      device.monitorCharacteristicForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        (error, characteristic) => {
+          if (error) {
+            console.error('PMD Control monitor error:', error);
+            return;
+          }
+          
+          if (characteristic && characteristic.value) {
+            const data = Buffer.from(characteristic.value, 'base64');
+            console.log('PMD Control Response:', Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Failed to subscribe to PMD Control:', error);
+    }
+  };
+
+  const queryMagnetometerSettings = async (device) => {
+    try {
+      const command = [0x01, 0x06, 0x00];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      console.log('Querying magnetometer settings...');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+    } catch (error) {
+      console.error('Failed to query magnetometer settings:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
@@ -136,10 +174,14 @@ export default function App() {
       await connected.discoverAllServicesAndCharacteristics();
       setConnectedDevice(connected);
       
+      await subscribeToPMDControl(connected);
       await subscribeToPMD(connected);
       
       if (sdkModeEnabled) {
         await enableSDKMode(connected);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await queryMagnetometerSettings(connected);
+        await new Promise(resolve => setTimeout(resolve, 500));
         await startMagStream(connected);
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Magnetometer streaming.`);
       } else {
@@ -232,7 +274,7 @@ export default function App() {
               case 0x02:
                 parseACCData(data);
                 break;
-              case 0x05:
+              case 0x06:
                 parseMagData(data);
                 break;
               default:
@@ -281,7 +323,7 @@ export default function App() {
   };
 
   const startMagStream = async (device) => {
-    const command = [0x02, 0x05];
+    const command = [0x02, 0x06];
     await startPMDStream(device, command);
   };
 
