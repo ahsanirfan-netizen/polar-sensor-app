@@ -79,3 +79,44 @@ The project uses **Expo SDK 54** with `compileSdkVersion 34`, `targetSdkVersion 
 -   Conditional disconnect logic stops PPI stream only if enabled
 
 **Validated by architect**: All callbacks correctly reference current state, no closure bugs, ready for device testing.
+
+### Overnight BLE Connection Persistence (Oct 3, 2025)
+
+**Added robust overnight streaming capability**: The app can now maintain BLE connections for sleep tracking sessions with phone plugged in and screen on.
+
+**Screen wake lock**:
+-   Installed `expo-keep-awake` package
+-   Screen stays on automatically while app is running
+-   Prevents OS from suspending BLE operations
+-   Works with phone plugged into power
+
+**Auto-reconnect with exponential backoff**:
+-   Detects unexpected disconnections via `device.onDisconnected()` callback
+-   Initial reconnection delay: 2 seconds
+-   Exponential backoff sequence: 2s → 3s → 4.5s → 6.75s → ... → max 30s
+-   Uses `reconnectAttemptsRef` mutable ref to track attempts across closures
+-   Backoff formula: `Math.min(2000 * Math.pow(1.5, attempts - 1), 30000)`
+
+**Manual disconnect handling**:
+-   `isManualDisconnectRef` flag prevents auto-reconnect when user disconnects
+-   Clears all reconnection timers on manual disconnect
+-   Resets reconnection attempt counter
+
+**Timer cleanup**:
+-   `reconnectTimeoutRef` stores all reconnection timers
+-   useEffect cleanup cancels timers on component unmount
+-   Prevents orphaned timers from firing after app teardown
+
+**Connection state preservation**:
+-   `lastDeviceRef` stores device ID and name for reconnection
+-   `setupDeviceMonitoring()` re-establishes all BLE subscriptions after reconnect
+-   Preserves mode settings (SDK/Standard, PPI enabled/disabled)
+
+**User interface**:
+-   Green banner shows connection status and screen-on indicator
+-   Yellow reconnecting banner shows attempt counter during reconnection
+-   Connection alert mentions screen wake lock and auto-reconnect
+
+**Use case**: Enables overnight sleep tracking with HypnosPy by maintaining continuous HR/PPI streaming for 8+ hours with phone plugged in, screen on, and notifications off.
+
+**Validated by architect**: Exponential backoff correctly ramps from 2s to 30s, timer cleanup prevents post-teardown callbacks, ready for overnight testing.

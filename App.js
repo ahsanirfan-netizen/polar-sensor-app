@@ -16,6 +16,7 @@ import {
 import { BleManager } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
 import { Buffer } from 'buffer';
+import { useKeepAwake } from 'expo-keep-awake';
 
 const bleManager = new BleManager();
 
@@ -38,8 +39,14 @@ export default function App() {
   const [accelerometer, setAccelerometer] = useState({ x: 0, y: 0, z: 0 });
   const [gyroscope, setGyroscope] = useState({ x: 0, y: 0, z: 0 });
   const [magnetometer, setMagnetometer] = useState({ x: 0, y: 0, z: 0 });
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
   const ppiEnabledRef = useRef(ppiEnabled);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const lastDeviceRef = useRef(null);
+  const isManualDisconnectRef = useRef(false);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -49,12 +56,17 @@ export default function App() {
     requestPermissions();
     
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       if (connectedDevice) {
         connectedDevice.cancelConnection();
       }
       bleManager.destroy();
     };
   }, []);
+
+  useKeepAwake();
 
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
@@ -300,60 +312,147 @@ export default function App() {
     }
   };
 
+  const attemptReconnect = async () => {
+    if (isManualDisconnectRef.current || !lastDeviceRef.current) {
+      console.log('Skipping reconnect - manual disconnect or no device');
+      return;
+    }
+
+    const deviceInfo = lastDeviceRef.current;
+    reconnectAttemptsRef.current = reconnectAttemptsRef.current + 1;
+    const currentAttempt = reconnectAttemptsRef.current;
+    
+    console.log(`Reconnection attempt ${currentAttempt} for device ${deviceInfo.id}`);
+    setReconnecting(true);
+    setReconnectAttempts(currentAttempt);
+
+    try {
+      const device = await bleManager.connectToDevice(deviceInfo.id);
+      await device.discoverAllServicesAndCharacteristics();
+      
+      console.log('Reconnected successfully!');
+      setConnectedDevice(device);
+      setReconnecting(false);
+      reconnectAttemptsRef.current = 0;
+      setReconnectAttempts(0);
+      
+      setupDeviceMonitoring(device, deviceInfo);
+      
+      Alert.alert('Reconnected', `Successfully reconnected to ${deviceInfo.name}`);
+    } catch (error) {
+      console.error('Reconnection failed:', error);
+      
+      const backoffDelay = Math.min(2000 * Math.pow(1.5, currentAttempt - 1), 30000);
+      console.log(`Will retry in ${backoffDelay}ms after ${currentAttempt} failed attempts`);
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        attemptReconnect();
+      }, backoffDelay);
+    }
+  };
+
+  const setupDeviceMonitoring = (device, deviceInfo) => {
+    lastDeviceRef.current = deviceInfo;
+    
+    device.onDisconnected((error, disconnectedDevice) => {
+      console.log('Device disconnected:', error?.message || 'Unknown reason');
+      
+      if (!isManualDisconnectRef.current) {
+        console.log('Unexpected disconnect - will attempt reconnection');
+        setConnectedDevice(null);
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          attemptReconnect();
+        }, 2000);
+      } else {
+        console.log('Manual disconnect - no reconnection');
+      }
+    });
+    
+    if (sdkModeEnabled) {
+      setupSDKMode(device, deviceInfo.name);
+    } else {
+      setupStandardMode(device, deviceInfo.name);
+    }
+  };
+
+  const setupSDKMode = async (device, deviceName) => {
+    try {
+      console.log('SDK Mode - Starting raw sensor streams');
+      
+      await subscribeToPMDControl(device);
+      await subscribeToPMD(device);
+      await enableSDKMode(device);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await queryAccelerometerSettings(device);
+      await queryGyroscopeSettings(device);
+      await queryPPGSettings(device);
+      console.log('Waiting for query responses...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      console.log('Sending accelerometer start command...');
+      await startACCStream(device);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log('Sending gyroscope start command...');
+      await startGyroStream(device);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log('Sending PPG start command...');
+      await startPPGStream(device);
+    } catch (error) {
+      console.error('Error setting up SDK mode:', error);
+    }
+  };
+
+  const setupStandardMode = async (device, deviceName) => {
+    try {
+      console.log(`Standard Mode - Starting HR${ppiEnabled ? ' + PPI' : ' only'} stream(s)`);
+      
+      console.log('Subscribing to Heart Rate service...');
+      await subscribeToHeartRate(device);
+      
+      if (ppiEnabled) {
+        await subscribeToPMDControl(device);
+        await subscribeToPMD(device);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log('Starting PPI stream...');
+        await startPPIStream(device);
+      }
+    } catch (error) {
+      console.error('Error setting up standard mode:', error);
+    }
+  };
+
   const connectToDevice = async (device) => {
     try {
       bleManager.stopDeviceScan();
       setScanning(false);
       
+      isManualDisconnectRef.current = false;
+      reconnectAttemptsRef.current = 0;
+      setReconnectAttempts(0);
+      
       const connected = await device.connect();
       await connected.discoverAllServicesAndCharacteristics();
       setConnectedDevice(connected);
       
-      if (sdkModeEnabled) {
-        console.log('SDK Mode - Starting raw sensor streams');
-        
-        await subscribeToPMDControl(connected);
-        await subscribeToPMD(connected);
-        await enableSDKMode(connected);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        await queryAccelerometerSettings(connected);
-        await queryGyroscopeSettings(connected);
-        await queryPPGSettings(connected);
-        console.log('Waiting for query responses...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        console.log('Sending accelerometer start command...');
-        await startACCStream(connected);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        console.log('Sending gyroscope start command...');
-        await startGyroStream(connected);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        console.log('Sending PPG start command...');
-        await startPPGStream(connected);
-        
-        Alert.alert('Connected', `Connected to ${device.name}. SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).`);
-      } else {
-        console.log(`Standard Mode - Starting HR${ppiEnabled ? ' + PPI' : ' only'} stream(s)`);
-        
-        console.log('Subscribing to Heart Rate service...');
-        await subscribeToHeartRate(connected);
-        
-        if (ppiEnabled) {
-          await subscribeToPMDControl(connected);
-          await subscribeToPMD(connected);
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          console.log('Starting PPI stream...');
-          await startPPIStream(connected);
-          
-          Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.`);
-        } else {
-          Alert.alert('Connected', `Connected to ${device.name}. Standard Mode - Streaming HR only.`);
-        }
-      }
+      const deviceInfo = {
+        id: device.id,
+        name: device.name
+      };
+      
+      setupDeviceMonitoring(connected, deviceInfo);
+      
+      const modeText = sdkModeEnabled 
+        ? 'SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).'
+        : ppiEnabled
+          ? 'Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.'
+          : 'Standard Mode - Streaming HR only.';
+      
+      Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.`);
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message);
@@ -657,6 +756,13 @@ export default function App() {
   const disconnect = async () => {
     if (connectedDevice) {
       try {
+        isManualDisconnectRef.current = true;
+        
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+        
         if (sdkModeEnabled) {
           console.log('Stopping all sensor streams...');
           await stopPPGStream(connectedDevice);
@@ -691,6 +797,10 @@ export default function App() {
       setAccelerometer({ x: 0, y: 0, z: 0 });
       setGyroscope({ x: 0, y: 0, z: 0 });
       setMagnetometer({ x: 0, y: 0, z: 0 });
+      setReconnecting(false);
+      reconnectAttemptsRef.current = 0;
+      setReconnectAttempts(0);
+      lastDeviceRef.current = null;
     }
   };
 
@@ -728,12 +838,31 @@ export default function App() {
     </TouchableOpacity>
   );
 
-  if (connectedDevice) {
+  if (connectedDevice || reconnecting) {
     return (
       <View style={styles.container}>
         <ScrollView style={styles.dataContainer}>
           <Text style={styles.title}>Polar Verity Sense Data</Text>
-          <Text style={styles.deviceName}>{connectedDevice.name}</Text>
+          <Text style={styles.deviceName}>{connectedDevice?.name || lastDeviceRef.current?.name}</Text>
+          
+          {reconnecting && (
+            <View style={styles.reconnectingBanner}>
+              <Text style={styles.reconnectingText}>
+                🔄 Reconnecting... (Attempt {reconnectAttempts})
+              </Text>
+              <Text style={styles.reconnectingNote}>
+                Auto-reconnect in progress. Screen will stay on.
+              </Text>
+            </View>
+          )}
+          
+          {connectedDevice && !reconnecting && (
+            <View style={styles.connectionStatusBanner}>
+              <Text style={styles.connectionStatusText}>
+                ✅ Connected | 📱 Screen On | 🔄 Auto-reconnect enabled
+              </Text>
+            </View>
+          )}
           
           <View style={styles.sdkModeContainer}>
             <Text style={styles.sdkModeLabel}>{sdkModeEnabled ? 'SDK Mode' : 'Standard Mode'}</Text>
@@ -1005,5 +1134,37 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
     paddingHorizontal: 20,
+  },
+  reconnectingBanner: {
+    backgroundColor: '#fff3cd',
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffc107',
+  },
+  reconnectingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 5,
+  },
+  reconnectingNote: {
+    fontSize: 13,
+    color: '#856404',
+  },
+  connectionStatusBanner: {
+    backgroundColor: '#d4edda',
+    padding: 12,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#28a745',
+  },
+  connectionStatusText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#155724',
+    textAlign: 'center',
   },
 });
