@@ -127,6 +127,22 @@ export default function App() {
     }
   };
 
+  const stopSDKMode = async (device) => {
+    try {
+      const command = [0x03, 0x09];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('SDK Mode stopped');
+    } catch (error) {
+      console.error('Failed to stop SDK mode:', error);
+    }
+  };
+
   const subscribeToPMDControl = async (device) => {
     try {
       device.monitorCharacteristicForService(
@@ -555,6 +571,12 @@ export default function App() {
 
   const disconnect = async () => {
     if (connectedDevice) {
+      if (sdkModeEnabled) {
+        console.log('Stopping SDK mode before disconnect...');
+        await stopSDKMode(connectedDevice);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
       await connectedDevice.cancelConnection();
       setConnectedDevice(null);
       setHeartRate(null);
