@@ -181,7 +181,9 @@ export default function App() {
         await enableSDKMode(connected);
         await new Promise(resolve => setTimeout(resolve, 500));
         await queryAccelerometerSettings(connected);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('Waiting for query responses...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('Sending accelerometer start command...');
         await startACCStream(connected);
         Alert.alert('Connected', `Connected to ${device.name}. SDK Mode enabled - Accelerometer streaming.`);
       } else {
@@ -314,7 +316,9 @@ export default function App() {
 
   const startACCStream = async (device) => {
     const command = [0x02, 0x02, 0x00, 0x01, 0x34, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00];
+    console.log('Starting ACC stream with command:', command.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
     await startPMDStream(device, command);
+    console.log('ACC stream start command sent');
   };
 
   const startGyroStream = async (device) => {
