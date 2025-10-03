@@ -143,6 +143,70 @@ export default function App() {
     }
   };
 
+  const stopPPGStream = async (device) => {
+    try {
+      const command = [0x03, 0x01];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('PPG stream stopped');
+    } catch (error) {
+      console.error('Failed to stop PPG stream:', error);
+    }
+  };
+
+  const stopACCStream = async (device) => {
+    try {
+      const command = [0x03, 0x02];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('ACC stream stopped');
+    } catch (error) {
+      console.error('Failed to stop ACC stream:', error);
+    }
+  };
+
+  const stopGyroStream = async (device) => {
+    try {
+      const command = [0x03, 0x05];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('Gyro stream stopped');
+    } catch (error) {
+      console.error('Failed to stop Gyro stream:', error);
+    }
+  };
+
+  const stopPPIStream = async (device) => {
+    try {
+      const command = [0x03, 0x03];
+      const commandBuffer = Buffer.from(command);
+      const base64Command = commandBuffer.toString('base64');
+      await device.writeCharacteristicWithResponseForService(
+        PMD_SERVICE,
+        PMD_CONTROL,
+        base64Command
+      );
+      console.log('PPI stream stopped');
+    } catch (error) {
+      console.error('Failed to stop PPI stream:', error);
+    }
+  };
+
   const subscribeToPMDControl = async (device) => {
     try {
       device.monitorCharacteristicForService(
@@ -571,13 +635,32 @@ export default function App() {
 
   const disconnect = async () => {
     if (connectedDevice) {
-      if (sdkModeEnabled) {
-        console.log('Stopping SDK mode before disconnect...');
-        await stopSDKMode(connectedDevice);
-        await new Promise(resolve => setTimeout(resolve, 500));
+      try {
+        if (sdkModeEnabled) {
+          console.log('Stopping all sensor streams...');
+          await stopPPGStream(connectedDevice);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await stopACCStream(connectedDevice);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await stopGyroStream(connectedDevice);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          console.log('Stopping SDK mode...');
+          await stopSDKMode(connectedDevice);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.log('Stopping PPI stream...');
+          await stopPPIStream(connectedDevice);
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        console.log('Disconnecting...');
+        await connectedDevice.cancelConnection();
+      } catch (error) {
+        console.error('Error during disconnect:', error);
+        await connectedDevice.cancelConnection();
       }
       
-      await connectedDevice.cancelConnection();
       setConnectedDevice(null);
       setHeartRate(null);
       setPpg(null);
