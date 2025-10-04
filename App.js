@@ -143,11 +143,11 @@ export default function App() {
     if (dbBufferRef.current.length === 0 || !dbRef.current) return;
     
     try {
-      const buffer = [...dbBufferRef.current];
+      const bufferToFlush = dbBufferRef.current;
       dbBufferRef.current = [];
       
       await dbRef.current.withTransactionAsync(async () => {
-        for (const reading of buffer) {
+        for (const reading of bufferToFlush) {
           await dbRef.current.runAsync(
             'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z]
@@ -159,6 +159,7 @@ export default function App() {
       setDbRecordCount(result.count);
     } catch (error) {
       console.error('Database insert error:', error);
+      dbBufferRef.current = [...bufferToFlush, ...dbBufferRef.current];
     }
   };
 
@@ -470,8 +471,13 @@ export default function App() {
   const setupDeviceMonitoring = (device, deviceInfo) => {
     lastDeviceRef.current = deviceInfo;
     
-    device.onDisconnected((error, disconnectedDevice) => {
+    device.onDisconnected(async (error, disconnectedDevice) => {
       console.log('Device disconnected:', error?.message || 'Unknown reason');
+      
+      setIsRecording(false);
+      if (dbBufferRef.current.length > 0) {
+        await flushDbBuffer();
+      }
       
       if (!isManualDisconnectRef.current) {
         console.log('Unexpected disconnect - will attempt reconnection');
@@ -521,8 +527,11 @@ export default function App() {
       
       console.log('Sending PPG start command...');
       await startPPGStream(device);
+      
+      setIsRecording(true);
     } catch (error) {
       console.error('Error setting up SDK mode:', error);
+      setIsRecording(false);
     }
   };
 
@@ -541,8 +550,11 @@ export default function App() {
         console.log('Starting PPI stream...');
         await startPPIStream(device);
       }
+      
+      setIsRecording(true);
     } catch (error) {
       console.error('Error setting up standard mode:', error);
+      setIsRecording(false);
     }
   };
 
@@ -565,8 +577,6 @@ export default function App() {
       };
       
       setupDeviceMonitoring(connected, deviceInfo);
-      
-      setIsRecording(true);
       
       const modeText = sdkModeEnabled 
         ? 'SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).'
@@ -1102,7 +1112,9 @@ export default function App() {
       setHrFFT(null);
       
       setIsRecording(false);
-      await flushDbBuffer();
+      if (dbBufferRef.current.length > 0) {
+        await flushDbBuffer();
+      }
       dbBufferRef.current = [];
       
       totalDisconnectionsRef.current = 0;
@@ -1214,6 +1226,21 @@ export default function App() {
                 <Text style={styles.diagnosticLabel}>Packets Since Reconnect</Text>
                 <Text style={styles.diagnosticValue}>{packetsSinceReconnect.toLocaleString()}</Text>
               </View>
+            </View>
+          </View>
+          
+          <View style={styles.databaseCard}>
+            <Text style={styles.databaseTitle}>💾 Database Recording</Text>
+            <View style={styles.databaseContent}>
+              <Text style={styles.databaseStatus}>
+                Status: {isRecording ? '🔴 Recording' : '⚪ Stopped'}
+              </Text>
+              <Text style={styles.databaseRecords}>
+                Total Records: {dbRecordCount.toLocaleString()}
+              </Text>
+              <Text style={styles.databaseNote}>
+                Data saved to: polar_sensor.db
+              </Text>
             </View>
           </View>
           
@@ -1566,5 +1593,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#007AFF',
     fontWeight: 'bold',
+  },
+  databaseCard: {
+    backgroundColor: '#e3f2fd',
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  databaseTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0d47a1',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  databaseContent: {
+    alignItems: 'center',
+  },
+  databaseStatus: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1565c0',
+    marginBottom: 8,
+  },
+  databaseRecords: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  databaseNote: {
+    fontSize: 12,
+    color: '#424242',
+    fontStyle: 'italic',
   },
 });
