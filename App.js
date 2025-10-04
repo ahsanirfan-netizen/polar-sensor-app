@@ -751,10 +751,11 @@ export default function App() {
         smoothed.push(sum / (windowSize * 2 + 1));
       }
       
+      const threshold = Math.max(...smoothed) * 0.6;
+      
       const peaks = [];
       for (let i = 1; i < smoothed.length - 1; i++) {
         if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1]) {
-          const threshold = Math.max(...smoothed) * 0.6;
           if (smoothed[i] > threshold) {
             peaks.push(i + windowSize);
           }
@@ -973,6 +974,11 @@ export default function App() {
       reconnectAttemptsRef.current = 0;
       setReconnectAttempts(0);
       lastDeviceRef.current = null;
+      
+      ppgBufferRef.current = [];
+      ppgTimestampsRef.current = [];
+      setHrPeakDetection(null);
+      setHrFFT(null);
       
       totalDisconnectionsRef.current = 0;
       totalReconnectAttemptsRef.current = 0;
