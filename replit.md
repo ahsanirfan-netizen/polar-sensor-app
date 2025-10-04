@@ -184,9 +184,9 @@ The project uses **Expo SDK 54** with `compileSdkVersion 34`, `targetSdkVersion 
 -   Performance: handles 50-130 Hz sampling rates without blocking sensor streams
 
 **Recording lifecycle**:
--   Recording starts only after sensor streams are confirmed active (end of setupSDKMode/setupStandardMode)
--   Recording stops on any disconnect (manual or unexpected) with final buffer flush
--   Error handling: sets recording to false if stream setup fails
+-   Manual control: User starts/stops recording via button in database card
+-   Recording button validates connection before allowing start
+-   Recording stops automatically on any disconnect (manual or unexpected) with final buffer flush
 -   Automatic buffer cleanup on disconnect to prevent stale data
 
 **Data capture integration**:
@@ -198,8 +198,9 @@ The project uses **Expo SDK 54** with `compileSdkVersion 34`, `targetSdkVersion 
 **User interface**:
 -   Database card displays recording status (🔴 Recording / ⚪ Stopped)
 -   Shows total record count with live updates every second during recording
+-   Start/Stop recording button with visual feedback (green for start, red for stop)
 -   Database filename displayed: polar_sensor.db
--   Connection alert mentions database recording activation
+-   Connection alert mentions manual recording control
 
 **Configuration**:
 -   Added expo-sqlite plugin to app.json for native module support

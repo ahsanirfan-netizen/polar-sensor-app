@@ -527,11 +527,8 @@ export default function App() {
       
       console.log('Sending PPG start command...');
       await startPPGStream(device);
-      
-      setIsRecording(true);
     } catch (error) {
       console.error('Error setting up SDK mode:', error);
-      setIsRecording(false);
     }
   };
 
@@ -550,11 +547,8 @@ export default function App() {
         console.log('Starting PPI stream...');
         await startPPIStream(device);
       }
-      
-      setIsRecording(true);
     } catch (error) {
       console.error('Error setting up standard mode:', error);
-      setIsRecording(false);
     }
   };
 
@@ -584,7 +578,7 @@ export default function App() {
           ? 'Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.'
           : 'Standard Mode - Streaming HR only.';
       
-      Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Recording to local database.`);
+      Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Use recording button to start saving data.`);
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message);
@@ -1156,6 +1150,22 @@ export default function App() {
     setPpiEnabled(value);
   };
 
+  const toggleRecording = async () => {
+    if (!connectedDevice) {
+      Alert.alert('Not Connected', 'Please connect to a device before recording.');
+      return;
+    }
+    
+    if (isRecording) {
+      setIsRecording(false);
+      if (dbBufferRef.current.length > 0) {
+        await flushDbBuffer();
+      }
+    } else {
+      setIsRecording(true);
+    }
+  };
+
   const renderDevice = ({ item }) => (
     <TouchableOpacity
       style={styles.deviceItem}
@@ -1241,6 +1251,16 @@ export default function App() {
               <Text style={styles.databaseNote}>
                 Data saved to: polar_sensor.db
               </Text>
+              <View style={styles.recordingButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.recordingButton, isRecording ? styles.stopButton : styles.startButton]}
+                  onPress={toggleRecording}
+                >
+                  <Text style={styles.recordingButtonText}>
+                    {isRecording ? '⏹ Stop Recording' : '⏺ Start Recording'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
           
@@ -1628,5 +1648,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#424242',
     fontStyle: 'italic',
+  },
+  recordingButtonContainer: {
+    marginTop: 12,
+    width: '100%',
+  },
+  recordingButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  startButton: {
+    backgroundColor: '#28a745',
+  },
+  stopButton: {
+    backgroundColor: '#dc3545',
+  },
+  recordingButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
