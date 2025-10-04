@@ -17,6 +17,7 @@ import { BleManager } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
 import { Buffer } from 'buffer';
 import { useKeepAwake } from 'expo-keep-awake';
+import FFT from 'fft.js';
 
 const bleManager = new BleManager();
 
@@ -48,6 +49,9 @@ export default function App() {
   const [failedReconnects, setFailedReconnects] = useState(0);
   const [totalPackets, setTotalPackets] = useState(0);
   const [packetsSinceReconnect, setPacketsSinceReconnect] = useState(0);
+  
+  const [hrPeakDetection, setHrPeakDetection] = useState(null);
+  const [hrFFT, setHrFFT] = useState(null);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const reconnectTimeoutRef = useRef(null);
@@ -61,6 +65,10 @@ export default function App() {
   const failedReconnectsRef = useRef(0);
   const totalPacketsRef = useRef(0);
   const packetsSinceReconnectRef = useRef(0);
+  
+  const ppgBufferRef = useRef([]);
+  const ppgTimestampsRef = useRef([]);
+  const ppgBufferSize = 1024;
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -711,12 +719,132 @@ export default function App() {
         const ppg0 = (data[offset] | (data[offset+1] << 8) | (data[offset+2] << 16)) & 0x3FFFFF;
         if (ppg0 !== 0) {
           setPpg(() => ppg0);
+          
+          ppgBufferRef.current.push(ppg0);
+          ppgTimestampsRef.current.push(Date.now());
+          
+          if (ppgBufferRef.current.length > ppgBufferSize) {
+            ppgBufferRef.current.shift();
+            ppgTimestampsRef.current.shift();
+          }
         }
       }
     } catch (error) {
       console.error('PPG parse error:', error);
     }
   };
+
+  const calculateHRPeakDetection = () => {
+    try {
+      const buffer = ppgBufferRef.current;
+      const timestamps = ppgTimestampsRef.current;
+      
+      if (buffer.length < 100) return;
+      
+      const windowSize = 5;
+      const smoothed = [];
+      for (let i = windowSize; i < buffer.length - windowSize; i++) {
+        let sum = 0;
+        for (let j = -windowSize; j <= windowSize; j++) {
+          sum += buffer[i + j];
+        }
+        smoothed.push(sum / (windowSize * 2 + 1));
+      }
+      
+      const peaks = [];
+      for (let i = 1; i < smoothed.length - 1; i++) {
+        if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1]) {
+          const threshold = Math.max(...smoothed) * 0.6;
+          if (smoothed[i] > threshold) {
+            peaks.push(i + windowSize);
+          }
+        }
+      }
+      
+      if (peaks.length < 2) return;
+      
+      const intervals = [];
+      for (let i = 1; i < peaks.length; i++) {
+        const interval = timestamps[peaks[i]] - timestamps[peaks[i - 1]];
+        if (interval > 0 && interval < 2000) {
+          intervals.push(interval);
+        }
+      }
+      
+      if (intervals.length === 0) return;
+      
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const hr = Math.round(60000 / avgInterval);
+      
+      if (hr >= 30 && hr <= 200) {
+        setHrPeakDetection(hr);
+      }
+    } catch (error) {
+      console.error('Peak detection error:', error);
+    }
+  };
+
+  const calculateHRFFT = () => {
+    try {
+      const buffer = ppgBufferRef.current;
+      const timestamps = ppgTimestampsRef.current;
+      
+      if (buffer.length < 512) return;
+      
+      const fftSize = 512;
+      const signal = buffer.slice(-fftSize);
+      
+      const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+      const centered = signal.map(val => val - mean);
+      
+      const fft = new FFT(fftSize);
+      const out = fft.createComplexArray();
+      fft.realTransform(out, centered);
+      
+      const magnitudes = [];
+      for (let i = 0; i < fftSize / 2; i++) {
+        const real = out[i * 2];
+        const imag = out[i * 2 + 1];
+        magnitudes.push(Math.sqrt(real * real + imag * imag));
+      }
+      
+      if (timestamps.length < 2) return;
+      const sampleRate = 1000 / ((timestamps[timestamps.length - 1] - timestamps[timestamps.length - fftSize]) / fftSize);
+      
+      let maxMag = 0;
+      let maxFreqIndex = 0;
+      
+      for (let i = 0; i < magnitudes.length; i++) {
+        const freq = (i * sampleRate) / fftSize;
+        if (freq >= 0.5 && freq <= 4.0) {
+          if (magnitudes[i] > maxMag) {
+            maxMag = magnitudes[i];
+            maxFreqIndex = i;
+          }
+        }
+      }
+      
+      const dominantFreq = (maxFreqIndex * sampleRate) / fftSize;
+      const hr = Math.round(dominantFreq * 60);
+      
+      if (hr >= 30 && hr <= 200) {
+        setHrFFT(hr);
+      }
+    } catch (error) {
+      console.error('FFT calculation error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!sdkModeEnabled || !connectedDevice) return;
+    
+    const interval = setInterval(() => {
+      calculateHRPeakDetection();
+      calculateHRFFT();
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [sdkModeEnabled, connectedDevice]);
 
   const parseACCData = (data) => {
     try {
@@ -964,6 +1092,20 @@ export default function App() {
                 <Text style={styles.sensorTitle}>PPG (Raw Optical)</Text>
                 <Text style={styles.sensorValue}>
                   {ppg !== null ? `PPG: ${ppg}` : 'Waiting for data...'}
+                </Text>
+              </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>HR (Peak Detection)</Text>
+                <Text style={styles.sensorValue}>
+                  {hrPeakDetection !== null ? `${hrPeakDetection} BPM` : 'Calculating...'}
+                </Text>
+              </View>
+              
+              <View style={styles.sensorCard}>
+                <Text style={styles.sensorTitle}>HR (FFT Analysis)</Text>
+                <Text style={styles.sensorValue}>
+                  {hrFFT !== null ? `${hrFFT} BPM` : 'Calculating...'}
                 </Text>
               </View>
               
