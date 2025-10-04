@@ -120,3 +120,48 @@ The project uses **Expo SDK 54** with `compileSdkVersion 34`, `targetSdkVersion 
 **Use case**: Enables overnight sleep tracking with HypnosPy by maintaining continuous HR/PPI streaming for 8+ hours with phone plugged in, screen on, and notifications off.
 
 **Validated by architect**: Exponential backoff correctly ramps from 2s to 30s, timer cleanup prevents post-teardown callbacks, ready for overnight testing.
+
+### Dual HR Calculation from Raw PPG in SDK Mode (Oct 4, 2025)
+
+**Added two independent HR calculation algorithms** from raw PPG sensor data to support HypnosPy sleep analysis when using SDK mode.
+
+**FFT.js library integration**:
+-   Installed `fft.js` package (chosen for 2-7x performance advantage over alternatives)
+-   Uses `realTransform()` for 40% speed boost with real-valued PPG signals
+-   Optimized for overnight collection at 50-130 Hz sampling rates
+
+**Circular PPG buffer system**:
+-   1024-sample circular buffer stores raw PPG values with timestamps
+-   Auto-shifts oldest samples when buffer fills
+-   Cleared on disconnect and mode changes to prevent stale data
+
+**Peak Detection Algorithm**:
+-   Applies 5-sample moving average smoothing to reduce noise
+-   Detects peaks with 60% threshold of maximum amplitude
+-   Calculates inter-peak intervals from aligned timestamps
+-   Converts average interval to BPM (30-200 range validation)
+-   Performance-optimized: O(n) complexity suitable for 8+ hour sessions
+
+**FFT-Based HR Algorithm**:
+-   Uses last 512 PPG samples for frequency analysis
+-   Mean-centers signal before FFT transformation
+-   Scans 0.5-4 Hz frequency band for dominant peak
+-   Converts peak frequency to BPM (30-200 range validation)
+-   Calculated sample rate from timestamp differences
+
+**Calculation trigger**:
+-   Both algorithms run every 2 seconds when in SDK mode
+-   Only active during connected sessions
+-   Automatic cleanup on disconnect
+
+**User interface**:
+-   SDK mode displays three cards: "PPG (Raw Optical)", "HR (Peak Detection)", "HR (FFT Analysis)"
+-   Each HR card shows "Calculating..." until 100+ samples collected
+-   BPM values update independently every 2 seconds
+
+**Performance optimizations**:
+-   Math.max() computed once per run (not per peak) preventing O(n²) battery drain
+-   Separate smoothedTimestamps array eliminates index mapping errors
+-   Buffer cleanup prevents memory accumulation during long sessions
+
+**Validated by architect**: Timestamp alignment correct, O(n) complexity verified, buffer cleanup complete, both algorithms production-ready for overnight streaming and HypnosPy integration.
