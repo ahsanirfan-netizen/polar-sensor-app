@@ -566,13 +566,15 @@ export default function App() {
       
       setupDeviceMonitoring(connected, deviceInfo);
       
+      setIsRecording(true);
+      
       const modeText = sdkModeEnabled 
         ? 'SDK Mode - Streaming raw sensors (ACC + Gyro + PPG).'
         : ppiEnabled
           ? 'Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.'
           : 'Standard Mode - Streaming HR only.';
       
-      Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.`);
+      Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Recording to local database.`);
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message);
@@ -794,12 +796,26 @@ export default function App() {
         if (ppg0 !== 0) {
           setPpg(() => ppg0);
           
+          const timestamp = new Date().toISOString();
           ppgBufferRef.current.push(ppg0);
           ppgTimestampsRef.current.push(Date.now());
           
           if (ppgBufferRef.current.length > ppgBufferSize) {
             ppgBufferRef.current.shift();
             ppgTimestampsRef.current.shift();
+          }
+          
+          if (isRecording) {
+            addToDbBuffer({
+              timestamp: timestamp,
+              ppg: ppg0,
+              acc_x: null,
+              acc_y: null,
+              acc_z: null,
+              gyro_x: null,
+              gyro_y: null,
+              gyro_z: null
+            });
           }
         }
       }
@@ -941,6 +957,20 @@ export default function App() {
         
         console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
         
+        if (isRecording) {
+          const timestamp = new Date().toISOString();
+          addToDbBuffer({
+            timestamp: timestamp,
+            ppg: null,
+            acc_x: x,
+            acc_y: y,
+            acc_z: z,
+            gyro_x: null,
+            gyro_y: null,
+            gyro_z: null
+          });
+        }
+        
         setAccelerometer(() => ({ 
           x: x / 1000, 
           y: y / 1000, 
@@ -968,6 +998,20 @@ export default function App() {
         const z = data.readInt16LE(offset + 4);
         
         console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
+        
+        if (isRecording) {
+          const timestamp = new Date().toISOString();
+          addToDbBuffer({
+            timestamp: timestamp,
+            ppg: null,
+            acc_x: null,
+            acc_y: null,
+            acc_z: null,
+            gyro_x: x,
+            gyro_y: y,
+            gyro_z: z
+          });
+        }
         
         setGyroscope(() => ({ 
           x: x / 100, 
@@ -1056,6 +1100,10 @@ export default function App() {
       ppgTimestampsRef.current = [];
       setHrPeakDetection(null);
       setHrFFT(null);
+      
+      setIsRecording(false);
+      await flushDbBuffer();
+      dbBufferRef.current = [];
       
       totalDisconnectionsRef.current = 0;
       totalReconnectAttemptsRef.current = 0;
