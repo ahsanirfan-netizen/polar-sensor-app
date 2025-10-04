@@ -165,3 +165,49 @@ The project uses **Expo SDK 54** with `compileSdkVersion 34`, `targetSdkVersion 
 -   Buffer cleanup prevents memory accumulation during long sessions
 
 **Validated by architect**: Timestamp alignment correct, O(n) complexity verified, buffer cleanup complete, both algorithms production-ready for overnight streaming and HypnosPy integration.
+
+### Local SQLite Database Persistence (Oct 4, 2025)
+
+**Added local device storage** for sensor data collection using expo-sqlite, enabling overnight data capture for post-processing with HypnosPy.
+
+**Database architecture**:
+-   SQLite database stored locally on device as `polar_sensor.db`
+-   Table: `sensor_readings` with columns: id, timestamp (ISO 8601), ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
+-   All sensor values nullable to support different streaming modes (SDK vs Standard)
+-   Timestamps in ISO 8601 format for HypnosPy compatibility
+
+**Batched insert system**:
+-   Sensor readings buffered in memory as they arrive from BLE callbacks
+-   Buffer flushed to database every 1 second via transaction
+-   Swap-by-reference pattern prevents race conditions: new samples go to fresh array during flush
+-   Error recovery: failed flushes prepend data back to buffer to prevent loss
+-   Performance: handles 50-130 Hz sampling rates without blocking sensor streams
+
+**Recording lifecycle**:
+-   Recording starts only after sensor streams are confirmed active (end of setupSDKMode/setupStandardMode)
+-   Recording stops on any disconnect (manual or unexpected) with final buffer flush
+-   Error handling: sets recording to false if stream setup fails
+-   Automatic buffer cleanup on disconnect to prevent stale data
+
+**Data capture integration**:
+-   PPG parser: saves timestamp + ppg value when recording
+-   ACC parser: saves timestamp + acc_x, acc_y, acc_z when recording  
+-   Gyro parser: saves timestamp + gyro_x, gyro_y, gyro_z when recording
+-   Conditional capture based on `isRecording` flag to avoid unnecessary overhead
+
+**User interface**:
+-   Database card displays recording status (🔴 Recording / ⚪ Stopped)
+-   Shows total record count with live updates every second during recording
+-   Database filename displayed: polar_sensor.db
+-   Connection alert mentions database recording activation
+
+**Configuration**:
+-   Added expo-sqlite plugin to app.json for native module support
+-   Requires rebuild of development client APK to include native SQLite module
+
+**Data export strategy** (future):
+-   Raw sensor data stored for post-processing flexibility
+-   Export to CSV with timestamp, heart_rate (calculated), activity (acc) columns for HypnosPy
+-   Enables TST, WASO, Sleep Efficiency, awakenings, and nap detection
+
+**Validated by architect**: Race conditions resolved with swap-by-reference flush, error recovery preserves failed records, recording lifecycle properly managed across all disconnect paths, ready for overnight persistence testing.
