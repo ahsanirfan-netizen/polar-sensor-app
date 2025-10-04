@@ -18,6 +18,7 @@ import * as Device from 'expo-device';
 import { Buffer } from 'buffer';
 import { useKeepAwake } from 'expo-keep-awake';
 import FFT from 'fft.js';
+import * as SQLite from 'expo-sqlite';
 
 const bleManager = new BleManager();
 
@@ -52,6 +53,8 @@ export default function App() {
   
   const [hrPeakDetection, setHrPeakDetection] = useState(null);
   const [hrFFT, setHrFFT] = useState(null);
+  const [dbRecordCount, setDbRecordCount] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const reconnectTimeoutRef = useRef(null);
@@ -69,6 +72,9 @@ export default function App() {
   const ppgBufferRef = useRef([]);
   const ppgTimestampsRef = useRef([]);
   const ppgBufferSize = 1024;
+  
+  const dbBufferRef = useRef([]);
+  const dbRef = useRef(null);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -97,6 +103,74 @@ export default function App() {
     packetsSinceReconnectRef.current = packetsSinceReconnectRef.current + 1;
     setPacketsSinceReconnect(packetsSinceReconnectRef.current);
   };
+
+  useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        const db = await SQLite.openDatabaseAsync('polar_sensor.db');
+        dbRef.current = db;
+        
+        await db.execAsync(`
+          CREATE TABLE IF NOT EXISTS sensor_readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            ppg INTEGER,
+            acc_x REAL,
+            acc_y REAL,
+            acc_z REAL,
+            gyro_x REAL,
+            gyro_y REAL,
+            gyro_z REAL
+          );
+        `);
+        
+        const result = await db.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
+        setDbRecordCount(result.count);
+        console.log('Database initialized. Records:', result.count);
+      } catch (error) {
+        console.error('Database init error:', error);
+      }
+    };
+    
+    initDatabase();
+  }, []);
+
+  const addToDbBuffer = (reading) => {
+    dbBufferRef.current.push(reading);
+  };
+
+  const flushDbBuffer = async () => {
+    if (dbBufferRef.current.length === 0 || !dbRef.current) return;
+    
+    try {
+      const buffer = [...dbBufferRef.current];
+      dbBufferRef.current = [];
+      
+      await dbRef.current.withTransactionAsync(async () => {
+        for (const reading of buffer) {
+          await dbRef.current.runAsync(
+            'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z]
+          );
+        }
+      });
+      
+      const result = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
+      setDbRecordCount(result.count);
+    } catch (error) {
+      console.error('Database insert error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    const interval = setInterval(() => {
+      flushDbBuffer();
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
