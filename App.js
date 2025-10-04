@@ -743,30 +743,33 @@ export default function App() {
       
       const windowSize = 5;
       const smoothed = [];
+      const smoothedTimestamps = [];
+      
       for (let i = windowSize; i < buffer.length - windowSize; i++) {
         let sum = 0;
         for (let j = -windowSize; j <= windowSize; j++) {
           sum += buffer[i + j];
         }
         smoothed.push(sum / (windowSize * 2 + 1));
+        smoothedTimestamps.push(timestamps[i]);
       }
       
       const threshold = Math.max(...smoothed) * 0.6;
       
-      const peaks = [];
+      const peakIndices = [];
       for (let i = 1; i < smoothed.length - 1; i++) {
         if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1]) {
           if (smoothed[i] > threshold) {
-            peaks.push(i + windowSize);
+            peakIndices.push(i);
           }
         }
       }
       
-      if (peaks.length < 2) return;
+      if (peakIndices.length < 2) return;
       
       const intervals = [];
-      for (let i = 1; i < peaks.length; i++) {
-        const interval = timestamps[peaks[i]] - timestamps[peaks[i - 1]];
+      for (let i = 1; i < peakIndices.length; i++) {
+        const interval = smoothedTimestamps[peakIndices[i]] - smoothedTimestamps[peakIndices[i - 1]];
         if (interval > 0 && interval < 2000) {
           intervals.push(interval);
         }
