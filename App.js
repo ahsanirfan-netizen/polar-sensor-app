@@ -1,3 +1,8 @@
+import 'react-native-url-polyfill/auto';
+import 'react-native-get-random-values';
+import { Buffer } from 'buffer';
+global.Buffer = Buffer;
+
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
@@ -15,7 +20,6 @@ import {
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
-import { Buffer } from 'buffer';
 import { useKeepAwake } from 'expo-keep-awake';
 import FFT from 'fft.js';
 import * as SQLite from 'expo-sqlite';
