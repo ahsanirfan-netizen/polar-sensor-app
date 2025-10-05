@@ -57,6 +57,7 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
 
   const ppiEnabledRef = useRef(ppiEnabled);
+  const isRecordingRef = useRef(isRecording);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const lastDeviceRef = useRef(null);
@@ -79,6 +80,10 @@ export default function App() {
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
   }, [ppiEnabled]);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   useEffect(() => {
     requestPermissions();
@@ -809,7 +814,7 @@ export default function App() {
             ppgTimestampsRef.current.shift();
           }
           
-          if (isRecording) {
+          if (isRecordingRef.current) {
             addToDbBuffer({
               timestamp: timestamp,
               ppg: ppg0,
@@ -961,7 +966,7 @@ export default function App() {
         
         console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
         
-        if (isRecording) {
+        if (isRecordingRef.current) {
           const timestamp = new Date().toISOString();
           addToDbBuffer({
             timestamp: timestamp,
@@ -1003,7 +1008,7 @@ export default function App() {
         
         console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
         
-        if (isRecording) {
+        if (isRecordingRef.current) {
           const timestamp = new Date().toISOString();
           addToDbBuffer({
             timestamp: timestamp,
