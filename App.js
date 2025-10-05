@@ -1491,6 +1491,86 @@ export default function App() {
             </View>
           </View>
           
+          {session && (
+            <View style={styles.syncCard}>
+              <Text style={styles.syncTitle}>☁️ Cloud Sync</Text>
+              <View style={styles.syncContent}>
+                <Text style={styles.syncStatus}>
+                  Status: {isSyncing ? '🔄 Syncing...' : '⚪ Idle'}
+                </Text>
+                
+                {lastSyncTime && !isSyncing && (
+                  <Text style={styles.syncInfo}>
+                    Last Sync: {new Date(lastSyncTime).toLocaleString()}
+                  </Text>
+                )}
+                
+                {syncProgress && (
+                  <View style={styles.syncProgressContainer}>
+                    <Text style={styles.syncProgressText}>
+                      {(() => {
+                        const phase = syncProgress.phase;
+                        if (phase === 'preparing') return 'Preparing data...';
+                        if (phase === 'session_created') return 'Creating cloud session...';
+                        if (phase === 'uploading') {
+                          const progress = Number(syncProgress.progress) || 0;
+                          const total = Number(syncProgress.total) || 0;
+                          let percentage = Number(syncProgress.percentage);
+                          
+                          if (!isFinite(percentage)) {
+                            percentage = total > 0 ? Math.round((progress / total) * 100) : 0;
+                          }
+                          
+                          percentage = isFinite(percentage) ? Math.max(0, Math.min(100, percentage)) : 0;
+                          
+                          return `Uploading: ${progress.toLocaleString()} / ${total.toLocaleString()} records (${percentage}%)`;
+                        }
+                        
+                        return 'Processing...';
+                      })()}
+                    </Text>
+                  </View>
+                )}
+                
+                {lastSyncError && !isSyncing && (
+                  <Text style={styles.syncError}>
+                    ⚠️ Last Error: {lastSyncError}
+                  </Text>
+                )}
+                
+                <View style={styles.recordingButtonContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.syncButton,
+                      (isSyncing || isRecording || !dbInitialized || dbRecordCount === 0) && styles.disabledButton
+                    ]}
+                    onPress={syncToCloud}
+                    disabled={isSyncing || isRecording || !dbInitialized || dbRecordCount === 0}
+                  >
+                    <Text style={styles.syncButtonText}>
+                      {isSyncing ? '⏳ Syncing...' : 
+                       isRecording ? '⏺ Stop Recording First' :
+                       dbRecordCount === 0 ? '📦 No Data to Sync' :
+                       '☁️ Sync to Cloud'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {(isRecording || !dbInitialized || dbRecordCount === 0) && !isSyncing && (
+                    <Text style={styles.warningText}>
+                      {isRecording ? '⚠️ Stop recording before syncing' :
+                       !dbInitialized ? '⚠️ Database is initializing...' :
+                       '⚠️ No unsynced data available'}
+                    </Text>
+                  )}
+                </View>
+                
+                <Text style={styles.syncNote}>
+                  Syncs local data to Supabase cloud storage
+                </Text>
+              </View>
+            </View>
+          )}
+          
           {sdkModeEnabled ? (
             <>
               <View style={styles.sensorCard}>
@@ -1962,5 +2042,75 @@ const styles = StyleSheet.create({
   debugError: {
     color: '#dc3545',
     fontWeight: '600',
+  },
+  syncCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  syncTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  syncContent: {
+    width: '100%',
+  },
+  syncStatus: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1565c0',
+    marginBottom: 8,
+  },
+  syncInfo: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 8,
+  },
+  syncProgressContainer: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  syncProgressText: {
+    fontSize: 13,
+    color: '#1976d2',
+    fontWeight: '600',
+  },
+  syncError: {
+    fontSize: 13,
+    color: '#dc3545',
+    backgroundColor: '#ffebee',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  syncButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#1976d2',
+  },
+  syncButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  syncNote: {
+    marginTop: 12,
+    fontSize: 12,
+    color: '#757575',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
