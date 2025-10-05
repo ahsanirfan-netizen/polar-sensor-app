@@ -99,8 +99,15 @@ export default function App() {
   }, [isRecording]);
 
   useEffect(() => {
+    if (!supabase) {
+      console.log('Supabase not configured - running in offline mode');
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+    }).catch(error => {
+      console.error('Error getting session:', error);
     });
 
     const {
@@ -285,6 +292,11 @@ export default function App() {
   };
 
   const syncToCloud = async () => {
+    if (!supabase) {
+      Alert.alert('Cloud Sync Unavailable', 'Supabase is not configured. Please configure your Supabase credentials to enable cloud sync.');
+      return;
+    }
+
     if (isSyncing) {
       Alert.alert('Sync In Progress', 'A sync operation is already running.');
       return;

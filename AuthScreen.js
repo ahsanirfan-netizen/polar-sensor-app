@@ -15,14 +15,29 @@ export default function AuthScreen({ onAuthStateChange }) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
+  if (!supabase) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.title}>⚠️ Cloud Sync Unavailable</Text>
+          <Text style={styles.errorText}>
+            Supabase is not configured. The app will work in offline mode only.
+            {'\n\n'}
+            Please configure SUPABASE_URL and SUPABASE_ANON_KEY to enable cloud sync features.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   useEffect(() => {
     const handleDeepLink = async (event) => {
-      const url = event.url;
-      console.log('Deep link received:', url);
-      
-      if (!url) return;
-      
       try {
+        const url = event.url;
+        console.log('Deep link received:', url);
+        
+        if (!url) return;
+        
         const urlObj = new URL(url);
         const params = new URLSearchParams(urlObj.search || urlObj.hash.replace('#', '?'));
         
@@ -52,17 +67,25 @@ export default function AuthScreen({ onAuthStateChange }) {
       }
     };
 
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-    
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
+    try {
+      const subscription = Linking.addEventListener('url', handleDeepLink);
+      
+      Linking.getInitialURL().then((url) => {
+        if (url) {
+          handleDeepLink({ url });
+        }
+      }).catch((error) => {
+        console.error('Error getting initial URL:', error);
+      });
 
-    return () => {
-      subscription.remove();
-    };
+      return () => {
+        if (subscription && subscription.remove) {
+          subscription.remove();
+        }
+      };
+    } catch (error) {
+      console.error('Error setting up deep link listener:', error);
+    }
   }, []);
 
   const handleMagicLinkSignIn = async () => {
@@ -194,5 +217,11 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
