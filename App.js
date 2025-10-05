@@ -21,6 +21,7 @@ import FFT from 'fft.js';
 import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
+import { syncService } from './SyncService';
 
 const bleManager = new BleManager();
 
@@ -62,6 +63,10 @@ export default function App() {
   const [lastDbError, setLastDbError] = useState(null);
   const [lastWriteTime, setLastWriteTime] = useState(null);
   const [dbBufferLength, setDbBufferLength] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(null);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [lastSyncError, setLastSyncError] = useState(null);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
@@ -147,7 +152,8 @@ export default function App() {
             acc_z REAL,
             gyro_x REAL,
             gyro_y REAL,
-            gyro_z REAL
+            gyro_z REAL,
+            synced INTEGER DEFAULT 0
           );
         `);
         
@@ -186,8 +192,8 @@ export default function App() {
       await dbRef.current.withTransactionAsync(async () => {
         for (const reading of bufferToFlush) {
           await dbRef.current.runAsync(
-            'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z]
+            'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z, 0]
           );
         }
       });
@@ -246,8 +252,8 @@ export default function App() {
       };
       
       await dbRef.current.runAsync(
-        'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [testData.timestamp, testData.ppg, testData.acc_x, testData.acc_y, testData.acc_z, testData.gyro_x, testData.gyro_y, testData.gyro_z]
+        'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [testData.timestamp, testData.ppg, testData.acc_x, testData.acc_y, testData.acc_z, testData.gyro_x, testData.gyro_y, testData.gyro_z, 0]
       );
       
       const result = await dbRef.current.getFirstAsync(
@@ -275,6 +281,59 @@ export default function App() {
         'Database Test Failed',
         `Error: ${error.message}\n\nThe database is not working correctly. Check the debug status for details.`
       );
+    }
+  };
+
+  const syncToCloud = async () => {
+    if (isSyncing) {
+      Alert.alert('Sync In Progress', 'A sync operation is already running.');
+      return;
+    }
+
+    if (!dbRef.current) {
+      Alert.alert('Sync Failed', 'Database not initialized.');
+      return;
+    }
+
+    if (isRecording) {
+      Alert.alert('Cannot Sync', 'Please stop recording before syncing data.');
+      return;
+    }
+
+    try {
+      setIsSyncing(true);
+      setSyncProgress(null);
+      setLastSyncError(null);
+
+      const result = await syncService.syncToCloud(
+        dbRef.current,
+        connectedDevice?.name || lastDeviceRef.current?.name,
+        sdkModeEnabled ? 'sdk' : 'standard',
+        ppiEnabled,
+        (progress) => {
+          setSyncProgress(progress);
+        }
+      );
+
+      setLastSyncTime(result.syncTime);
+      setSyncProgress(null);
+      
+      Alert.alert(
+        'Sync Complete ✓',
+        `Successfully synced ${result.recordsSynced.toLocaleString()} sensor readings to the cloud!\n\nSession ID: ${result.sessionId}\n\nYou can now view your data in the Supabase dashboard.`
+      );
+
+    } catch (error) {
+      console.error('Sync error:', error);
+      setLastSyncError(error.message);
+      setSyncProgress(null);
+      
+      Alert.alert(
+        'Sync Failed',
+        `Failed to sync data to cloud: ${error.message}\n\nYour data is still safely stored locally on this device. You can try syncing again later.`
+      );
+    } finally {
+      setIsSyncing(false);
     }
   };
 
