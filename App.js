@@ -1,7 +1,10 @@
-import 'react-native-url-polyfill/auto';
 import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import { Buffer } from 'buffer';
-global.Buffer = Buffer;
+
+if (typeof global.Buffer === 'undefined') {
+  global.Buffer = Buffer;
+}
 
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
