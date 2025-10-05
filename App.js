@@ -76,6 +76,7 @@ export default function App() {
   
   const dbBufferRef = useRef([]);
   const dbRef = useRef(null);
+  const dbErrorAlertShownRef = useRef(false);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -134,6 +135,10 @@ export default function App() {
         console.log('Database initialized. Records:', result.count);
       } catch (error) {
         console.error('Database init error:', error);
+        Alert.alert(
+          'Database Error',
+          `Failed to initialize database: ${error.message}\n\nRecording will not work until this is fixed.`
+        );
       }
     };
     
@@ -162,8 +167,19 @@ export default function App() {
       
       const result = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
       setDbRecordCount(result.count);
+      
+      dbErrorAlertShownRef.current = false;
     } catch (error) {
       console.error('Database insert error:', error);
+      
+      if (!dbErrorAlertShownRef.current) {
+        dbErrorAlertShownRef.current = true;
+        Alert.alert(
+          'Database Write Failed',
+          `Failed to save ${bufferToFlush.length} sensor readings: ${error.message}\n\nData has been preserved in buffer and will retry on next flush. This alert will only show once - check the debug status for ongoing errors.`
+        );
+      }
+      
       dbBufferRef.current = [...bufferToFlush, ...dbBufferRef.current];
     }
   };
