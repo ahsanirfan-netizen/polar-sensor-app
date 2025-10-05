@@ -19,6 +19,8 @@ import { Buffer } from 'buffer';
 import { useKeepAwake } from 'expo-keep-awake';
 import FFT from 'fft.js';
 import * as SQLite from 'expo-sqlite';
+import { supabase } from './supabaseClient';
+import AuthScreen from './AuthScreen';
 
 const bleManager = new BleManager();
 
@@ -30,6 +32,7 @@ const PMD_CONTROL = 'fb005c81-02e7-f387-1cad-8acd2d8df0c8';
 const PMD_DATA = 'fb005c82-02e7-f387-1cad-8acd2d8df0c8';
 
 export default function App() {
+  const [session, setSession] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -89,6 +92,20 @@ export default function App() {
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     requestPermissions();
@@ -1264,6 +1281,27 @@ export default function App() {
     </TouchableOpacity>
   );
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout? Any unsynced data will be retained locally.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.auth.signOut();
+          },
+        },
+      ]
+    );
+  };
+
+  if (!session) {
+    return <AuthScreen onAuthStateChange={(session) => setSession(session)} />;
+  }
+
   if (connectedDevice || reconnecting) {
     return (
       <View style={styles.container}>
@@ -1462,6 +1500,8 @@ export default function App() {
         
         <View style={styles.buttonContainer}>
           <Button title="Disconnect" onPress={disconnect} color="#dc3545" />
+          <View style={{ height: 10 }} />
+          <Button title="Logout" onPress={handleLogout} color="#6c757d" />
         </View>
         <StatusBar style="auto" />
       </View>
@@ -1472,6 +1512,7 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.title}>Polar Device Scanner</Text>
       <Text style={styles.subtitle}>Looking for Polar Verity Sense</Text>
+      <Text style={styles.userEmail}>👤 {session?.user?.email}</Text>
       
       <View style={styles.sdkToggleContainer}>
         <View style={styles.sdkToggleRow}>
@@ -1511,6 +1552,8 @@ export default function App() {
           onPress={scanForDevices}
           disabled={scanning}
         />
+        <View style={{ height: 10 }} />
+        <Button title="Logout" onPress={handleLogout} color="#6c757d" />
       </View>
       
       {devices.length > 0 && (
@@ -1549,8 +1592,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
     color: '#666',
+  },
+  userEmail: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#007AFF',
+    fontWeight: '500',
   },
   sdkToggleContainer: {
     backgroundColor: '#fff',
