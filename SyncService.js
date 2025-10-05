@@ -15,6 +15,8 @@ export class SyncService {
 
     this.isSyncing = true;
     this.lastSyncError = null;
+    let session = null;
+    const syncedIdsThisAttempt = [];
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -40,7 +42,6 @@ export class SyncService {
 
       const batchSize = 500;
       let synced = 0;
-      let session = null;
 
       onProgress && onProgress({ phase: 'preparing', progress: 0, total });
 
@@ -103,6 +104,8 @@ export class SyncService {
           batchIds
         );
 
+        syncedIdsThisAttempt.push(...batchIds);
+
         synced += readings.length;
 
         onProgress && onProgress({
@@ -128,9 +131,57 @@ export class SyncService {
 
     } catch (error) {
       this.lastSyncError = error.message;
+      
+      await this.rollbackFailedSync(db, session, syncedIdsThisAttempt);
+      
       throw error;
     } finally {
       this.isSyncing = false;
+    }
+  }
+
+  async rollbackFailedSync(db, session, syncedIdsThisAttempt) {
+    console.log('Rolling back failed sync...');
+
+    try {
+      if (session && session.id) {
+        console.log(`Deleting cloud sensor readings for session: ${session.id}`);
+        await supabase
+          .from('sensor_readings')
+          .delete()
+          .eq('session_id', session.id);
+
+        console.log(`Deleting partial session: ${session.id}`);
+        await supabase
+          .from('sessions')
+          .delete()
+          .eq('id', session.id);
+      }
+    } catch (cloudError) {
+      console.error('Cloud cleanup failed (non-critical):', cloudError.message);
+    } finally {
+      try {
+        if (syncedIdsThisAttempt.length > 0) {
+          console.log(`Resetting ${syncedIdsThisAttempt.length} synced flags from this attempt`);
+          
+          const chunkSize = 999;
+          for (let i = 0; i < syncedIdsThisAttempt.length; i += chunkSize) {
+            const chunk = syncedIdsThisAttempt.slice(i, i + chunkSize);
+            const placeholders = chunk.map(() => '?').join(',');
+            await db.runAsync(
+              `UPDATE sensor_readings SET synced = 0 WHERE id IN (${placeholders})`,
+              chunk
+            );
+          }
+          
+          console.log('Rollback complete - ready for retry');
+        } else {
+          console.log('No local flags to reset (sync failed before any uploads)');
+        }
+      } catch (dbError) {
+        console.error('CRITICAL: Failed to reset local synced flags:', dbError.message);
+        throw new Error('Rollback failed - database may be corrupted. Please restart the app.');
+      }
     }
   }
 
