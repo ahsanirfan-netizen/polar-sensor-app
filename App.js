@@ -55,6 +55,10 @@ export default function App() {
   const [hrFFT, setHrFFT] = useState(null);
   const [dbRecordCount, setDbRecordCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [dbInitialized, setDbInitialized] = useState(false);
+  const [lastDbError, setLastDbError] = useState(null);
+  const [lastWriteTime, setLastWriteTime] = useState(null);
+  const [dbBufferLength, setDbBufferLength] = useState(0);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
@@ -132,9 +136,13 @@ export default function App() {
         
         const result = await db.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
         setDbRecordCount(result.count);
+        setDbInitialized(true);
+        setLastDbError(null);
         console.log('Database initialized. Records:', result.count);
       } catch (error) {
         console.error('Database init error:', error);
+        setDbInitialized(false);
+        setLastDbError(`Init failed: ${error.message}`);
         Alert.alert(
           'Database Error',
           `Failed to initialize database: ${error.message}\n\nRecording will not work until this is fixed.`
@@ -147,14 +155,16 @@ export default function App() {
 
   const addToDbBuffer = (reading) => {
     dbBufferRef.current.push(reading);
+    setDbBufferLength(dbBufferRef.current.length);
   };
 
   const flushDbBuffer = async () => {
     if (dbBufferRef.current.length === 0 || !dbRef.current) return;
     
+    const bufferToFlush = dbBufferRef.current;
+    dbBufferRef.current = [];
+    
     try {
-      const bufferToFlush = dbBufferRef.current;
-      dbBufferRef.current = [];
       
       await dbRef.current.withTransactionAsync(async () => {
         for (const reading of bufferToFlush) {
@@ -167,10 +177,15 @@ export default function App() {
       
       const result = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
       setDbRecordCount(result.count);
+      setLastWriteTime(new Date().toLocaleTimeString());
+      setLastDbError(null);
+      setDbBufferLength(dbBufferRef.current.length);
       
       dbErrorAlertShownRef.current = false;
     } catch (error) {
       console.error('Database insert error:', error);
+      setLastDbError(`Write failed: ${error.message}`);
+      setDbBufferLength(dbBufferRef.current.length + bufferToFlush.length);
       
       if (!dbErrorAlertShownRef.current) {
         dbErrorAlertShownRef.current = true;
@@ -1272,6 +1287,27 @@ export default function App() {
               <Text style={styles.databaseNote}>
                 Data saved to: polar_sensor.db
               </Text>
+              
+              <View style={styles.debugSection}>
+                <Text style={styles.debugTitle}>Debug Status:</Text>
+                <Text style={[styles.debugText, dbInitialized ? styles.debugSuccess : styles.debugError]}>
+                  DB Init: {dbInitialized ? '✓ Ready' : '✗ Failed'}
+                </Text>
+                <Text style={styles.debugText}>
+                  Buffer: {dbBufferLength} samples
+                </Text>
+                {lastWriteTime && (
+                  <Text style={styles.debugText}>
+                    Last Write: {lastWriteTime}
+                  </Text>
+                )}
+                {lastDbError && (
+                  <Text style={styles.debugError}>
+                    Error: {lastDbError}
+                  </Text>
+                )}
+              </View>
+              
               <View style={styles.recordingButtonContainer}>
                 <TouchableOpacity
                   style={[styles.recordingButton, isRecording ? styles.stopButton : styles.startButton]}
@@ -1689,6 +1725,36 @@ const styles = StyleSheet.create({
   recordingButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  debugSection: {
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    width: '100%',
+  },
+  debugTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#555',
+    marginBottom: 3,
+    fontFamily: 'monospace',
+  },
+  debugSuccess: {
+    color: '#28a745',
+    fontWeight: '600',
+  },
+  debugError: {
+    color: '#dc3545',
     fontWeight: '600',
   },
 });
