@@ -1371,13 +1371,25 @@ export default function App() {
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[styles.recordingButton, isRecording ? styles.stopButton : styles.startButton]}
+                  style={[
+                    styles.recordingButton, 
+                    isRecording ? styles.stopButton : styles.startButton,
+                    (!dbInitialized || lastDbError !== null) && !isRecording && styles.disabledButton
+                  ]}
                   onPress={toggleRecording}
+                  disabled={(!dbInitialized || lastDbError !== null) && !isRecording}
                 >
                   <Text style={styles.recordingButtonText}>
-                    {isRecording ? '⏹ Stop Recording' : '⏺ Start Recording'}
+                    {isRecording ? '⏹ Stop Recording' : 
+                     (!dbInitialized || lastDbError !== null) ? '⏺ Database Not Ready' : '⏺ Start Recording'}
                   </Text>
                 </TouchableOpacity>
+                
+                {(!dbInitialized || lastDbError !== null) && !isRecording && (
+                  <Text style={styles.warningText}>
+                    ⚠️ {!dbInitialized ? 'Database is initializing...' : 'Database has errors. Run test to verify.'}
+                  </Text>
+                )}
               </View>
             </View>
           </View>
@@ -1796,10 +1808,21 @@ const styles = StyleSheet.create({
   stopButton: {
     backgroundColor: '#dc3545',
   },
+  disabledButton: {
+    backgroundColor: '#9e9e9e',
+    opacity: 0.6,
+  },
   recordingButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  warningText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#ff9800',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   debugSection: {
     marginTop: 12,
