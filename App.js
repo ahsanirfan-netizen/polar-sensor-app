@@ -209,6 +209,58 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isRecording]);
 
+  const testDatabase = async () => {
+    try {
+      if (!dbRef.current) {
+        Alert.alert('Database Test Failed', 'Database not initialized. Wait for initialization to complete.');
+        return;
+      }
+      
+      const testTimestamp = new Date().toISOString();
+      const testData = {
+        timestamp: testTimestamp,
+        ppg: 12345,
+        acc_x: 1.0,
+        acc_y: 2.0,
+        acc_z: 3.0,
+        gyro_x: 10.0,
+        gyro_y: 20.0,
+        gyro_z: 30.0
+      };
+      
+      await dbRef.current.runAsync(
+        'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [testData.timestamp, testData.ppg, testData.acc_x, testData.acc_y, testData.acc_z, testData.gyro_x, testData.gyro_y, testData.gyro_z]
+      );
+      
+      const result = await dbRef.current.getFirstAsync(
+        'SELECT * FROM sensor_readings WHERE timestamp = ? ORDER BY id DESC LIMIT 1',
+        [testTimestamp]
+      );
+      
+      if (result && result.ppg === testData.ppg) {
+        const countResult = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
+        setDbRecordCount(countResult.count);
+        setLastDbError(null);
+        
+        Alert.alert(
+          'Database Test Passed ✓',
+          `Successfully wrote and read test record!\n\nTimestamp: ${testTimestamp}\nPPG: ${result.ppg}\nACC: (${result.acc_x}, ${result.acc_y}, ${result.acc_z})\nGyro: (${result.gyro_x}, ${result.gyro_y}, ${result.gyro_z})\n\nDatabase is working correctly and ready for recording.`
+        );
+      } else {
+        setLastDbError('Test failed: Data mismatch on read');
+        Alert.alert('Database Test Failed', 'Test record was written but could not be read back correctly.');
+      }
+    } catch (error) {
+      console.error('Database test error:', error);
+      setLastDbError(`Test failed: ${error.message}`);
+      Alert.alert(
+        'Database Test Failed',
+        `Error: ${error.message}\n\nThe database is not working correctly. Check the debug status for details.`
+      );
+    }
+  };
+
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
       if (Platform.Version >= 31) {
@@ -1310,6 +1362,15 @@ export default function App() {
               
               <View style={styles.recordingButtonContainer}>
                 <TouchableOpacity
+                  style={styles.testButton}
+                  onPress={testDatabase}
+                >
+                  <Text style={styles.testButtonText}>
+                    🧪 Test Database
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
                   style={[styles.recordingButton, isRecording ? styles.stopButton : styles.startButton]}
                   onPress={toggleRecording}
                 >
@@ -1709,6 +1770,19 @@ const styles = StyleSheet.create({
   recordingButtonContainer: {
     marginTop: 12,
     width: '100%',
+  },
+  testButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+    backgroundColor: '#6c757d',
+    marginBottom: 10,
+  },
+  testButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   recordingButton: {
     paddingVertical: 12,
