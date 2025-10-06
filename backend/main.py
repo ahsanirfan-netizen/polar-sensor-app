@@ -94,7 +94,7 @@ def analyze_sleep():
             raise ValueError('Insufficient data for analysis (minimum 100 samples required)')
         
         df = pd.DataFrame(readings_response.data)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
         
         hr_data = calculate_heart_rate_from_ppg(df)
         
@@ -323,7 +323,7 @@ def prepare_data_for_hypnospy(df):
         acc_df['acc_x']**2 + acc_df['acc_y']**2 + acc_df['acc_z']**2
     )
     
-    acc_df['timestamp'] = pd.to_datetime(acc_df['timestamp'])
+    acc_df['timestamp'] = pd.to_datetime(acc_df['timestamp'], utc=True)
     acc_df = acc_df.sort_values('timestamp')
     
     epoch_duration = pd.Timedelta(seconds=60)
@@ -541,7 +541,7 @@ def analyze_sleep_hypnospy():
             raise ValueError('Insufficient data for HypnosPy analysis (minimum 100 samples required)')
         
         df = pd.DataFrame(readings_response.data)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
         
         sleep_metrics = analyze_sleep_with_hypnospy(df, algorithm=algorithm)
         
