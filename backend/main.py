@@ -30,60 +30,55 @@ def health():
         'version': 'v3.1-debug-endpoint'
     })
 
-@app.route('/debug-analyze', methods=['POST'])
-def debug_analyze():
-    """Debug endpoint that returns detailed error info instead of raising exceptions"""
+@app.route('/debug-inspect/<session_id>', methods=['GET'])
+def debug_inspect(session_id):
+    """Debug endpoint to inspect database structure - NO AUTH for testing"""
     try:
-        data = request.json
-        session_id = data.get('session_id')
-        auth_header = request.headers.get('Authorization')
-        
-        if not session_id:
-            return jsonify({'error': 'session_id is required', 'debug': True}), 400
-        
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Authorization header required', 'debug': True}), 401
-        
-        token = auth_header.split('Bearer ')[1]
-        user_response = supabase.auth.get_user(token)
-        user_id = user_response.user.id
-        
-        # Fetch data
+        # Fetch data using service role (bypasses auth)
         readings_response = supabase.table('sensor_readings') \
-            .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
+            .select('*') \
             .eq('session_id', session_id) \
-            .order('timestamp') \
+            .limit(5) \
             .execute()
         
         if not readings_response.data:
-            return jsonify({'error': 'No data found', 'debug': True}), 404
+            return jsonify({'error': 'No data found for this session', 'session_id': session_id}), 404
         
         # Create DataFrame
         df = pd.DataFrame(readings_response.data)
         
         debug_info = {
-            'total_rows': len(df),
-            'columns': list(df.columns),
-            'sample_data': readings_response.data[0] if readings_response.data else {},
+            'session_id': session_id,
+            'total_rows_in_sample': len(df),
+            'all_columns': list(df.columns),
+            'first_row_sample': readings_response.data[0] if readings_response.data else {},
             'column_types': {col: str(df[col].dtype) for col in df.columns},
             'null_counts': {col: int(df[col].isna().sum()) for col in df.columns}
         }
         
+        # Check timestamp column specifically
         if 'timestamp' in df.columns:
+            debug_info['timestamp_exists'] = True
             debug_info['timestamp_samples'] = df['timestamp'].head(3).tolist()
             try:
-                df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
-                debug_info['timestamp_parse_success'] = True
-                debug_info['timestamp_parse_failures'] = int(df['timestamp'].isna().sum())
+                test_parse = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+                debug_info['timestamp_parseable'] = True
+                debug_info['parse_failures'] = int(test_parse.isna().sum())
             except Exception as e:
                 debug_info['timestamp_parse_error'] = str(e)
         else:
-            debug_info['timestamp_column_missing'] = True
+            debug_info['timestamp_exists'] = False
+            debug_info['WARNING'] = 'timestamp column is missing from database!'
         
-        return jsonify({'status': 'debug_complete', 'debug_info': debug_info}), 200
+        return jsonify(debug_info), 200
         
     except Exception as e:
-        return jsonify({'error': str(e), 'error_type': type(e).__name__, 'debug': True}), 500
+        import traceback
+        return jsonify({
+            'error': str(e), 
+            'error_type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/analyze-sleep', methods=['POST'])
 def analyze_sleep():
