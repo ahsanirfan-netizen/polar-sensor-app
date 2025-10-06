@@ -19,6 +19,28 @@ jobs:
           node-version: '20'
           cache: 'npm'
       
+      - name: Validate Supabase secrets
+        run: |
+          node -e "
+          const url = '${{ secrets.SUPABASE_URL }}';
+          const key = '${{ secrets.SUPABASE_ANON_KEY }}';
+          
+          console.log('🔍 Validating Supabase secrets...');
+          
+          if (!url || url.length < 10) {
+            console.error('❌ SUPABASE_URL is missing or invalid');
+            process.exit(1);
+          }
+          if (!key || key.length < 10) {
+            console.error('❌ SUPABASE_ANON_KEY is missing or invalid');
+            process.exit(1);
+          }
+          
+          console.log('✅ SUPABASE_URL: ' + url.substring(0, 15) + '...' + url.slice(-10));
+          console.log('✅ SUPABASE_ANON_KEY: ' + key.substring(0, 10) + '...' + key.slice(-10));
+          console.log('✅ Secrets validation passed');
+          "
+      
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -34,6 +56,7 @@ jobs:
           export const SUPABASE_URL = "${{ secrets.SUPABASE_URL }}";
           export const SUPABASE_ANON_KEY = "${{ secrets.SUPABASE_ANON_KEY }}";
           EOF
+          echo "✅ Generated env.js with credentials"
       
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -49,6 +72,30 @@ jobs:
           cd android
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon
+      
+      - name: Inspect APK bundle for credentials
+        run: |
+          echo "🔍 Inspecting APK bundle for Supabase credentials..."
+          
+          # Extract the APK
+          unzip -q android/app/build/outputs/apk/release/app-release.apk -d /tmp/apk-inspect
+          
+          # Find and check the main bundle
+          BUNDLE=$(find /tmp/apk-inspect -name "index.android.bundle" | head -n 1)
+          
+          if [ -z "$BUNDLE" ]; then
+            echo "⚠️ Could not find index.android.bundle in APK"
+          else
+            URL_FRAGMENT="${{ secrets.SUPABASE_URL }}"
+            URL_FRAGMENT="${URL_FRAGMENT:0:20}"
+            
+            if grep -q "$URL_FRAGMENT" "$BUNDLE"; then
+              echo "✅ Supabase URL found in bundle"
+            else
+              echo "❌ Supabase URL NOT found in bundle - injection failed!"
+              exit 1
+            fi
+          fi
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
