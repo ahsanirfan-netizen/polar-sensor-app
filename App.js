@@ -28,6 +28,7 @@ import FFT from 'fft.js';
 import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
+import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
 
 const bleManager = new BleManager();
@@ -41,6 +42,7 @@ const PMD_DATA = 'fb005c82-02e7-f387-1cad-8acd2d8df0c8';
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [activeTab, setActiveTab] = useState('sensor');
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -1380,9 +1382,40 @@ export default function App() {
     return <AuthScreen onAuthStateChange={(session) => setSession(session)} />;
   }
 
+  const renderTabBar = () => (
+    <View style={styles.tabBar}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'sensor' && styles.tabActive]}
+        onPress={() => setActiveTab('sensor')}
+      >
+        <Text style={[styles.tabText, activeTab === 'sensor' && styles.tabTextActive]}>
+          📡 Sensor
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'sleep' && styles.tabActive]}
+        onPress={() => setActiveTab('sleep')}
+      >
+        <Text style={[styles.tabText, activeTab === 'sleep' && styles.tabTextActive]}>
+          😴 Sleep
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (activeTab === 'sleep') {
+    return (
+      <View style={styles.container}>
+        {renderTabBar()}
+        <SleepAnalysisScreen />
+      </View>
+    );
+  }
+
   if (connectedDevice || reconnecting) {
     return (
       <View style={styles.container}>
+        {renderTabBar()}
         <ScrollView style={styles.dataContainer}>
           <Text style={styles.title}>Polar Verity Sense Data</Text>
           <Text style={styles.deviceName}>{connectedDevice?.name || lastDeviceRef.current?.name}</Text>
@@ -1668,6 +1701,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
+      {renderTabBar()}
       <Text style={styles.title}>Polar Device Scanner</Text>
       <Text style={styles.subtitle}>Looking for Polar Verity Sense</Text>
       <Text style={styles.userEmail}>👤 {session?.user?.email}</Text>
@@ -2131,5 +2165,31 @@ const styles = StyleSheet.create({
     color: '#757575',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingTop: 50,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: '#007AFF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
