@@ -146,8 +146,110 @@ CREATE TRIGGER update_session_stats_trigger
   FOR EACH ROW
   EXECUTE FUNCTION update_session_stats();
 
+-- 10. Create sleep_analysis table to store HypnosPy processed results
+CREATE TABLE IF NOT EXISTS sleep_analysis (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  
+  -- Core sleep metrics
+  sleep_onset TIMESTAMPTZ,
+  wake_time TIMESTAMPTZ,
+  total_sleep_time_minutes REAL,
+  time_in_bed_minutes REAL,
+  sleep_efficiency_percent REAL,
+  sleep_onset_latency_minutes REAL,
+  wake_after_sleep_onset_minutes REAL,
+  
+  -- Sleep fragmentation
+  number_of_awakenings INTEGER,
+  awakening_index REAL,
+  
+  -- Additional metrics (stored as JSON for flexibility)
+  sleep_stages JSONB,
+  hourly_metrics JSONB,
+  movement_metrics JSONB,
+  hr_metrics JSONB,
+  
+  -- Processing metadata
+  processing_status TEXT DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processing', 'completed', 'error')),
+  processing_error TEXT,
+  processed_at TIMESTAMPTZ,
+  processing_duration_seconds REAL,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. Create indexes for sleep_analysis
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_user_id ON sleep_analysis(user_id);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_session_id ON sleep_analysis(session_id);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_sleep_onset ON sleep_analysis(sleep_onset);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_status ON sleep_analysis(processing_status);
+
+-- 12. Enable RLS on sleep_analysis
+ALTER TABLE sleep_analysis ENABLE ROW LEVEL SECURITY;
+
+-- 13. Create RLS Policies for sleep_analysis table
+CREATE POLICY "Users can view own sleep analysis"
+  ON sleep_analysis FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own sleep analysis"
+  ON sleep_analysis FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own sleep analysis"
+  ON sleep_analysis FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own sleep analysis"
+  ON sleep_analysis FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 14. Function to auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_sleep_analysis_updated_at
+  BEFORE UPDATE ON sleep_analysis
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 15. Validate sleep analysis session ownership (prevent cross-user data corruption)
+CREATE OR REPLACE FUNCTION validate_sleep_analysis_session_ownership()
+RETURNS TRIGGER AS $$
+DECLARE
+  session_owner UUID;
+BEGIN
+  SELECT user_id INTO session_owner FROM sessions WHERE id = NEW.session_id;
+  
+  IF session_owner IS NULL THEN
+    RAISE EXCEPTION 'Session does not exist: %', NEW.session_id;
+  END IF;
+  
+  IF session_owner != NEW.user_id THEN
+    RAISE EXCEPTION 'Cannot attach sleep analysis to another user''s session';
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER validate_sleep_analysis_session_ownership_trigger
+  BEFORE INSERT OR UPDATE ON sleep_analysis
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sleep_analysis_session_ownership();
+
 -- Success! Your Supabase database is now configured for the Polar Sensor App
 -- Next steps:
 -- 1. Verify tables were created: Check Tables tab in Supabase Dashboard
 -- 2. Verify RLS is enabled: Should see 🔒 icon next to table names
--- 3. Test by signing in to the app and syncing data
+-- 3. Run this updated schema to add the sleep_analysis table
+-- 4. Test by signing in to the app and syncing data
