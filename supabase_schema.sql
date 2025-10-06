@@ -247,9 +247,85 @@ CREATE TRIGGER validate_sleep_analysis_session_ownership_trigger
   FOR EACH ROW
   EXECUTE FUNCTION validate_sleep_analysis_session_ownership();
 
--- Success! Your Supabase database is now configured for the Polar Sensor App
+-- 16. Create sleep_analysis_hypnospy table for HypnosPy algorithm results
+CREATE TABLE IF NOT EXISTS sleep_analysis_hypnospy (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  
+  -- Core sleep metrics (same as native algorithm for comparison)
+  sleep_onset TIMESTAMPTZ,
+  wake_time TIMESTAMPTZ,
+  total_sleep_time_minutes REAL,
+  time_in_bed_minutes REAL,
+  sleep_efficiency_percent REAL,
+  sleep_onset_latency_minutes REAL,
+  wake_after_sleep_onset_minutes REAL,
+  
+  -- Sleep fragmentation
+  number_of_awakenings INTEGER,
+  awakening_index REAL,
+  
+  -- HypnosPy-specific fields
+  algorithm_used TEXT, -- 'cole-kripke', 'sadeh', etc.
+  sleep_stages JSONB,
+  hourly_metrics JSONB,
+  movement_metrics JSONB,
+  hr_metrics JSONB,
+  hypnospy_raw_output JSONB, -- Store full HypnosPy output for debugging
+  
+  -- Processing metadata
+  processing_status TEXT DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processing', 'completed', 'error')),
+  processing_error TEXT,
+  processed_at TIMESTAMPTZ,
+  processing_duration_seconds REAL,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. Create indexes for sleep_analysis_hypnospy
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_hypnospy_user_id ON sleep_analysis_hypnospy(user_id);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_hypnospy_session_id ON sleep_analysis_hypnospy(session_id);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_hypnospy_sleep_onset ON sleep_analysis_hypnospy(sleep_onset);
+CREATE INDEX IF NOT EXISTS idx_sleep_analysis_hypnospy_status ON sleep_analysis_hypnospy(processing_status);
+
+-- 18. Enable RLS on sleep_analysis_hypnospy
+ALTER TABLE sleep_analysis_hypnospy ENABLE ROW LEVEL SECURITY;
+
+-- 19. Create RLS Policies for sleep_analysis_hypnospy table
+CREATE POLICY "Users can view own HypnosPy sleep analysis"
+  ON sleep_analysis_hypnospy FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own HypnosPy sleep analysis"
+  ON sleep_analysis_hypnospy FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own HypnosPy sleep analysis"
+  ON sleep_analysis_hypnospy FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own HypnosPy sleep analysis"
+  ON sleep_analysis_hypnospy FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 20. Add updated_at trigger for sleep_analysis_hypnospy
+CREATE TRIGGER update_sleep_analysis_hypnospy_updated_at
+  BEFORE UPDATE ON sleep_analysis_hypnospy
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 21. Validate HypnosPy sleep analysis session ownership
+CREATE TRIGGER validate_sleep_analysis_hypnospy_session_ownership_trigger
+  BEFORE INSERT OR UPDATE ON sleep_analysis_hypnospy
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sleep_analysis_session_ownership();
+
+-- Success! Your Supabase database is now configured for the Polar Sensor App with dual sleep analysis
 -- Next steps:
 -- 1. Verify tables were created: Check Tables tab in Supabase Dashboard
 -- 2. Verify RLS is enabled: Should see 🔒 icon next to table names
--- 3. Run this updated schema to add the sleep_analysis table
+-- 3. Run this updated schema to add both sleep_analysis tables (native + HypnosPy)
 -- 4. Test by signing in to the app and syncing data

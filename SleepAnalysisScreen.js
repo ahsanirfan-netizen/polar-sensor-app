@@ -21,10 +21,12 @@ try {
 
 export default function SleepAnalysisScreen() {
   const [sessions, setSessions] = useState([]);
-  const [analyses, setAnalyses] = useState({});
+  const [nativeAnalyses, setNativeAnalyses] = useState({});
+  const [hypnospyAnalyses, setHypnospyAnalyses] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingSessionId, setProcessingSessionId] = useState(null);
+  const [selectedAlgorithms, setSelectedAlgorithms] = useState({});
 
   useEffect(() => {
     loadSessions();
@@ -47,17 +49,29 @@ export default function SleepAnalysisScreen() {
 
       setSessions(sessionsData || []);
 
-      const { data: analysesData, error: analysesError } = await supabase
+      const { data: nativeAnalysesData, error: nativeError } = await supabase
         .from('sleep_analysis')
         .select('*');
 
-      if (analysesError) throw analysesError;
+      if (nativeError) throw nativeError;
 
-      const analysisMap = {};
-      (analysesData || []).forEach(analysis => {
-        analysisMap[analysis.session_id] = analysis;
+      const { data: hypnospyAnalysesData, error: hypnospyError } = await supabase
+        .from('sleep_analysis_hypnospy')
+        .select('*');
+
+      if (hypnospyError) throw hypnospyError;
+
+      const nativeMap = {};
+      (nativeAnalysesData || []).forEach(analysis => {
+        nativeMap[analysis.session_id] = analysis;
       });
-      setAnalyses(analysisMap);
+      setNativeAnalyses(nativeMap);
+
+      const hypnospyMap = {};
+      (hypnospyAnalysesData || []).forEach(analysis => {
+        hypnospyMap[analysis.session_id] = analysis;
+      });
+      setHypnospyAnalyses(hypnospyMap);
 
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -73,7 +87,14 @@ export default function SleepAnalysisScreen() {
     loadSessions();
   };
 
-  const analyzeSleep = async (sessionId) => {
+  const setSelectedAlgorithm = (sessionId, algorithm) => {
+    setSelectedAlgorithms(prev => ({
+      ...prev,
+      [sessionId]: algorithm
+    }));
+  };
+
+  const analyzeSleep = async (sessionId, algorithm) => {
     if (!SLEEP_API_URL) {
       Alert.alert(
         'Configuration Error',
@@ -92,13 +113,18 @@ export default function SleepAnalysisScreen() {
         return;
       }
 
-      const response = await fetch(`${SLEEP_API_URL}/analyze-sleep`, {
+      const endpoint = algorithm === 'hypnospy' ? '/analyze-sleep-hypnospy' : '/analyze-sleep';
+
+      const response = await fetch(`${SLEEP_API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ session_id: sessionId }),
+        body: JSON.stringify({ 
+          session_id: sessionId,
+          algorithm: algorithm === 'hypnospy' ? 'cole-kripke' : undefined
+        }),
       });
 
       const result = await response.json();
@@ -107,7 +133,9 @@ export default function SleepAnalysisScreen() {
         if (result.status === 'completed') {
           Alert.alert(
             'Analysis Complete!',
-            result.cached ? 'Loaded existing analysis.' : 'Sleep analysis completed successfully!'
+            result.cached 
+              ? `Loaded existing ${algorithm === 'hypnospy' ? 'HypnosPy' : 'native'} analysis.` 
+              : `${algorithm === 'hypnospy' ? 'HypnosPy' : 'Native'} sleep analysis completed successfully!`
           );
           loadSessions();
         } else if (result.status === 'processing') {
@@ -137,11 +165,86 @@ export default function SleepAnalysisScreen() {
     return `${hours}h ${mins}m`;
   };
 
+  const renderAnalysisResults = (analysis, title, algorithmType) => {
+    if (!analysis || analysis.processing_status !== 'completed') return null;
+
+    return (
+      <View style={styles.analysisSection}>
+        <Text style={[styles.sectionTitle, algorithmType === 'hypnospy' && styles.hypnospyTitle]}>
+          {title}
+        </Text>
+        
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Sleep Time</Text>
+            <Text style={styles.metricValue}>
+              {formatDuration(analysis.total_sleep_time_minutes)}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Efficiency</Text>
+            <Text style={styles.metricValue}>
+              {analysis.sleep_efficiency_percent?.toFixed(1) || 0}%
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Sleep Onset</Text>
+            <Text style={styles.metricValueSmall}>
+              {analysis.sleep_onset ? new Date(analysis.sleep_onset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Wake Time</Text>
+            <Text style={styles.metricValueSmall}>
+              {analysis.wake_time ? new Date(analysis.wake_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Awakenings</Text>
+            <Text style={styles.metricValue}>
+              {analysis.number_of_awakenings || 0}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>WASO</Text>
+            <Text style={styles.metricValue}>
+              {formatDuration(analysis.wake_after_sleep_onset_minutes)}
+            </Text>
+          </View>
+        </View>
+
+        {analysis.hr_metrics?.avg_hr && (
+          <View style={styles.hrSection}>
+            <Text style={styles.hrLabel}>Avg HR: {analysis.hr_metrics.avg_hr.toFixed(0)} bpm</Text>
+            <Text style={styles.hrLabel}>
+              Range: {analysis.hr_metrics.min_hr?.toFixed(0)} - {analysis.hr_metrics.max_hr?.toFixed(0)} bpm
+            </Text>
+          </View>
+        )}
+
+        {algorithmType === 'hypnospy' && analysis.algorithm_used && (
+          <Text style={styles.algorithmNote}>Algorithm: {analysis.algorithm_used}</Text>
+        )}
+      </View>
+    );
+  };
+
   const renderSessionCard = (session) => {
-    const analysis = analyses[session.id];
-    const hasAnalysis = analysis && analysis.processing_status === 'completed';
-    const isProcessing = analysis?.processing_status === 'processing' || processingSessionId === session.id;
-    const hasError = analysis?.processing_status === 'error';
+    const nativeAnalysis = nativeAnalyses[session.id];
+    const hypnospyAnalysis = hypnospyAnalyses[session.id];
+    const selectedAlgorithm = selectedAlgorithms[session.id] || 'native';
+    const isProcessing = processingSessionId === session.id;
+
+    const hasNativeAnalysis = nativeAnalysis && nativeAnalysis.processing_status === 'completed';
+    const hasHypnospyAnalysis = hypnospyAnalysis && hypnospyAnalysis.processing_status === 'completed';
+    const hasNativeError = nativeAnalysis?.processing_status === 'error';
+    const hasHypnospyError = hypnospyAnalysis?.processing_status === 'error';
 
     return (
       <View key={session.id} style={styles.card}>
@@ -163,80 +266,54 @@ export default function SleepAnalysisScreen() {
           </Text>
         </View>
 
-        {hasAnalysis && (
-          <View style={styles.analysisSection}>
-            <Text style={styles.sectionTitle}>Sleep Analysis</Text>
-            
-            <View style={styles.metricRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Sleep Time</Text>
-                <Text style={styles.metricValue}>
-                  {formatDuration(analysis.total_sleep_time_minutes)}
-                </Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Efficiency</Text>
-                <Text style={styles.metricValue}>
-                  {analysis.sleep_efficiency_percent?.toFixed(1) || 0}%
-                </Text>
-              </View>
-            </View>
+        {hasNativeAnalysis && renderAnalysisResults(nativeAnalysis, '📊 Native Algorithm Results', 'native')}
+        {hasHypnospyAnalysis && renderAnalysisResults(hypnospyAnalysis, '🧪 HypnosPy Algorithm Results', 'hypnospy')}
 
-            <View style={styles.metricRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Sleep Onset</Text>
-                <Text style={styles.metricValueSmall}>
-                  {analysis.sleep_onset ? new Date(analysis.sleep_onset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Wake Time</Text>
-                <Text style={styles.metricValueSmall}>
-                  {analysis.wake_time ? new Date(analysis.wake_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.metricRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Awakenings</Text>
-                <Text style={styles.metricValue}>
-                  {analysis.number_of_awakenings || 0}
-                </Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>WASO</Text>
-                <Text style={styles.metricValue}>
-                  {formatDuration(analysis.wake_after_sleep_onset_minutes)}
-                </Text>
-              </View>
-            </View>
-
-            {analysis.hr_metrics?.avg_hr && (
-              <View style={styles.hrSection}>
-                <Text style={styles.hrLabel}>Avg HR: {analysis.hr_metrics.avg_hr.toFixed(0)} bpm</Text>
-                <Text style={styles.hrLabel}>
-                  Range: {analysis.hr_metrics.min_hr?.toFixed(0)} - {analysis.hr_metrics.max_hr?.toFixed(0)} bpm
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {hasError && (
+        {hasNativeError && (
           <View style={styles.errorSection}>
-            <Text style={styles.errorText}>⚠️ Analysis Error</Text>
-            <Text style={styles.errorDetail}>{analysis.processing_error}</Text>
+            <Text style={styles.errorText}>⚠️ Native Analysis Error</Text>
+            <Text style={styles.errorDetail}>{nativeAnalysis.processing_error}</Text>
           </View>
         )}
+
+        {hasHypnospyError && (
+          <View style={styles.errorSection}>
+            <Text style={styles.errorText}>⚠️ HypnosPy Analysis Error</Text>
+            <Text style={styles.errorDetail}>{hypnospyAnalysis.processing_error}</Text>
+          </View>
+        )}
+
+        <View style={styles.algorithmSelector}>
+          <Text style={styles.selectorLabel}>Select Algorithm:</Text>
+          <View style={styles.radioGroup}>
+            <TouchableOpacity
+              style={styles.radioOption}
+              onPress={() => setSelectedAlgorithm(session.id, 'native')}
+            >
+              <View style={[styles.radio, selectedAlgorithm === 'native' && styles.radioSelected]}>
+                {selectedAlgorithm === 'native' && <View style={styles.radioDot} />}
+              </View>
+              <Text style={styles.radioLabel}>Native Algorithm</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.radioOption}
+              onPress={() => setSelectedAlgorithm(session.id, 'hypnospy')}
+            >
+              <View style={[styles.radio, selectedAlgorithm === 'hypnospy' && styles.radioSelected]}>
+                {selectedAlgorithm === 'hypnospy' && <View style={styles.radioDot} />}
+              </View>
+              <Text style={styles.radioLabel}>HypnosPy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <TouchableOpacity
           style={[
             styles.button,
             isProcessing && styles.buttonDisabled,
-            hasAnalysis && styles.buttonSuccess,
           ]}
-          onPress={() => analyzeSleep(session.id)}
+          onPress={() => analyzeSleep(session.id, selectedAlgorithm)}
           disabled={isProcessing}
         >
           {isProcessing ? (
@@ -244,10 +321,10 @@ export default function SleepAnalysisScreen() {
               <ActivityIndicator color="#fff" />
               <Text style={styles.buttonText}>  Processing...</Text>
             </View>
-          ) : hasAnalysis ? (
-            <Text style={styles.buttonText}>Refresh Analysis</Text>
           ) : (
-            <Text style={styles.buttonText}>Analyze Sleep</Text>
+            <Text style={styles.buttonText}>
+              Analyze with {selectedAlgorithm === 'hypnospy' ? 'HypnosPy' : 'Native Algorithm'}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -291,7 +368,7 @@ export default function SleepAnalysisScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Sleep Analysis</Text>
         <Text style={styles.subtitle}>
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''} recorded
+          {sessions.length} session{sessions.length !== 1 ? 's' : ''} • Dual Algorithm Comparison
         </Text>
       </View>
 
@@ -299,7 +376,7 @@ export default function SleepAnalysisScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Pull to refresh • Sleep analysis powered by PPG + ACC data
+          Pull to refresh • Native vs HypnosPy Algorithm Comparison
         </Text>
       </View>
     </ScrollView>
@@ -371,7 +448,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   analysisSection: {
-    marginTop: 10,
+    marginTop: 15,
     paddingTop: 15,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
@@ -381,6 +458,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#007AFF',
     marginBottom: 12,
+  },
+  hypnospyTitle: {
+    color: '#34C759',
   },
   metricRow: {
     flexDirection: 'row',
@@ -423,8 +503,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
+  algorithmNote: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
+  },
   errorSection: {
-    marginTop: 10,
+    marginTop: 15,
     padding: 12,
     backgroundColor: '#fff3cd',
     borderRadius: 8,
@@ -441,15 +527,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#856404',
   },
+  algorithmSelector: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  selectorLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  radioSelected: {
+    borderColor: '#007AFF',
+  },
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#007AFF',
+  },
+  radioLabel: {
+    fontSize: 14,
+    color: '#333',
+  },
   button: {
     backgroundColor: '#007AFF',
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 15,
-  },
-  buttonSuccess: {
-    backgroundColor: '#34C759',
   },
   buttonDisabled: {
     backgroundColor: '#999',
