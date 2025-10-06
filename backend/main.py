@@ -27,7 +27,7 @@ def health():
     return jsonify({
         'status': 'healthy', 
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v2.0-detailed-diagnostics'
+        'version': 'v3.0-comprehensive-logging'
     })
 
 @app.route('/test-error', methods=['GET'])
@@ -173,14 +173,19 @@ def analyze_sleep():
         return jsonify({'error': error_msg}), 500
 
 def calculate_heart_rate_from_ppg(df):
+    print(f'[PPG] Starting HR calculation. Input columns: {list(df.columns)}, rows: {len(df)}')
     try:
         ppg_df = df[df['ppg'].notna()].copy()
+        print(f'[PPG] After PPG filter. Columns: {list(ppg_df.columns)}, rows: {len(ppg_df)}')
         
         if len(ppg_df) == 0:
+            print('[PPG] No PPG data, returning empty DataFrame')
             return pd.DataFrame(columns=['timestamp', 'heart_rate'])
         
         if 'timestamp' not in ppg_df.columns:
-            raise ValueError(f'timestamp missing in PPG data. Columns: {list(ppg_df.columns)}. Input df columns: {list(df.columns)}. PPG rows: {len(ppg_df)}')
+            error_msg = f'timestamp missing in PPG data. Columns: {list(ppg_df.columns)}. Input df columns: {list(df.columns)}. PPG rows: {len(ppg_df)}'
+            print(f'[PPG ERROR] {error_msg}')
+            raise ValueError(error_msg)
         
         hr_records = []
         window_size = 260
@@ -206,24 +211,40 @@ def calculate_heart_rate_from_ppg(df):
                 heart_rate = (sampling_rate / avg_interval_samples) * 60
                 
                 if 30 <= heart_rate <= 200:
-                    hr_records.append({
-                        'timestamp': window.iloc[window_size//2]['timestamp'],
-                        'heart_rate': heart_rate
-                    })
+                    try:
+                        ts = window.iloc[window_size//2]['timestamp']
+                        hr_records.append({
+                            'timestamp': ts,
+                            'heart_rate': heart_rate
+                        })
+                    except KeyError as e:
+                        print(f'[PPG ERROR IN LOOP] KeyError accessing timestamp in window: {str(e)}. Window columns: {list(window.columns)}')
+                        raise ValueError(f'KeyError in PPG loop: {str(e)}. Window columns: {list(window.columns)}')
         
+        print(f'[PPG] Completed. Generated {len(hr_records)} HR records')
         return pd.DataFrame(hr_records)
     except KeyError as e:
-        raise ValueError(f'KeyError in calculate_heart_rate_from_ppg: {str(e)}. Input columns: {list(df.columns)}. PPG data shape: {ppg_df.shape if "ppg_df" in locals() else "not created"}')
+        error_msg = f'KeyError in calculate_heart_rate_from_ppg: {str(e)}. Input columns: {list(df.columns)}. PPG data shape: {ppg_df.shape if "ppg_df" in locals() else "not created"}'
+        print(f'[PPG CAUGHT KEYERROR] {error_msg}')
+        raise ValueError(error_msg)
+    except Exception as e:
+        print(f'[PPG UNEXPECTED ERROR] {type(e).__name__}: {str(e)}')
+        raise
 
 def calculate_activity_metrics(df):
+    print(f'[ACC] Starting activity calculation. Input columns: {list(df.columns)}, rows: {len(df)}')
     try:
         acc_df = df[(df['acc_x'].notna()) & (df['acc_y'].notna()) & (df['acc_z'].notna())].copy()
+        print(f'[ACC] After ACC filter. Columns: {list(acc_df.columns)}, rows: {len(acc_df)}')
         
         if len(acc_df) == 0:
+            print('[ACC] No accelerometer data, returning empty DataFrame')
             return pd.DataFrame(columns=['timestamp', 'activity_magnitude', 'movement_intensity'])
         
         if 'timestamp' not in acc_df.columns:
-            raise ValueError(f'timestamp missing in accelerometer data. Columns: {list(acc_df.columns)}. Input df columns: {list(df.columns)}. ACC rows: {len(acc_df)}')
+            error_msg = f'timestamp missing in accelerometer data. Columns: {list(acc_df.columns)}. Input df columns: {list(df.columns)}. ACC rows: {len(acc_df)}'
+            print(f'[ACC ERROR] {error_msg}')
+            raise ValueError(error_msg)
         
         acc_df['activity_magnitude'] = np.sqrt(
             acc_df['acc_x']**2 + acc_df['acc_y']**2 + acc_df['acc_z']**2
@@ -241,15 +262,26 @@ def calculate_activity_metrics(df):
             std_magnitude = window['activity_magnitude'].std()
             movement_count = (window['activity_magnitude'] > avg_magnitude + std_magnitude).sum()
             
-            activity_records.append({
-                'timestamp': window.iloc[window_size_samples//2]['timestamp'],
-                'activity_magnitude': avg_magnitude,
-                'movement_intensity': movement_count
-            })
+            try:
+                ts = window.iloc[window_size_samples//2]['timestamp']
+                activity_records.append({
+                    'timestamp': ts,
+                    'activity_magnitude': avg_magnitude,
+                    'movement_intensity': movement_count
+                })
+            except KeyError as e:
+                print(f'[ACC ERROR IN LOOP] KeyError accessing timestamp in window: {str(e)}. Window columns: {list(window.columns)}')
+                raise ValueError(f'KeyError in ACC loop: {str(e)}. Window columns: {list(window.columns)}')
         
+        print(f'[ACC] Completed. Generated {len(activity_records)} activity records')
         return pd.DataFrame(activity_records)
     except KeyError as e:
-        raise ValueError(f'KeyError in calculate_activity_metrics: {str(e)}. Input columns: {list(df.columns)}. ACC data shape: {acc_df.shape if "acc_df" in locals() else "not created"}')
+        error_msg = f'KeyError in calculate_activity_metrics: {str(e)}. Input columns: {list(df.columns)}. ACC data shape: {acc_df.shape if "acc_df" in locals() else "not created"}'
+        print(f'[ACC CAUGHT KEYERROR] {error_msg}')
+        raise ValueError(error_msg)
+    except Exception as e:
+        print(f'[ACC UNEXPECTED ERROR] {type(e).__name__}: {str(e)}')
+        raise
 
 def analyze_sleep_with_simple_algorithm(df):
     if len(df) < 10:
