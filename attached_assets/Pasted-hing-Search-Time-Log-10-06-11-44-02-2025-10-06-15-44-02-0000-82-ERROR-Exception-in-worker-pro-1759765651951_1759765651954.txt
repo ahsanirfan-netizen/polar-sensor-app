@@ -1,0 +1,72 @@
+hing
+Search
+Time
+Log
+10-06 11:44:02
+[2025-10-06 15:44:02 +0000] [82] [ERROR] Exception in worker process
+10-06 11:46:48
+[2025-10-06 15:46:48 +0000] [57] [ERROR] Worker (pid:61) was sent SIGTERM!
+10-06 11:46:48
+[2025-10-06 15:46:48 +0000] [57] [ERROR] Shutting down: Master
+10-06 11:46:48
+[2025-10-06 15:46:48 +0000] [57] [ERROR] Reason: Worker failed to boot.
+10-06 11:46:48
+command finished with error [bash -c cd backend && gunicorn -b 0.0.0.0:8081 --workers 2 main:app]: exit status 3
+10-06 11:46:49
+[2025-10-06 15:46:49 +0000] [68] [INFO] Starting gunicorn 23.0.0
+10-06 11:46:49
+[2025-10-06 15:46:49 +0000] [68] [INFO] Listening at: http://0.0.0.0:8081 (68)
+10-06 11:46:49
+[2025-10-06 15:46:49 +0000] [68] [INFO] Using worker: sync
+10-06 11:46:49
+[2025-10-06 15:46:49 +0000] [72] [INFO] Booting worker with pid: 72
+10-06 11:46:49
+[2025-10-06 15:46:49 +0000] [73] [INFO] Booting worker with pid: 73
+10-06 11:47:04
+[2025-10-06 15:47:04 +0000] [72] [ERROR] Exception in worker process
+10-06 11:47:04
+Traceback (most recent call last):
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/arbiter.py", line 608, in spawn_worker
+10-06 11:47:04
+worker.init_process()
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/workers/base.py", line 135, in init_process
+10-06 11:47:04
+self.load_wsgi()
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/workers/base.py", line 147, in load_wsgi
+10-06 11:47:04
+self.wsgi = self.app.wsgi()
+10-06 11:47:04
+^^^^^^^^^^^^^^^
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/base.py", line 66, in wsgi
+10-06 11:47:04
+self.callable = self.load()
+10-06 11:47:04
+^^^^^^^^^^^
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+10-06 11:47:04
+return self.load_wsgiapp()
+10-06 11:47:04
+^^^^^^^^^^^^^^^^^^^
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+10-06 11:47:04
+return util.import_app(self.app_uri)
+10-06 11:47:04
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+10-06 11:47:04
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/util.py", line 370, in import_app
+10-06 11:47:04
+mod = importlib.import_module(module)
+10-06 11:47:04
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+10-06 11:47:04
+File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/importlib/__init__.py", line 126, in import_module
+
+Wrap
+
+Colors
