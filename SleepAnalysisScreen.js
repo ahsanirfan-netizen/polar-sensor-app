@@ -127,7 +127,24 @@ export default function SleepAnalysisScreen() {
         }),
       });
 
-      const result = await response.json();
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type');
+      
+      let result;
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // Got HTML or other non-JSON response - show raw text
+        const rawText = await response.text();
+        const preview = rawText.length > 500 ? rawText.substring(0, 500) + '...' : rawText;
+        
+        Alert.alert(
+          'Backend Error (Not JSON)',
+          `Status: ${response.status}\nContent-Type: ${contentType}\n\nResponse:\n${preview}`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
       if (response.ok) {
         if (result.status === 'completed') {
