@@ -255,6 +255,9 @@ export default function SleepAnalysisScreen() {
           <Text style={styles.sessionDate}>
             {formatDate(session.start_time)}
           </Text>
+          <Text style={styles.sessionId}>
+            Session ID: {session.id}
+          </Text>
         </View>
 
         <View style={styles.sessionStats}>
@@ -437,6 +440,12 @@ const styles = StyleSheet.create({
   sessionDate: {
     fontSize: 14,
     color: '#666',
+  },
+  sessionId: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
+    fontFamily: 'monospace',
   },
   sessionStats: {
     flexDirection: 'row',
