@@ -1,6 +1,7 @@
 Flask==3.1.0
 Flask-CORS==5.0.0
 hypnospy==0.0.3
+h5py==3.11.0
 CosinorPy==3.1
 pandas==2.2.3
 numpy==1.24.3
