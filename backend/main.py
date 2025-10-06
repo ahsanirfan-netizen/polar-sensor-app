@@ -27,7 +27,7 @@ def health():
     return jsonify({
         'status': 'healthy', 
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v3.1-debug-endpoint'
+        'version': 'v3.3-handle-empty-dataframes'
     })
 
 @app.route('/debug-inspect/<session_id>', methods=['GET'])
@@ -77,6 +77,121 @@ def debug_inspect(session_id):
         return jsonify({
             'error': str(e), 
             'error_type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/debug-analyze/<session_id>', methods=['GET'])
+def debug_analyze(session_id):
+    """Debug endpoint that runs full analysis and returns detailed error info - NO AUTH"""
+    import traceback
+    
+    debug_log = []
+    
+    try:
+        debug_log.append(f"Starting debug analysis for session: {session_id}")
+        
+        # Step 1: Fetch data
+        debug_log.append("Step 1: Fetching sensor readings from database...")
+        readings_response = supabase.table('sensor_readings') \
+            .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
+            .eq('session_id', session_id) \
+            .order('timestamp') \
+            .execute()
+        
+        if not readings_response.data:
+            return jsonify({
+                'error': 'No data found',
+                'session_id': session_id,
+                'debug_log': debug_log
+            }), 404
+        
+        debug_log.append(f"Fetched {len(readings_response.data)} rows from database")
+        
+        # Step 2: Create DataFrame
+        debug_log.append("Step 2: Creating DataFrame...")
+        df = pd.DataFrame(readings_response.data)
+        debug_log.append(f"DataFrame created with {len(df)} rows and columns: {list(df.columns)}")
+        debug_log.append(f"Null counts: {df.isna().sum().to_dict()}")
+        
+        # Step 3: Parse timestamps
+        debug_log.append("Step 3: Parsing timestamps...")
+        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+        debug_log.append(f"Timestamps parsed. Failed to parse: {df['timestamp'].isna().sum()} rows")
+        
+        # Step 4: Calculate HR from PPG
+        debug_log.append("Step 4: Calculating heart rate from PPG...")
+        try:
+            hr_data = calculate_heart_rate_from_ppg(df)
+            debug_log.append(f"HR calculation completed. Generated {len(hr_data)} HR records")
+            debug_log.append(f"HR data columns: {list(hr_data.columns) if len(hr_data) > 0 else 'empty'}")
+        except Exception as hr_error:
+            debug_log.append(f"HR calculation FAILED: {type(hr_error).__name__}: {str(hr_error)}")
+            raise
+        
+        # Step 5: Calculate activity metrics
+        debug_log.append("Step 5: Calculating activity metrics...")
+        try:
+            activity_data = calculate_activity_metrics(df)
+            debug_log.append(f"Activity calculation completed. Generated {len(activity_data)} activity records")
+            debug_log.append(f"Activity data columns: {list(activity_data.columns) if len(activity_data) > 0 else 'empty'}")
+        except Exception as activity_error:
+            debug_log.append(f"Activity calculation FAILED: {type(activity_error).__name__}: {str(activity_error)}")
+            raise
+        
+        # Step 6: Merge data
+        debug_log.append("Step 6: Merging HR and activity data...")
+        try:
+            # Handle empty DataFrames from insufficient sensor data
+            if len(hr_data) == 0 and len(activity_data) == 0:
+                debug_log.append("ERROR: Both HR and activity data are empty - insufficient sensor data")
+                raise ValueError('Insufficient sensor data: No heart rate or activity data could be calculated. This session may contain mostly null values.')
+            elif len(activity_data) == 0:
+                debug_log.append("Activity data empty - using HR data only with zero activity values")
+                merged_data = hr_data.copy()
+                merged_data['activity_magnitude'] = 0
+                merged_data['movement_intensity'] = 0
+            elif len(hr_data) == 0:
+                debug_log.append("HR data empty - using activity data only with null heart rate")
+                merged_data = activity_data.copy()
+                merged_data['heart_rate'] = None
+            else:
+                debug_log.append("Both datasets have data - performing merge_asof")
+                merged_data = pd.merge_asof(
+                    activity_data.sort_values('timestamp'),
+                    hr_data.sort_values('timestamp'),
+                    on='timestamp',
+                    direction='nearest',
+                    tolerance=pd.Timedelta('30s')
+                )
+            debug_log.append(f"Merge completed. Result has {len(merged_data)} rows")
+        except Exception as merge_error:
+            debug_log.append(f"Merge FAILED: {type(merge_error).__name__}: {str(merge_error)}")
+            raise
+        
+        # Step 7: Analyze sleep
+        debug_log.append("Step 7: Running sleep analysis algorithm...")
+        try:
+            sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data)
+            debug_log.append(f"Sleep analysis completed successfully")
+            debug_log.append(f"Sleep metrics: {sleep_metrics}")
+        except Exception as sleep_error:
+            debug_log.append(f"Sleep analysis FAILED: {type(sleep_error).__name__}: {str(sleep_error)}")
+            raise
+        
+        return jsonify({
+            'status': 'success',
+            'session_id': session_id,
+            'debug_log': debug_log,
+            'sleep_metrics': sleep_metrics
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'session_id': session_id,
+            'error_type': type(e).__name__,
+            'error_message': str(e),
+            'debug_log': debug_log,
             'traceback': traceback.format_exc()
         }), 500
 
@@ -172,13 +287,27 @@ def analyze_sleep():
         
         activity_data = calculate_activity_metrics(df)
         
-        merged_data = pd.merge_asof(
-            activity_data.sort_values('timestamp'),
-            hr_data.sort_values('timestamp'),
-            on='timestamp',
-            direction='nearest',
-            tolerance=pd.Timedelta('30s')
-        )
+        # Handle empty DataFrames from insufficient sensor data
+        if len(hr_data) == 0 and len(activity_data) == 0:
+            raise ValueError('Insufficient sensor data: No heart rate or activity data could be calculated. This session may contain mostly null values.')
+        elif len(activity_data) == 0:
+            # Use HR data only
+            merged_data = hr_data.copy()
+            merged_data['activity_magnitude'] = 0
+            merged_data['movement_intensity'] = 0
+        elif len(hr_data) == 0:
+            # Use activity data only
+            merged_data = activity_data.copy()
+            merged_data['heart_rate'] = None
+        else:
+            # Both have data, merge normally
+            merged_data = pd.merge_asof(
+                activity_data.sort_values('timestamp'),
+                hr_data.sort_values('timestamp'),
+                on='timestamp',
+                direction='nearest',
+                tolerance=pd.Timedelta('30s')
+            )
         
         sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data)
         
