@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -10,25 +11,76 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 from hypnospy import Wearable
 from hypnospy.analysis import SleepWakeAnalysis
+from collections import deque
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
+# In-memory log storage (last 200 lines)
+log_buffer = deque(maxlen=200)
+
+class BufferHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        log_buffer.append(log_entry)
+
+# Setup logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Add buffer handler
+buffer_handler = BufferHandler()
+buffer_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+logger.addHandler(buffer_handler)
+
+# Also keep console output
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+logger.addHandler(console_handler)
+
+logger.info("Starting backend server...")
+logger.info(f"Loading environment variables...")
+
 supabase_url = os.getenv('SUPABASE_URL')
 supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+
+logger.info(f"SUPABASE_URL: {'SET' if supabase_url else 'MISSING'}")
+logger.info(f"SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'MISSING'}")
+
+if not supabase_url:
+    logger.error("SUPABASE_URL environment variable is missing!")
+    raise ValueError("SUPABASE_URL environment variable is required")
 if not supabase_key:
+    logger.error("SUPABASE_SERVICE_ROLE_KEY environment variable is missing!")
     raise ValueError("SUPABASE_SERVICE_ROLE_KEY environment variable is required")
-supabase: Client = create_client(supabase_url, supabase_key)
+
+try:
+    supabase: Client = create_client(supabase_url, supabase_key)
+    logger.info("Supabase client created successfully")
+except Exception as e:
+    logger.error(f"Failed to create Supabase client: {e}")
+    raise
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
         'status': 'healthy', 
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v3.3-handle-empty-dataframes'
+        'version': 'v3.4-with-logs-endpoint'
     })
+
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    """Return recent server logs in plain text"""
+    lines = request.args.get('lines', 100, type=int)
+    lines = min(lines, 200)  # Cap at 200
+    
+    recent_logs = list(log_buffer)[-lines:]
+    log_text = '\n'.join(recent_logs)
+    
+    return log_text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 @app.route('/debug-inspect/<session_id>', methods=['GET'])
 def debug_inspect(session_id):
