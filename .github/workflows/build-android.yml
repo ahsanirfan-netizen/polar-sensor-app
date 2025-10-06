@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     
     steps:
       - name: Checkout code
@@ -30,6 +27,13 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+      
+      - name: Generate env.js with Supabase credentials
+        run: |
+          cat > env.js << 'EOF'
+          export const SUPABASE_URL = "${{ secrets.SUPABASE_URL }}";
+          export const SUPABASE_ANON_KEY = "${{ secrets.SUPABASE_ANON_KEY }}";
+          EOF
       
       - name: Setup Expo
         uses: expo/expo-github-action@v8

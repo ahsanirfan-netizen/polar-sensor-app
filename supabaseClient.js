@@ -1,13 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
+
+let supabaseUrl, supabaseAnonKey;
+
+try {
+  const envModule = require('./env.js');
+  supabaseUrl = envModule.SUPABASE_URL;
+  supabaseAnonKey = envModule.SUPABASE_ANON_KEY;
+} catch (error) {
+  supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+}
 
 let supabase = null;
 
 try {
-  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-
   if (!supabaseUrl || !supabaseAnonKey) {
     console.log('⚠️ Supabase credentials missing. Cloud sync features will be disabled.');
     console.log('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
