@@ -24,7 +24,20 @@ supabase: Client = create_client(supabase_url, supabase_key)
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})
+    return jsonify({
+        'status': 'healthy', 
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'version': 'v2.0-detailed-diagnostics'
+    })
+
+@app.route('/test-error', methods=['GET'])
+def test_error():
+    try:
+        df = pd.DataFrame({'data': [1, 2, 3]})
+        # This will cause a KeyError
+        value = df['timestamp']
+    except KeyError as e:
+        raise ValueError(f'Test KeyError caught successfully: {str(e)}. Columns: {list(df.columns)}')
 
 @app.route('/analyze-sleep', methods=['POST'])
 def analyze_sleep():
