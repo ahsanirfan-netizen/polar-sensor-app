@@ -34,5 +34,6 @@ externalPort = 80
 channel = "stable-25_05"
 
 [deployment]
-deploymentTarget = "gce"
-run = ["sh", "-c", "gunicorn --bind=0.0.0.0:5000 --reuse-port -w 2 backend.main:app"]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd backend && gunicorn -b 0.0.0.0:5000 --workers 2 main:app"]
+build = ["bash", "-c", "cd backend && pip install -r requirements.txt"]
