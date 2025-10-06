@@ -1,9 +1,14 @@
 Flask==3.1.0
 Flask-CORS==5.0.0
 hypnospy==0.0.3
+CosinorPy==3.1
 pandas==2.2.3
 numpy==1.24.3
 scipy==1.14.1
+matplotlib==3.7.1
+statsmodels==0.14.0
+openpyxl==3.1.2
+scikit-optimize==0.9.0
 supabase==2.21.1
 python-dotenv==1.0.1
 gunicorn==23.0.0
