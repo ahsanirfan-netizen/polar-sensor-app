@@ -15,7 +15,9 @@ app = Flask(__name__)
 CORS(app)
 
 supabase_url = os.getenv('SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_KEY')
+supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+if not supabase_key:
+    raise ValueError("SUPABASE_SERVICE_ROLE_KEY environment variable is required")
 supabase: Client = create_client(supabase_url, supabase_key)
 
 @app.route('/health', methods=['GET'])

@@ -32,3 +32,7 @@ externalPort = 80
 
 [nix]
 channel = "stable-25_05"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "-w", "2", "backend.main:app"]
