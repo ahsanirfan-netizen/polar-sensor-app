@@ -1,0 +1,5 @@
+run = "cd backend && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 main:app"
+entrypoint = "backend/main.py"
+
+[deployment]
+run = ["sh", "-c", "cd backend && gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 300 main:app"]

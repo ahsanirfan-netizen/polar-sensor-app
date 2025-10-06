@@ -22,3 +22,10 @@ ios/
 
 # Environment secrets (generated during CI build)
 env.js
+
+# Python backend
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+backend/venv/
+backend/*.log

@@ -1,0 +1,9 @@
+Flask==3.1.0
+Flask-CORS==5.0.0
+hypnospy==0.1.2
+pandas==2.2.3
+numpy==1.26.4
+scipy==1.14.1
+supabase==2.13.2
+python-dotenv==1.0.1
+gunicorn==23.0.0
