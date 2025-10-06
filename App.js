@@ -193,7 +193,39 @@ export default function App() {
   }, []);
 
   const addToDbBuffer = (reading) => {
-    dbBufferRef.current.push(reading);
+    // Merge sensor readings that arrive within 50ms window
+    const readingTime = new Date(reading.timestamp).getTime();
+    const mergeWindow = 50; // milliseconds
+    
+    // Find recent reading within merge window
+    let merged = false;
+    for (let i = dbBufferRef.current.length - 1; i >= Math.max(0, dbBufferRef.current.length - 10); i--) {
+      const existingReading = dbBufferRef.current[i];
+      const existingTime = new Date(existingReading.timestamp).getTime();
+      
+      if (Math.abs(readingTime - existingTime) <= mergeWindow) {
+        // Merge sensor data into existing reading
+        if (reading.ppg !== null) existingReading.ppg = reading.ppg;
+        if (reading.acc_x !== null) {
+          existingReading.acc_x = reading.acc_x;
+          existingReading.acc_y = reading.acc_y;
+          existingReading.acc_z = reading.acc_z;
+        }
+        if (reading.gyro_x !== null) {
+          existingReading.gyro_x = reading.gyro_x;
+          existingReading.gyro_y = reading.gyro_y;
+          existingReading.gyro_z = reading.gyro_z;
+        }
+        merged = true;
+        break;
+      }
+    }
+    
+    // If no merge happened, add as new reading
+    if (!merged) {
+      dbBufferRef.current.push(reading);
+    }
+    
     setDbBufferLength(dbBufferRef.current.length);
   };
 
