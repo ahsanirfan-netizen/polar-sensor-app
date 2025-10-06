@@ -6,6 +6,10 @@ tqdm==4.66.1
 pandas==2.2.3
 numpy==1.26.4
 scipy==1.14.1
+matplotlib==3.7.1
+seaborn==0.12.2
+cosinorpy==1.1
+tensorflow==2.13.0
 supabase==2.21.1
 python-dotenv==1.0.1
 gunicorn==23.0.0
