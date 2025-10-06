@@ -160,71 +160,83 @@ def analyze_sleep():
         return jsonify({'error': error_msg}), 500
 
 def calculate_heart_rate_from_ppg(df):
-    ppg_df = df[df['ppg'].notna()].copy()
-    
-    if len(ppg_df) == 0:
-        return pd.DataFrame(columns=['timestamp', 'heart_rate'])
-    
-    hr_records = []
-    window_size = 260
-    step_size = 130
-    
-    for i in range(0, len(ppg_df) - window_size, step_size):
-        window = ppg_df.iloc[i:i+window_size]
-        ppg_values = window['ppg'].values
+    try:
+        ppg_df = df[df['ppg'].notna()].copy()
         
-        ppg_normalized = (ppg_values - np.mean(ppg_values)) / (np.std(ppg_values) + 1e-8)
+        if len(ppg_df) == 0:
+            return pd.DataFrame(columns=['timestamp', 'heart_rate'])
         
-        peaks, properties = find_peaks(
-            ppg_normalized,
-            distance=50,
-            prominence=0.5,
-            height=0.3
-        )
+        if 'timestamp' not in ppg_df.columns:
+            raise ValueError(f'timestamp missing in PPG data. Columns: {list(ppg_df.columns)}. Input df columns: {list(df.columns)}. PPG rows: {len(ppg_df)}')
         
-        if len(peaks) >= 2:
-            peak_intervals = np.diff(peaks)
-            avg_interval_samples = np.median(peak_intervals)
-            sampling_rate = 135
-            heart_rate = (sampling_rate / avg_interval_samples) * 60
+        hr_records = []
+        window_size = 260
+        step_size = 130
+        
+        for i in range(0, len(ppg_df) - window_size, step_size):
+            window = ppg_df.iloc[i:i+window_size]
+            ppg_values = window['ppg'].values
             
-            if 30 <= heart_rate <= 200:
-                hr_records.append({
-                    'timestamp': window.iloc[window_size//2]['timestamp'],
-                    'heart_rate': heart_rate
-                })
-    
-    return pd.DataFrame(hr_records)
+            ppg_normalized = (ppg_values - np.mean(ppg_values)) / (np.std(ppg_values) + 1e-8)
+            
+            peaks, properties = find_peaks(
+                ppg_normalized,
+                distance=50,
+                prominence=0.5,
+                height=0.3
+            )
+            
+            if len(peaks) >= 2:
+                peak_intervals = np.diff(peaks)
+                avg_interval_samples = np.median(peak_intervals)
+                sampling_rate = 135
+                heart_rate = (sampling_rate / avg_interval_samples) * 60
+                
+                if 30 <= heart_rate <= 200:
+                    hr_records.append({
+                        'timestamp': window.iloc[window_size//2]['timestamp'],
+                        'heart_rate': heart_rate
+                    })
+        
+        return pd.DataFrame(hr_records)
+    except KeyError as e:
+        raise ValueError(f'KeyError in calculate_heart_rate_from_ppg: {str(e)}. Input columns: {list(df.columns)}. PPG data shape: {ppg_df.shape if "ppg_df" in locals() else "not created"}')
 
 def calculate_activity_metrics(df):
-    acc_df = df[(df['acc_x'].notna()) & (df['acc_y'].notna()) & (df['acc_z'].notna())].copy()
-    
-    if len(acc_df) == 0:
-        return pd.DataFrame(columns=['timestamp', 'activity_magnitude', 'movement_intensity'])
-    
-    acc_df['activity_magnitude'] = np.sqrt(
-        acc_df['acc_x']**2 + acc_df['acc_y']**2 + acc_df['acc_z']**2
-    )
-    
-    activity_records = []
-    window_size_seconds = 60
-    sampling_rate = 52
-    window_size_samples = window_size_seconds * sampling_rate
-    
-    for i in range(0, len(acc_df) - window_size_samples, window_size_samples):
-        window = acc_df.iloc[i:i+window_size_samples]
+    try:
+        acc_df = df[(df['acc_x'].notna()) & (df['acc_y'].notna()) & (df['acc_z'].notna())].copy()
         
-        avg_magnitude = window['activity_magnitude'].mean()
-        std_magnitude = window['activity_magnitude'].std()
-        movement_count = (window['activity_magnitude'] > avg_magnitude + std_magnitude).sum()
+        if len(acc_df) == 0:
+            return pd.DataFrame(columns=['timestamp', 'activity_magnitude', 'movement_intensity'])
         
-        activity_records.append({
-            'timestamp': window.iloc[window_size_samples//2]['timestamp'],
-            'activity_magnitude': avg_magnitude,
-            'movement_intensity': movement_count
-        })
-    
-    return pd.DataFrame(activity_records)
+        if 'timestamp' not in acc_df.columns:
+            raise ValueError(f'timestamp missing in accelerometer data. Columns: {list(acc_df.columns)}. Input df columns: {list(df.columns)}. ACC rows: {len(acc_df)}')
+        
+        acc_df['activity_magnitude'] = np.sqrt(
+            acc_df['acc_x']**2 + acc_df['acc_y']**2 + acc_df['acc_z']**2
+        )
+        
+        activity_records = []
+        window_size_seconds = 60
+        sampling_rate = 52
+        window_size_samples = window_size_seconds * sampling_rate
+        
+        for i in range(0, len(acc_df) - window_size_samples, window_size_samples):
+            window = acc_df.iloc[i:i+window_size_samples]
+            
+            avg_magnitude = window['activity_magnitude'].mean()
+            std_magnitude = window['activity_magnitude'].std()
+            movement_count = (window['activity_magnitude'] > avg_magnitude + std_magnitude).sum()
+            
+            activity_records.append({
+                'timestamp': window.iloc[window_size_samples//2]['timestamp'],
+                'activity_magnitude': avg_magnitude,
+                'movement_intensity': movement_count
+            })
+        
+        return pd.DataFrame(activity_records)
+    except KeyError as e:
+        raise ValueError(f'KeyError in calculate_activity_metrics: {str(e)}. Input columns: {list(df.columns)}. ACC data shape: {acc_df.shape if "acc_df" in locals() else "not created"}')
 
 def analyze_sleep_with_simple_algorithm(df):
     if len(df) < 10:
