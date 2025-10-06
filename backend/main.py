@@ -80,6 +80,46 @@ def debug_inspect(session_id):
             'traceback': traceback.format_exc()
         }), 500
 
+@app.route('/session-duration/<session_id>', methods=['GET'])
+def session_duration(session_id):
+    """Calculate recording duration from timestamps - NO AUTH"""
+    try:
+        readings_response = supabase.table('sensor_readings') \
+            .select('timestamp') \
+            .eq('session_id', session_id) \
+            .order('timestamp') \
+            .execute()
+        
+        if not readings_response.data or len(readings_response.data) < 2:
+            return jsonify({'error': 'Insufficient data'}), 404
+        
+        first_ts = readings_response.data[0]['timestamp']
+        last_ts = readings_response.data[-1]['timestamp']
+        
+        first_dt = pd.to_datetime(first_ts, utc=True)
+        last_dt = pd.to_datetime(last_ts, utc=True)
+        
+        duration = last_dt - first_dt
+        duration_seconds = duration.total_seconds()
+        duration_minutes = duration_seconds / 60
+        
+        return jsonify({
+            'session_id': session_id,
+            'total_records': len(readings_response.data),
+            'first_timestamp': first_ts,
+            'last_timestamp': last_ts,
+            'duration_seconds': duration_seconds,
+            'duration_minutes': round(duration_minutes, 2),
+            'duration_formatted': f'{int(duration_minutes)} min {int(duration_seconds % 60)} sec'
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @app.route('/debug-analyze/<session_id>', methods=['GET'])
 def debug_analyze(session_id):
     """Debug endpoint that runs full analysis and returns detailed error info - NO AUTH"""
