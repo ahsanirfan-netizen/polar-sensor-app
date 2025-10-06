@@ -93,13 +93,26 @@ def analyze_sleep():
         if not readings_response.data or len(readings_response.data) < 100:
             raise ValueError('Insufficient data for analysis (minimum 100 samples required)')
         
-        df = pd.DataFrame(readings_response.data)
-        
-        if 'timestamp' not in df.columns:
-            available_cols = ', '.join(df.columns.tolist())
-            raise ValueError(f'timestamp column not found. Available columns: {available_cols}')
-        
-        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+        try:
+            df = pd.DataFrame(readings_response.data)
+            
+            if len(df) == 0:
+                raise ValueError('No data returned from database')
+            
+            available_cols = list(df.columns) if len(df.columns) > 0 else []
+            sample_data = readings_response.data[0] if len(readings_response.data) > 0 else {}
+            
+            if 'timestamp' not in df.columns:
+                raise ValueError(f'timestamp column not found. Available columns: {available_cols}. Sample data keys: {list(sample_data.keys())}. Total rows: {len(df)}')
+            
+            sample_timestamps = df['timestamp'].head(3).tolist()
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+            
+            if df['timestamp'].isna().all():
+                raise ValueError(f'All timestamps failed to parse. Sample raw values: {sample_timestamps}')
+                
+        except KeyError as e:
+            raise ValueError(f'KeyError accessing column: {str(e)}. Available columns: {available_cols}. Sample data: {sample_data}')
         
         hr_data = calculate_heart_rate_from_ppg(df)
         
@@ -545,13 +558,26 @@ def analyze_sleep_hypnospy():
         if not readings_response.data or len(readings_response.data) < 100:
             raise ValueError('Insufficient data for HypnosPy analysis (minimum 100 samples required)')
         
-        df = pd.DataFrame(readings_response.data)
-        
-        if 'timestamp' not in df.columns:
-            available_cols = ', '.join(df.columns.tolist())
-            raise ValueError(f'timestamp column not found. Available columns: {available_cols}')
-        
-        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+        try:
+            df = pd.DataFrame(readings_response.data)
+            
+            if len(df) == 0:
+                raise ValueError('No data returned from database')
+            
+            available_cols = list(df.columns) if len(df.columns) > 0 else []
+            sample_data = readings_response.data[0] if len(readings_response.data) > 0 else {}
+            
+            if 'timestamp' not in df.columns:
+                raise ValueError(f'timestamp column not found. Available columns: {available_cols}. Sample data keys: {list(sample_data.keys())}. Total rows: {len(df)}')
+            
+            sample_timestamps = df['timestamp'].head(3).tolist()
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+            
+            if df['timestamp'].isna().all():
+                raise ValueError(f'All timestamps failed to parse. Sample raw values: {sample_timestamps}')
+                
+        except KeyError as e:
+            raise ValueError(f'KeyError accessing column: {str(e)}. Available columns: {available_cols}. Sample data: {sample_data}')
         
         sleep_metrics = analyze_sleep_with_hypnospy(df, algorithm=algorithm)
         
