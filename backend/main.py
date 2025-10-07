@@ -21,6 +21,14 @@ print("=" * 50)
 
 load_dotenv()
 
+# Configure environment for HypnosPy/TensorFlow file I/O in deployment
+# These libraries need writable directories for cache/temp files
+os.environ.setdefault('TMPDIR', '/tmp')
+os.environ.setdefault('HOME', '/tmp')
+os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib')
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
+print("Environment configured for HypnosPy/TensorFlow: TMPDIR=/tmp, HOME=/tmp")
+
 app = Flask(__name__)
 CORS(app)
 
@@ -232,11 +240,19 @@ def debug_analyze(session_id):
         
         debug_log.append(f"Fetched {len(readings_response.data)} rows from database")
         
+        # Track processing stats for error messages
+        processing_stats = {'raw_records': len(readings_response.data)}
+        
         # Step 2: Create DataFrame
         debug_log.append("Step 2: Creating DataFrame...")
         df = pd.DataFrame(readings_response.data)
         debug_log.append(f"DataFrame created with {len(df)} rows and columns: {list(df.columns)}")
         debug_log.append(f"Null counts: {df.isna().sum().to_dict()}")
+        
+        # Track non-null sensor data counts
+        processing_stats['ppg_records'] = df['ppg'].notna().sum()
+        processing_stats['acc_records'] = (df['acc_x'].notna() & df['acc_y'].notna() & df['acc_z'].notna()).sum()
+        debug_log.append(f"Non-null counts: PPG={processing_stats['ppg_records']}, ACC={processing_stats['acc_records']}")
         
         # Step 3: Parse timestamps
         debug_log.append("Step 3: Parsing timestamps...")
@@ -247,6 +263,7 @@ def debug_analyze(session_id):
         debug_log.append("Step 4: Calculating heart rate from PPG...")
         try:
             hr_data = calculate_heart_rate_from_ppg(df)
+            processing_stats['hr_calculated'] = len(hr_data)
             debug_log.append(f"HR calculation completed. Generated {len(hr_data)} HR records")
             debug_log.append(f"HR data columns: {list(hr_data.columns) if len(hr_data) > 0 else 'empty'}")
         except Exception as hr_error:
@@ -257,6 +274,7 @@ def debug_analyze(session_id):
         debug_log.append("Step 5: Calculating activity metrics...")
         try:
             activity_data = calculate_activity_metrics(df)
+            processing_stats['activity_calculated'] = len(activity_data)
             debug_log.append(f"Activity calculation completed. Generated {len(activity_data)} activity records")
             debug_log.append(f"Activity data columns: {list(activity_data.columns) if len(activity_data) > 0 else 'empty'}")
         except Exception as activity_error:
@@ -288,7 +306,9 @@ def debug_analyze(session_id):
                     direction='nearest',
                     tolerance=pd.Timedelta('30s')
                 )
+            processing_stats['merged_records'] = len(merged_data)
             debug_log.append(f"Merge completed. Result has {len(merged_data)} rows")
+            debug_log.append(f"Processing stats: {processing_stats}")
         except Exception as merge_error:
             debug_log.append(f"Merge FAILED: {type(merge_error).__name__}: {str(merge_error)}")
             raise
@@ -296,7 +316,7 @@ def debug_analyze(session_id):
         # Step 7: Analyze sleep
         debug_log.append("Step 7: Running sleep analysis algorithm...")
         try:
-            sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data)
+            sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data, processing_stats)
             debug_log.append(f"Sleep analysis completed successfully")
             debug_log.append(f"Sleep metrics: {sleep_metrics}")
         except Exception as sleep_error:
@@ -393,6 +413,9 @@ def analyze_sleep():
         if not readings_response.data or len(readings_response.data) < 100:
             raise ValueError('Insufficient data for analysis (minimum 100 samples required)')
         
+        # Track data processing stats for detailed error messages
+        processing_stats = {'raw_records': len(readings_response.data)}
+        
         try:
             df = pd.DataFrame(readings_response.data)
             
@@ -410,17 +433,29 @@ def analyze_sleep():
             
             if df['timestamp'].isna().all():
                 raise ValueError(f'All timestamps failed to parse. Sample raw values: {sample_timestamps}')
+            
+            # Track non-null sensor data counts
+            processing_stats['ppg_records'] = df['ppg'].notna().sum()
+            processing_stats['acc_records'] = (df['acc_x'].notna() & df['acc_y'].notna() & df['acc_z'].notna()).sum()
+            logger.info(f"Data stats - Raw: {processing_stats['raw_records']}, PPG: {processing_stats['ppg_records']}, ACC: {processing_stats['acc_records']}")
                 
         except KeyError as e:
             raise ValueError(f'KeyError accessing column: {str(e)}. Available columns: {available_cols}. Sample data: {sample_data}')
         
         hr_data = calculate_heart_rate_from_ppg(df)
+        processing_stats['hr_calculated'] = len(hr_data)
         
         activity_data = calculate_activity_metrics(df)
+        processing_stats['activity_calculated'] = len(activity_data)
         
         # Handle empty DataFrames from insufficient sensor data
         if len(hr_data) == 0 and len(activity_data) == 0:
-            raise ValueError('Insufficient sensor data: No heart rate or activity data could be calculated. This session may contain mostly null values.')
+            detailed_error = (f'Insufficient sensor data: No heart rate or activity data could be calculated. '
+                            f'Processing stats: {processing_stats["raw_records"]} raw records, '
+                            f'{processing_stats["ppg_records"]} PPG records, '
+                            f'{processing_stats["acc_records"]} ACC records, '
+                            f'0 HR calculated, 0 activity calculated.')
+            raise ValueError(detailed_error)
         elif len(activity_data) == 0:
             # Use HR data only
             merged_data = hr_data.copy()
@@ -440,7 +475,10 @@ def analyze_sleep():
                 tolerance=pd.Timedelta('30s')
             )
         
-        sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data)
+        processing_stats['merged_records'] = len(merged_data)
+        logger.info(f"Merged data: {processing_stats['merged_records']} records")
+        
+        sleep_metrics = analyze_sleep_with_simple_algorithm(merged_data, processing_stats)
         
         sleep_metrics['user_id'] = user_id
         sleep_metrics['session_id'] = session_id
@@ -584,9 +622,18 @@ def calculate_activity_metrics(df):
         print(f'[ACC UNEXPECTED ERROR] {type(e).__name__}: {str(e)}')
         raise
 
-def analyze_sleep_with_simple_algorithm(df):
+def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
     if len(df) < 10:
-        raise ValueError('Insufficient processed data for sleep analysis')
+        if processing_stats:
+            detailed_error = (f'Insufficient processed data for sleep analysis. '
+                            f'Only {len(df)} processed records available, need at least 10. '
+                            f'Processing breakdown: {processing_stats["raw_records"]} raw records → '
+                            f'{processing_stats["ppg_records"]} PPG records → {processing_stats["hr_calculated"]} HR calculated, '
+                            f'{processing_stats["acc_records"]} ACC records → {processing_stats["activity_calculated"]} activity calculated → '
+                            f'{processing_stats.get("merged_records", len(df))} merged records.')
+            raise ValueError(detailed_error)
+        else:
+            raise ValueError(f'Insufficient processed data for sleep analysis. Only {len(df)} records, need at least 10.')
     
     df = df.sort_values('timestamp').reset_index(drop=True)
     
@@ -731,18 +778,31 @@ def prepare_data_for_hypnospy(df):
     
     return hypnospy_df
 
-def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke'):
+def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke', processing_stats=None):
     # Lazy import to avoid slow TensorFlow loading at startup
-    from hypnospy import Wearable
-    from hypnospy.analysis import SleepWakeAnalysis
+    try:
+        from hypnospy import Wearable
+        from hypnospy.analysis import SleepWakeAnalysis
+    except Exception as e:
+        raise ValueError(f'Failed to import HypnosPy libraries: {str(e)}. This may be a file I/O or dependency issue.')
     
     hypnospy_df = prepare_data_for_hypnospy(df)
     
     if len(hypnospy_df) < 60:
-        raise ValueError('Insufficient data for HypnosPy analysis (minimum 60 minutes required)')
+        if processing_stats:
+            detailed_error = (f'Insufficient data for HypnosPy analysis. '
+                            f'Only {len(hypnospy_df)} minutes of data available, need at least 60 minutes. '
+                            f'Processing breakdown: {processing_stats["raw_records"]} raw records, '
+                            f'{processing_stats["ppg_records"]} PPG records, '
+                            f'{processing_stats["acc_records"]} ACC records.')
+            raise ValueError(detailed_error)
+        else:
+            raise ValueError(f'Insufficient data for HypnosPy analysis. Only {len(hypnospy_df)} minutes, need at least 60 minutes.')
     
     try:
         wearable = Wearable(hypnospy_df)
+    except OSError as e:
+        raise ValueError(f'File I/O error creating HypnosPy Wearable object: {str(e)}. Check tmp directory permissions.')
     except Exception as e:
         raise ValueError(f'Failed to create HypnosPy Wearable object: {str(e)}')
     
@@ -926,6 +986,9 @@ def analyze_sleep_hypnospy():
         if not readings_response.data or len(readings_response.data) < 100:
             raise ValueError('Insufficient data for HypnosPy analysis (minimum 100 samples required)')
         
+        # Track data processing stats for detailed error messages
+        processing_stats = {'raw_records': len(readings_response.data)}
+        
         try:
             df = pd.DataFrame(readings_response.data)
             
@@ -943,11 +1006,16 @@ def analyze_sleep_hypnospy():
             
             if df['timestamp'].isna().all():
                 raise ValueError(f'All timestamps failed to parse. Sample raw values: {sample_timestamps}')
+            
+            # Track non-null sensor data counts
+            processing_stats['ppg_records'] = df['ppg'].notna().sum()
+            processing_stats['acc_records'] = (df['acc_x'].notna() & df['acc_y'].notna() & df['acc_z'].notna()).sum()
+            logger.info(f"HypnosPy data stats - Raw: {processing_stats['raw_records']}, PPG: {processing_stats['ppg_records']}, ACC: {processing_stats['acc_records']}")
                 
         except KeyError as e:
             raise ValueError(f'KeyError accessing column: {str(e)}. Available columns: {available_cols}. Sample data: {sample_data}')
         
-        sleep_metrics = analyze_sleep_with_hypnospy(df, algorithm=algorithm)
+        sleep_metrics = analyze_sleep_with_hypnospy(df, algorithm=algorithm, processing_stats=processing_stats)
         
         sleep_metrics['user_id'] = user_id
         sleep_metrics['session_id'] = session_id
