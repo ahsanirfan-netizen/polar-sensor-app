@@ -882,11 +882,20 @@ def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke', processing_stats=No
             raise ValueError(f'Insufficient data for HypnosPy analysis. Only {len(hypnospy_df)} minutes, need at least 60 minutes.')
     
     try:
+        # Log the DataFrame structure for debugging
+        logger.info(f"HypnosPy DataFrame shape: {hypnospy_df.shape}")
+        logger.info(f"HypnosPy DataFrame index type: {type(hypnospy_df.index)}")
+        logger.info(f"HypnosPy DataFrame columns: {list(hypnospy_df.columns)}")
+        logger.info(f"HypnosPy DataFrame first few rows:\n{hypnospy_df.head(3)}")
+        
         wearable = Wearable(hypnospy_df)
     except OSError as e:
         raise ValueError(f'File I/O error creating HypnosPy Wearable object: {str(e)}. Check tmp directory permissions.')
     except Exception as e:
-        raise ValueError(f'Failed to create HypnosPy Wearable object: {str(e)}')
+        import traceback
+        full_traceback = traceback.format_exc()
+        logger.error(f"HypnosPy Wearable creation failed:\n{full_traceback}")
+        raise ValueError(f'Failed to create HypnosPy Wearable object: {str(e)}. DataFrame shape: {hypnospy_df.shape}, columns: {list(hypnospy_df.columns)}, index: {type(hypnospy_df.index).__name__}')
     
     sw = SleepWakeAnalysis(wearable)
     
