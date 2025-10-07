@@ -798,6 +798,13 @@ def prepare_data_for_hypnospy(df):
     )
     
     acc_df['timestamp'] = pd.to_datetime(acc_df['timestamp'], utc=True, errors='coerce')
+    
+    # Filter out invalid timestamps (NaT values)
+    acc_df = acc_df[acc_df['timestamp'].notna()].copy()
+    
+    if len(acc_df) == 0:
+        raise ValueError('No valid timestamps in accelerometer data')
+    
     acc_df = acc_df.sort_values('timestamp')
     
     epoch_duration = pd.Timedelta(seconds=60)
