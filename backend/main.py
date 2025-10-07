@@ -860,6 +860,11 @@ def prepare_data_for_hypnospy(df):
     
     return hypnospy_df
 
+class SimplePreprocessor:
+    """Simple wrapper to mimic HypnosPy preprocessor pattern"""
+    def __init__(self, dataframe):
+        self.data = dataframe
+
 def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke', processing_stats=None):
     # Lazy import to avoid slow TensorFlow loading at startup
     try:
@@ -888,7 +893,9 @@ def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke', processing_stats=No
         logger.info(f"HypnosPy DataFrame columns: {list(hypnospy_df.columns)}")
         logger.info(f"HypnosPy DataFrame first few rows:\n{hypnospy_df.head(3)}")
         
-        wearable = Wearable(hypnospy_df)
+        # Wrap DataFrame in preprocessor-like object
+        preprocessed = SimplePreprocessor(hypnospy_df)
+        wearable = Wearable(preprocessed)
     except OSError as e:
         raise ValueError(f'File I/O error creating HypnosPy Wearable object: {str(e)}. Check tmp directory permissions.')
     except Exception as e:
