@@ -860,154 +860,39 @@ def prepare_data_for_hypnospy(df):
     
     return hypnospy_df
 
-class SimplePreprocessor:
-    """Simple wrapper to mimic HypnosPy preprocessor pattern"""
-    def __init__(self, dataframe):
-        self.data = dataframe
-
 def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke', processing_stats=None):
-    # Lazy import to avoid slow TensorFlow loading at startup
-    try:
-        from hypnospy import Wearable
-        from hypnospy.analysis import SleepWakeAnalysis
-    except Exception as e:
-        raise ValueError(f'Failed to import HypnosPy libraries: {str(e)}. This may be a file I/O or dependency issue.')
+    """
+    Analyze sleep using Cole-Kripke algorithm
+    Now uses direct implementation (research-validated formula) instead of HypnosPy wrapper
+    """
+    from cole_kripke_direct import apply_cole_kripke, extract_sleep_metrics
     
     hypnospy_df = prepare_data_for_hypnospy(df)
     
     if len(hypnospy_df) < 60:
         if processing_stats:
-            detailed_error = (f'Insufficient data for HypnosPy analysis. '
-                            f'Only {len(hypnospy_df)} minutes of data available, need at least 60 minutes. '
-                            f'Processing breakdown: {processing_stats["raw_records"]} raw records, '
-                            f'{processing_stats["ppg_records"]} PPG records, '
+            detailed_error = (f'Insufficient data for sleep analysis. '
+                            f'Only {len(hypnospy_df)} minutes available, need ≥60 minutes. '
+                            f'Processing: {processing_stats["raw_records"]} raw → '
+                            f'{processing_stats["ppg_records"]} PPG → '
                             f'{processing_stats["acc_records"]} ACC records.')
             raise ValueError(detailed_error)
         else:
-            raise ValueError(f'Insufficient data for HypnosPy analysis. Only {len(hypnospy_df)} minutes, need at least 60 minutes.')
+            raise ValueError(f'Insufficient data: {len(hypnospy_df)}min, need ≥60min')
     
-    try:
-        # Log the DataFrame structure for debugging
-        logger.info(f"HypnosPy DataFrame shape: {hypnospy_df.shape}")
-        logger.info(f"HypnosPy DataFrame index type: {type(hypnospy_df.index)}")
-        logger.info(f"HypnosPy DataFrame columns: {list(hypnospy_df.columns)}")
-        logger.info(f"HypnosPy DataFrame first few rows:\n{hypnospy_df.head(3)}")
-        
-        # Wrap DataFrame in preprocessor-like object
-        preprocessed = SimplePreprocessor(hypnospy_df)
-        wearable = Wearable(preprocessed)
-    except OSError as e:
-        raise ValueError(f'File I/O error creating HypnosPy Wearable object: {str(e)}. Check tmp directory permissions.')
-    except Exception as e:
-        import traceback
-        full_traceback = traceback.format_exc()
-        logger.error(f"HypnosPy Wearable creation failed:\n{full_traceback}")
-        raise ValueError(f'Failed to create HypnosPy Wearable object: {str(e)}. DataFrame shape: {hypnospy_df.shape}, columns: {list(hypnospy_df.columns)}, index: {type(hypnospy_df.index).__name__}')
+    logger.info(f"Applying Cole-Kripke algorithm to {len(hypnospy_df)} minute epochs...")
     
-    sw = SleepWakeAnalysis(wearable)
+    # Apply Cole-Kripke algorithm directly
+    results_df = apply_cole_kripke(hypnospy_df, activity_column='hyp_act_x')
     
-    if algorithm.lower() == 'sadeh':
-        sw.run_sleep_algorithm("Sadeh", inplace=True)
-        sleep_col = 'Sadeh'
-    else:
-        sw.run_sleep_algorithm("Cole-Kripke", inplace=True)
-        sleep_col = 'Cole-Kripke'
+    # Extract sleep metrics
+    metrics = extract_sleep_metrics(results_df)
     
-    result_df = wearable.data.reset_index()
+    logger.info(f"Cole-Kripke complete: {metrics['total_sleep_time_minutes']}min sleep, "
+                f"{metrics['sleep_efficiency_percent']}% efficiency, "
+                f"{metrics['number_of_awakenings']} awakenings")
     
-    if sleep_col not in result_df.columns:
-        raise ValueError(f'HypnosPy did not generate {sleep_col} sleep predictions')
-    
-    result_df['is_sleep'] = result_df[sleep_col] == 0
-    
-    sleep_periods = result_df[result_df['is_sleep']].copy()
-    
-    if len(sleep_periods) == 0:
-        return {
-            'sleep_onset': None,
-            'wake_time': None,
-            'total_sleep_time_minutes': 0,
-            'time_in_bed_minutes': 0,
-            'sleep_efficiency_percent': 0,
-            'sleep_onset_latency_minutes': 0,
-            'wake_after_sleep_onset_minutes': 0,
-            'number_of_awakenings': 0,
-            'awakening_index': 0,
-            'algorithm_used': algorithm,
-            'sleep_stages': None,
-            'hourly_metrics': None,
-            'movement_metrics': None,
-            'hr_metrics': None,
-            'hypnospy_raw_output': None
-        }
-    
-    sleep_onset = sleep_periods['hyp_time_col'].iloc[0]
-    wake_time = sleep_periods['hyp_time_col'].iloc[-1]
-    
-    total_sleep_minutes = len(sleep_periods)
-    
-    time_period = result_df[(result_df['hyp_time_col'] >= sleep_onset) & (result_df['hyp_time_col'] <= wake_time)]
-    time_in_bed = len(time_period)
-    
-    sleep_efficiency = (total_sleep_minutes / time_in_bed * 100) if time_in_bed > 0 else 0
-    
-    pre_sleep_data = result_df[result_df['hyp_time_col'] < sleep_onset]
-    if len(pre_sleep_data) > 0:
-        sleep_onset_latency = len(pre_sleep_data)
-    else:
-        sleep_onset_latency = 0
-    
-    wake_periods = time_period[~time_period['is_sleep']]
-    waso_minutes = len(wake_periods)
-    
-    awakenings = 0
-    in_wake_period = False
-    for idx in range(len(time_period)):
-        row = time_period.iloc[idx]
-        if not row['is_sleep']:
-            if not in_wake_period:
-                awakenings += 1
-                in_wake_period = True
-        else:
-            in_wake_period = False
-    
-    awakening_index = (awakenings / (total_sleep_minutes / 60)) if total_sleep_minutes > 0 else 0
-    
-    hr_data = calculate_heart_rate_from_ppg(df) if 'ppg' in df.columns else pd.DataFrame()
-    hr_metrics = None
-    if len(hr_data) > 0:
-        sleep_hr_data = hr_data[(hr_data['timestamp'] >= sleep_onset) & (hr_data['timestamp'] <= wake_time)]
-        if len(sleep_hr_data) > 0:
-            hr_metrics = {
-                'avg_hr': float(sleep_hr_data['heart_rate'].mean()),
-                'min_hr': float(sleep_hr_data['heart_rate'].min()),
-                'max_hr': float(sleep_hr_data['heart_rate'].max())
-            }
-    
-    return {
-        'sleep_onset': sleep_onset.isoformat(),
-        'wake_time': wake_time.isoformat(),
-        'total_sleep_time_minutes': round(total_sleep_minutes, 2),
-        'time_in_bed_minutes': round(time_in_bed, 2),
-        'sleep_efficiency_percent': round(sleep_efficiency, 2),
-        'sleep_onset_latency_minutes': round(sleep_onset_latency, 2),
-        'wake_after_sleep_onset_minutes': round(waso_minutes, 2),
-        'number_of_awakenings': awakenings,
-        'awakening_index': round(awakening_index, 2),
-        'algorithm_used': algorithm,
-        'sleep_stages': None,
-        'hourly_metrics': None,
-        'movement_metrics': {
-            'avg_activity': float(result_df['hyp_act_x'].mean()),
-            'activity_std': float(result_df['hyp_act_x'].std())
-        },
-        'hr_metrics': hr_metrics,
-        'hypnospy_raw_output': {
-            'sleep_periods': len(sleep_periods),
-            'wake_periods': len(wake_periods),
-            'total_epochs': len(result_df)
-        }
-    }
+    return metrics
 
 @app.route('/analyze-sleep-hypnospy', methods=['POST'])
 def analyze_sleep_hypnospy():
