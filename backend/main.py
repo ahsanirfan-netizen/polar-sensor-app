@@ -748,8 +748,9 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
             'hr_metrics': None
         }
     
-    main_sleep_block = max(sleep_blocks, key=lambda x: x[1] - x[0])
-    sleep_onset_idx, wake_idx = main_sleep_block
+    # Use first block start as sleep onset, last block end as wake time
+    sleep_onset_idx = sleep_blocks[0][0]
+    wake_idx = sleep_blocks[-1][1]
     
     sleep_onset = df.iloc[sleep_onset_idx]['timestamp']
     wake_time = df.iloc[wake_idx]['timestamp']
