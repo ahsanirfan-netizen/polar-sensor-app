@@ -9,9 +9,11 @@ import numpy as np
 from scipy.signal import find_peaks
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from hypnospy import Wearable
-from hypnospy.analysis import SleepWakeAnalysis
 from collections import deque
+
+# Lazy import HypnosPy only when needed (to avoid slow TensorFlow startup)
+# from hypnospy import Wearable
+# from hypnospy.analysis import SleepWakeAnalysis
 
 load_dotenv()
 
@@ -72,7 +74,7 @@ def health():
         'status': 'healthy' if supabase else 'degraded', 
         'supabase_connected': supabase is not None,
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v3.5-resilient-startup'
+        'version': 'v3.6-lazy-hypnospy'
     })
 
 @app.route('/logs', methods=['GET'])
@@ -709,6 +711,10 @@ def prepare_data_for_hypnospy(df):
     return hypnospy_df
 
 def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke'):
+    # Lazy import to avoid slow TensorFlow loading at startup
+    from hypnospy import Wearable
+    from hypnospy.analysis import SleepWakeAnalysis
+    
     hypnospy_df = prepare_data_for_hypnospy(df)
     
     if len(hypnospy_df) < 60:
