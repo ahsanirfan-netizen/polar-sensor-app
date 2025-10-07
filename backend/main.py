@@ -15,6 +15,10 @@ from collections import deque
 # from hypnospy import Wearable
 # from hypnospy.analysis import SleepWakeAnalysis
 
+print("=" * 50)
+print("STARTING BACKEND - main.py loading...")
+print("=" * 50)
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -22,6 +26,7 @@ CORS(app)
 
 # In-memory log storage (last 200 lines)
 log_buffer = deque(maxlen=200)
+print("Flask app created, setting up logging...")
 
 class BufferHandler(logging.Handler):
     def emit(self, record):
@@ -42,31 +47,47 @@ console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
 logger.addHandler(console_handler)
 
+print("Setting up logger...")
 logger.info("Starting backend server...")
 logger.info(f"Loading environment variables...")
 
-supabase_url = os.getenv('SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+try:
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    print(f"ENV CHECK - SUPABASE_URL: {'SET' if supabase_url else 'MISSING'}")
+    print(f"ENV CHECK - SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'MISSING'}")
 
-logger.info(f"SUPABASE_URL: {'SET' if supabase_url else 'MISSING'}")
-logger.info(f"SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'MISSING'}")
+    logger.info(f"SUPABASE_URL: {'SET' if supabase_url else 'MISSING'}")
+    logger.info(f"SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'MISSING'}")
 
-# Initialize supabase client (can be None if env vars missing)
-supabase = None
+    # Initialize supabase client (can be None if env vars missing)
+    supabase = None
 
-if not supabase_url:
-    logger.error("SUPABASE_URL environment variable is missing! Database operations will fail.")
-elif not supabase_key:
-    logger.error("SUPABASE_SERVICE_ROLE_KEY environment variable is missing! Database operations will fail.")
-else:
-    try:
-        supabase: Client = create_client(supabase_url, supabase_key)
-        logger.info("Supabase client created successfully")
-    except Exception as e:
-        logger.error(f"Failed to create Supabase client: {e}")
-        logger.error("Server will start but database operations will fail!")
+    if not supabase_url:
+        logger.error("SUPABASE_URL environment variable is missing! Database operations will fail.")
+        print("ERROR: SUPABASE_URL is MISSING!")
+    elif not supabase_key:
+        logger.error("SUPABASE_SERVICE_ROLE_KEY environment variable is missing! Database operations will fail.")
+        print("ERROR: SUPABASE_SERVICE_ROLE_KEY is MISSING!")
+    else:
+        try:
+            print("Creating Supabase client...")
+            supabase: Client = create_client(supabase_url, supabase_key)
+            logger.info("Supabase client created successfully")
+            print("✓ Supabase client created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create Supabase client: {e}")
+            logger.error("Server will start but database operations will fail!")
+            print(f"ERROR creating Supabase client: {e}")
 
-logger.info("Flask app initialization complete")
+    logger.info("Flask app initialization complete")
+    print("✓ Flask app initialization complete")
+    
+except Exception as init_error:
+    print(f"CRITICAL ERROR during initialization: {init_error}")
+    import traceback
+    traceback.print_exc()
+    raise
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -74,7 +95,7 @@ def health():
         'status': 'healthy' if supabase else 'degraded', 
         'supabase_connected': supabase is not None,
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v3.6-lazy-hypnospy'
+        'version': 'v3.7-debug-startup'
     })
 
 @app.route('/logs', methods=['GET'])
