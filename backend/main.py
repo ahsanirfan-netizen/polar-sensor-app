@@ -577,39 +577,36 @@ def calculate_heart_rate_from_ppg(df):
             print(f'[PPG ERROR] {error_msg}')
             raise ValueError(error_msg)
         
-        hr_records = []
-        window_size = 260
-        step_size = 130
+        # Use pandas resample for proper 1-minute epochs
+        ppg_df = ppg_df.set_index('timestamp')
         
-        for i in range(0, len(ppg_df) - window_size, step_size):
-            window = ppg_df.iloc[i:i+window_size]
-            ppg_values = window['ppg'].values
-            
-            ppg_normalized = (ppg_values - np.mean(ppg_values)) / (np.std(ppg_values) + 1e-8)
-            
-            peaks, properties = find_peaks(
-                ppg_normalized,
-                distance=50,
-                prominence=0.5,
-                height=0.3
-            )
-            
-            if len(peaks) >= 2:
-                peak_intervals = np.diff(peaks)
-                avg_interval_samples = np.median(peak_intervals)
-                sampling_rate = 135
-                heart_rate = (sampling_rate / avg_interval_samples) * 60
+        hr_records = []
+        resampled = ppg_df.resample('1min')
+        
+        for timestamp, group in resampled:
+            if len(group) >= 50:  # Need minimum samples for peak detection
+                ppg_values = group['ppg'].values
                 
-                if 30 <= heart_rate <= 200:
-                    try:
-                        ts = window.iloc[window_size//2]['timestamp']
+                ppg_normalized = (ppg_values - np.mean(ppg_values)) / (np.std(ppg_values) + 1e-8)
+                
+                peaks, properties = find_peaks(
+                    ppg_normalized,
+                    distance=50,
+                    prominence=0.5,
+                    height=0.3
+                )
+                
+                if len(peaks) >= 2:
+                    peak_intervals = np.diff(peaks)
+                    avg_interval_samples = np.median(peak_intervals)
+                    sampling_rate = 135
+                    heart_rate = (sampling_rate / avg_interval_samples) * 60
+                    
+                    if 30 <= heart_rate <= 200:
                         hr_records.append({
-                            'timestamp': ts,
+                            'timestamp': timestamp,
                             'heart_rate': heart_rate
                         })
-                    except KeyError as e:
-                        print(f'[PPG ERROR IN LOOP] KeyError accessing timestamp in window: {str(e)}. Window columns: {list(window.columns)}')
-                        raise ValueError(f'KeyError in PPG loop: {str(e)}. Window columns: {list(window.columns)}')
         
         print(f'[PPG] Completed. Generated {len(hr_records)} HR records')
         return pd.DataFrame(hr_records)
@@ -640,28 +637,24 @@ def calculate_activity_metrics(df):
             acc_df['acc_x']**2 + acc_df['acc_y']**2 + acc_df['acc_z']**2
         )
         
-        activity_records = []
-        window_size_seconds = 60
-        sampling_rate = 52
-        window_size_samples = window_size_seconds * sampling_rate
+        # Use pandas resample for proper 1-minute epochs
+        acc_df = acc_df.set_index('timestamp')
         
-        for i in range(0, len(acc_df) - window_size_samples, window_size_samples):
-            window = acc_df.iloc[i:i+window_size_samples]
-            
-            avg_magnitude = window['activity_magnitude'].mean()
-            std_magnitude = window['activity_magnitude'].std()
-            movement_count = (window['activity_magnitude'] > avg_magnitude + std_magnitude).sum()
-            
-            try:
-                ts = window.iloc[window_size_samples//2]['timestamp']
+        # Resample to 1-minute epochs
+        activity_records = []
+        resampled = acc_df.resample('1min')
+        
+        for timestamp, group in resampled:
+            if len(group) > 0:
+                avg_magnitude = group['activity_magnitude'].mean()
+                std_magnitude = group['activity_magnitude'].std()
+                movement_count = (group['activity_magnitude'] > avg_magnitude + std_magnitude).sum() if std_magnitude > 0 else 0
+                
                 activity_records.append({
-                    'timestamp': ts,
+                    'timestamp': timestamp,
                     'activity_magnitude': avg_magnitude,
                     'movement_intensity': movement_count
                 })
-            except KeyError as e:
-                print(f'[ACC ERROR IN LOOP] KeyError accessing timestamp in window: {str(e)}. Window columns: {list(window.columns)}')
-                raise ValueError(f'KeyError in ACC loop: {str(e)}. Window columns: {list(window.columns)}')
         
         print(f'[ACC] Completed. Generated {len(activity_records)} activity records')
         return pd.DataFrame(activity_records)
