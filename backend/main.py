@@ -49,26 +49,30 @@ supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 logger.info(f"SUPABASE_URL: {'SET' if supabase_url else 'MISSING'}")
 logger.info(f"SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'MISSING'}")
 
-if not supabase_url:
-    logger.error("SUPABASE_URL environment variable is missing!")
-    raise ValueError("SUPABASE_URL environment variable is required")
-if not supabase_key:
-    logger.error("SUPABASE_SERVICE_ROLE_KEY environment variable is missing!")
-    raise ValueError("SUPABASE_SERVICE_ROLE_KEY environment variable is required")
+# Initialize supabase client (can be None if env vars missing)
+supabase = None
 
-try:
-    supabase: Client = create_client(supabase_url, supabase_key)
-    logger.info("Supabase client created successfully")
-except Exception as e:
-    logger.error(f"Failed to create Supabase client: {e}")
-    raise
+if not supabase_url:
+    logger.error("SUPABASE_URL environment variable is missing! Database operations will fail.")
+elif not supabase_key:
+    logger.error("SUPABASE_SERVICE_ROLE_KEY environment variable is missing! Database operations will fail.")
+else:
+    try:
+        supabase: Client = create_client(supabase_url, supabase_key)
+        logger.info("Supabase client created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create Supabase client: {e}")
+        logger.error("Server will start but database operations will fail!")
+
+logger.info("Flask app initialization complete")
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
-        'status': 'healthy', 
+        'status': 'healthy' if supabase else 'degraded', 
+        'supabase_connected': supabase is not None,
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'version': 'v3.4-with-logs-endpoint'
+        'version': 'v3.5-resilient-startup'
     })
 
 @app.route('/logs', methods=['GET'])
@@ -85,6 +89,12 @@ def get_logs():
 @app.route('/debug-inspect/<session_id>', methods=['GET'])
 def debug_inspect(session_id):
     """Debug endpoint to inspect database structure - NO AUTH for testing"""
+    if not supabase:
+        return jsonify({
+            'error': 'Database not initialized. Server environment variables missing.',
+            'hint': 'Check /logs endpoint for details'
+        }), 503
+    
     try:
         # Fetch data using service role (bypasses auth)
         readings_response = supabase.table('sensor_readings') \
@@ -290,6 +300,12 @@ def debug_analyze(session_id):
 @app.route('/analyze-sleep', methods=['POST'])
 def analyze_sleep():
     start_time = time.time()
+    
+    if not supabase:
+        return jsonify({
+            'error': 'Database not initialized. Server environment variables missing.',
+            'hint': 'Check /logs endpoint for details'
+        }), 503
     
     try:
         data = request.json
@@ -811,6 +827,12 @@ def analyze_sleep_with_hypnospy(df, algorithm='cole-kripke'):
 @app.route('/analyze-sleep-hypnospy', methods=['POST'])
 def analyze_sleep_hypnospy():
     start_time = time.time()
+    
+    if not supabase:
+        return jsonify({
+            'error': 'Database not initialized. Server environment variables missing.',
+            'hint': 'Check /logs endpoint for details'
+        }), 503
     
     try:
         data = request.json
