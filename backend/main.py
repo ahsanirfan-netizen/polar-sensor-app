@@ -681,11 +681,11 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
     
     df = df.sort_values('timestamp').reset_index(drop=True)
     
-    hr_threshold = df['heart_rate'].quantile(0.35) if 'heart_rate' in df.columns and df['heart_rate'].notna().any() else None
-    activity_threshold = df['activity_magnitude'].quantile(0.25) if 'activity_magnitude' in df.columns else None
+    hr_threshold = df['heart_rate'].quantile(0.50) if 'heart_rate' in df.columns and df['heart_rate'].notna().any() else None
+    activity_threshold = df['activity_magnitude'].quantile(0.50) if 'activity_magnitude' in df.columns else None
     
-    print(f'[SLEEP ANALYSIS] HR threshold: {hr_threshold}, Activity threshold: {activity_threshold}')
-    print(f'[SLEEP ANALYSIS] Total records: {len(df)}')
+    logger.info(f'[SLEEP ANALYSIS] HR threshold: {hr_threshold}, Activity threshold: {activity_threshold}')
+    logger.info(f'[SLEEP ANALYSIS] Total records: {len(df)}')
     
     if hr_threshold is not None and activity_threshold is not None:
         df['likely_sleep'] = (df['heart_rate'] < hr_threshold) & (df['activity_magnitude'] < activity_threshold)
@@ -695,7 +695,7 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
         df['likely_sleep'] = False
     
     sleep_count = df['likely_sleep'].sum()
-    print(f'[SLEEP ANALYSIS] Records marked as sleep: {sleep_count}/{len(df)} ({100*sleep_count/len(df):.1f}%)')
+    logger.info(f'[SLEEP ANALYSIS] Records marked as sleep: {sleep_count}/{len(df)} ({100*sleep_count/len(df):.1f}%)')
     
     sleep_blocks = []
     current_block_start = None
@@ -706,14 +706,14 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
                 current_block_start = idx
         else:
             if current_block_start is not None:
-                if idx - current_block_start >= 30:
+                if idx - current_block_start >= 10:
                     sleep_blocks.append((current_block_start, idx - 1))
                 current_block_start = None
     
-    if current_block_start is not None and len(df) - current_block_start >= 30:
+    if current_block_start is not None and len(df) - current_block_start >= 10:
         sleep_blocks.append((current_block_start, len(df) - 1))
     
-    print(f'[SLEEP ANALYSIS] Found {len(sleep_blocks)} sleep blocks: {sleep_blocks}')
+    logger.info(f'[SLEEP ANALYSIS] Found {len(sleep_blocks)} sleep blocks: {sleep_blocks}')
     
     if not sleep_blocks:
         return {
