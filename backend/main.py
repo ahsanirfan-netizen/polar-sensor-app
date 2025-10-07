@@ -697,21 +697,32 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
     sleep_count = df['likely_sleep'].sum()
     logger.info(f'[SLEEP ANALYSIS] Records marked as sleep: {sleep_count}/{len(df)} ({100*sleep_count/len(df):.1f}%)')
     
+    # Use a more robust sleep block detection that tolerates brief awakenings
     sleep_blocks = []
-    current_block_start = None
+    in_sleep_period = False
+    sleep_start = None
+    awake_count = 0
+    max_awake_tolerance = 3  # Allow up to 3 minutes of wake time before ending sleep block
     
     for idx, row in df.iterrows():
         if row['likely_sleep']:
-            if current_block_start is None:
-                current_block_start = idx
+            if not in_sleep_period:
+                sleep_start = idx
+                in_sleep_period = True
+            awake_count = 0  # Reset awake counter when sleep is detected
         else:
-            if current_block_start is not None:
-                if idx - current_block_start >= 10:
-                    sleep_blocks.append((current_block_start, idx - 1))
-                current_block_start = None
+            if in_sleep_period:
+                awake_count += 1
+                if awake_count > max_awake_tolerance:
+                    # End the sleep block
+                    if idx - sleep_start >= 10:  # Minimum 10 minutes
+                        sleep_blocks.append((sleep_start, idx - awake_count - 1))
+                    in_sleep_period = False
+                    awake_count = 0
     
-    if current_block_start is not None and len(df) - current_block_start >= 10:
-        sleep_blocks.append((current_block_start, len(df) - 1))
+    # Handle final sleep block
+    if in_sleep_period and len(df) - sleep_start >= 10:
+        sleep_blocks.append((sleep_start, len(df) - 1))
     
     logger.info(f'[SLEEP ANALYSIS] Found {len(sleep_blocks)} sleep blocks: {sleep_blocks}')
     
