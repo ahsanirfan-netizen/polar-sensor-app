@@ -236,6 +236,7 @@ def debug_analyze(session_id):
             .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
             .eq('session_id', session_id) \
             .order('timestamp') \
+            .limit(100000) \
             .execute()
         
         if not readings_response.data:
@@ -415,6 +416,7 @@ def analyze_sleep():
             .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
             .eq('session_id', session_id) \
             .order('timestamp') \
+            .limit(100000) \
             .execute()
         
         if not readings_response.data or len(readings_response.data) < 100:
@@ -988,6 +990,7 @@ def analyze_sleep_hypnospy():
             .select('timestamp, ppg, acc_x, acc_y, acc_z') \
             .eq('session_id', session_id) \
             .order('timestamp') \
+            .limit(100000) \
             .execute()
         
         if not readings_response.data or len(readings_response.data) < 100:
