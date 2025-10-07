@@ -54,5 +54,5 @@ channel = "stable-25_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["python", "backend/safe_main.py"]
+run = ["python", "backend/main.py"]
 build = ["pip", "install", "-r", "backend/requirements.txt"]
