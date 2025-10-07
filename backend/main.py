@@ -230,30 +230,49 @@ def debug_analyze(session_id):
     try:
         debug_log.append(f"Starting debug analysis for session: {session_id}")
         
-        # Step 1: Fetch data
-        debug_log.append("Step 1: Fetching sensor readings from database...")
-        readings_response = supabase.table('sensor_readings') \
-            .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
-            .eq('session_id', session_id) \
-            .order('timestamp') \
-            .limit(100000) \
-            .execute()
+        # Step 1: Fetch data with pagination
+        debug_log.append("Step 1: Fetching sensor readings from database with pagination...")
+        all_readings = []
+        page_size = 1000
+        page = 0
         
-        if not readings_response.data:
+        while True:
+            start = page * page_size
+            end = start + page_size - 1
+            
+            batch_response = supabase.table('sensor_readings') \
+                .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
+                .eq('session_id', session_id) \
+                .order('timestamp') \
+                .range(start, end) \
+                .execute()
+            
+            if not batch_response.data:
+                break
+            
+            all_readings.extend(batch_response.data)
+            debug_log.append(f"Fetched page {page + 1}: {len(batch_response.data)} records (total: {len(all_readings)})")
+            
+            if len(batch_response.data) < page_size:
+                break
+            
+            page += 1
+        
+        if not all_readings:
             return jsonify({
                 'error': 'No data found',
                 'session_id': session_id,
                 'debug_log': debug_log
             }), 404
         
-        debug_log.append(f"Fetched {len(readings_response.data)} rows from database")
+        debug_log.append(f"Total fetched: {len(all_readings)} rows from database")
         
         # Track processing stats for error messages
-        processing_stats = {'raw_records': len(readings_response.data)}
+        processing_stats = {'raw_records': len(all_readings)}
         
         # Step 2: Create DataFrame
         debug_log.append("Step 2: Creating DataFrame...")
-        df = pd.DataFrame(readings_response.data)
+        df = pd.DataFrame(all_readings)
         debug_log.append(f"DataFrame created with {len(df)} rows and columns: {list(df.columns)}")
         debug_log.append(f"Null counts: {df.isna().sum().to_dict()}")
         
@@ -412,27 +431,50 @@ def analyze_sleep():
             else:
                 raise
         
-        readings_response = supabase.table('sensor_readings') \
-            .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
-            .eq('session_id', session_id) \
-            .order('timestamp') \
-            .limit(100000) \
-            .execute()
+        # Fetch all records using pagination (Supabase default limit is 1000)
+        all_readings = []
+        page_size = 1000
+        page = 0
         
-        if not readings_response.data or len(readings_response.data) < 100:
+        logger.info(f"Fetching sensor readings for session {session_id} with pagination...")
+        while True:
+            start = page * page_size
+            end = start + page_size - 1
+            
+            batch_response = supabase.table('sensor_readings') \
+                .select('timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z') \
+                .eq('session_id', session_id) \
+                .order('timestamp') \
+                .range(start, end) \
+                .execute()
+            
+            if not batch_response.data:
+                break
+            
+            all_readings.extend(batch_response.data)
+            logger.info(f"Fetched page {page + 1}: {len(batch_response.data)} records (total: {len(all_readings)})")
+            
+            if len(batch_response.data) < page_size:
+                break
+            
+            page += 1
+        
+        logger.info(f"Total records fetched: {len(all_readings)}")
+        
+        if not all_readings or len(all_readings) < 100:
             raise ValueError('Insufficient data for analysis (minimum 100 samples required)')
         
         # Track data processing stats for detailed error messages
-        processing_stats = {'raw_records': len(readings_response.data)}
+        processing_stats = {'raw_records': len(all_readings)}
         
         try:
-            df = pd.DataFrame(readings_response.data)
+            df = pd.DataFrame(all_readings)
             
             if len(df) == 0:
                 raise ValueError('No data returned from database')
             
             available_cols = list(df.columns) if len(df.columns) > 0 else []
-            sample_data = readings_response.data[0] if len(readings_response.data) > 0 else {}
+            sample_data = all_readings[0] if len(all_readings) > 0 else {}
             
             if 'timestamp' not in df.columns:
                 raise ValueError(f'timestamp column not found. Available columns: {available_cols}. Sample data keys: {list(sample_data.keys())}. Total rows: {len(df)}')
@@ -986,27 +1028,50 @@ def analyze_sleep_hypnospy():
             else:
                 raise
         
-        readings_response = supabase.table('sensor_readings') \
-            .select('timestamp, ppg, acc_x, acc_y, acc_z') \
-            .eq('session_id', session_id) \
-            .order('timestamp') \
-            .limit(100000) \
-            .execute()
+        # Fetch all records using pagination (Supabase default limit is 1000)
+        all_readings = []
+        page_size = 1000
+        page = 0
         
-        if not readings_response.data or len(readings_response.data) < 100:
+        logger.info(f"Fetching sensor readings for session {session_id} with pagination...")
+        while True:
+            start = page * page_size
+            end = start + page_size - 1
+            
+            batch_response = supabase.table('sensor_readings') \
+                .select('timestamp, ppg, acc_x, acc_y, acc_z') \
+                .eq('session_id', session_id) \
+                .order('timestamp') \
+                .range(start, end) \
+                .execute()
+            
+            if not batch_response.data:
+                break
+            
+            all_readings.extend(batch_response.data)
+            logger.info(f"Fetched page {page + 1}: {len(batch_response.data)} records (total: {len(all_readings)})")
+            
+            if len(batch_response.data) < page_size:
+                break
+            
+            page += 1
+        
+        logger.info(f"Total records fetched: {len(all_readings)}")
+        
+        if not all_readings or len(all_readings) < 100:
             raise ValueError('Insufficient data for HypnosPy analysis (minimum 100 samples required)')
         
         # Track data processing stats for detailed error messages
-        processing_stats = {'raw_records': len(readings_response.data)}
+        processing_stats = {'raw_records': len(all_readings)}
         
         try:
-            df = pd.DataFrame(readings_response.data)
+            df = pd.DataFrame(all_readings)
             
             if len(df) == 0:
                 raise ValueError('No data returned from database')
             
             available_cols = list(df.columns) if len(df.columns) > 0 else []
-            sample_data = readings_response.data[0] if len(readings_response.data) > 0 else {}
+            sample_data = all_readings[0] if len(all_readings) > 0 else {}
             
             if 'timestamp' not in df.columns:
                 raise ValueError(f'timestamp column not found. Available columns: {available_cols}. Sample data keys: {list(sample_data.keys())}. Total rows: {len(df)}')
