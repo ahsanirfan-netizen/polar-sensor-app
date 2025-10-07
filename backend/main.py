@@ -832,7 +832,31 @@ def prepare_data_for_hypnospy(df):
         })
     
     hypnospy_df = pd.DataFrame(hypnospy_data)
+    
+    if len(hypnospy_df) == 0:
+        raise ValueError('No epochs generated from accelerometer data')
+    
+    # Ensure index is datetime before setting
+    if 'hyp_time_col' not in hypnospy_df.columns:
+        raise ValueError('Missing hyp_time_col in HypnosPy data')
+    
+    # Make sure timestamps are valid before setting as index
+    hypnospy_df['hyp_time_col'] = pd.to_datetime(hypnospy_df['hyp_time_col'], errors='coerce')
+    hypnospy_df = hypnospy_df[hypnospy_df['hyp_time_col'].notna()].copy()
+    
+    if len(hypnospy_df) == 0:
+        raise ValueError('No valid epochs after timestamp validation')
+    
     hypnospy_df = hypnospy_df.set_index('hyp_time_col')
+    
+    # Validate final structure for HypnosPy
+    if not isinstance(hypnospy_df.index, pd.DatetimeIndex):
+        raise ValueError(f'HypnosPy requires DatetimeIndex, got {type(hypnospy_df.index)}')
+    
+    required_cols = ['hyp_act_x', 'pid']
+    missing_cols = [col for col in required_cols if col not in hypnospy_df.columns]
+    if missing_cols:
+        raise ValueError(f'Missing required columns for HypnosPy: {missing_cols}')
     
     return hypnospy_df
 
