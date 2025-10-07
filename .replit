@@ -54,5 +54,5 @@ channel = "stable-25_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--chdir", "backend", "main:app"]
+run = ["python", "backend/main.py"]
 build = ["pip", "install", "-r", "backend/requirements.txt"]
