@@ -27,7 +27,14 @@ os.environ.setdefault('TMPDIR', '/tmp')
 os.environ.setdefault('HOME', '/tmp')
 os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib')
 os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
-print("Environment configured for HypnosPy/TensorFlow: TMPDIR=/tmp, HOME=/tmp")
+os.environ.setdefault('NUMEXPR_MAX_THREADS', '2')
+
+# Create required directories
+os.makedirs('/tmp/matplotlib', exist_ok=True)
+os.makedirs('/tmp/.keras', exist_ok=True)
+os.makedirs('/tmp/.local', exist_ok=True)
+
+print("Environment configured for HypnosPy/TensorFlow: TMPDIR=/tmp, HOME=/tmp, dirs created")
 
 app = Flask(__name__)
 CORS(app)
