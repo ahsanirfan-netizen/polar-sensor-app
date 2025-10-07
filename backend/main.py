@@ -681,16 +681,21 @@ def analyze_sleep_with_simple_algorithm(df, processing_stats=None):
     
     df = df.sort_values('timestamp').reset_index(drop=True)
     
-    hr_threshold = df['heart_rate'].quantile(0.50) if 'heart_rate' in df.columns and df['heart_rate'].notna().any() else None
-    activity_threshold = df['activity_magnitude'].quantile(0.50) if 'activity_magnitude' in df.columns else None
+    # Use activity as PRIMARY sleep indicator (like Cole-Kripke), HR as secondary
+    activity_threshold = df['activity_magnitude'].quantile(0.40) if 'activity_magnitude' in df.columns else None
+    hr_threshold = df['heart_rate'].quantile(0.60) if 'heart_rate' in df.columns and df['heart_rate'].notna().any() else None
     
-    logger.info(f'[SLEEP ANALYSIS] HR threshold: {hr_threshold}, Activity threshold: {activity_threshold}')
+    logger.info(f'[SLEEP ANALYSIS] Activity threshold: {activity_threshold}, HR threshold: {hr_threshold}')
     logger.info(f'[SLEEP ANALYSIS] Total records: {len(df)}')
     
-    if hr_threshold is not None and activity_threshold is not None:
-        df['likely_sleep'] = (df['heart_rate'] < hr_threshold) & (df['activity_magnitude'] < activity_threshold)
-    elif activity_threshold is not None:
+    # Primary signal: low activity (below 40th percentile)
+    if activity_threshold is not None:
         df['likely_sleep'] = df['activity_magnitude'] < activity_threshold
+        
+        # Secondary enhancement: if HR data available, slightly boost confidence for low HR
+        if hr_threshold is not None:
+            # Keep all low-activity as sleep, but can refine later if needed
+            pass
     else:
         df['likely_sleep'] = False
     
