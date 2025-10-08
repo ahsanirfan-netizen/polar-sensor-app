@@ -51,12 +51,9 @@ export default function StepCounterScreen() {
 
   const runInitialization = async () => {
     try {
-      // Phase 1: HealthConnect
-      const hcInit = await HealthConnectService.initializeHealthConnect();
-      if (hcInit && isMounted.current) {
-        await HealthConnectService.requestPermissions();
-      }
-
+      // Phase 1: HealthConnect - SKIP, causes production crashes
+      // Just mark as initialized without HealthConnect
+      
       // Phase 2: Notifications
       if (isMounted.current) {
         await StepCounterService.requestNotificationPermissions();
@@ -178,15 +175,9 @@ export default function StepCounterScreen() {
   };
 
   const syncToHealthConnect = async (session) => {
-    try {
-      await HealthConnectService.syncStepsToHealthConnect(
-        session.steps,
-        session.startTime,
-        session.endTime
-      );
-    } catch (error) {
-      console.error('Error syncing:', error);
-    }
+    // SKIP HealthConnect in production - causes crashes
+    // Steps are still saved to Supabase
+    console.log('HealthConnect sync skipped (production build)');
   };
 
   const manualStart = () => {
@@ -215,11 +206,12 @@ export default function StepCounterScreen() {
   if (!initialized) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Step Counter</Text>
-        <Text style={styles.subtitle}>Setup required</Text>
+        <Text style={styles.title}>🚶 Step Counter</Text>
+        <Text style={styles.subtitle}>Gyroscope-based walking detection</Text>
         <TouchableOpacity style={styles.initButton} onPress={runInitialization}>
-          <Text style={styles.initButtonText}>Initialize Step Counter</Text>
+          <Text style={styles.initButtonText}>Get Started</Text>
         </TouchableOpacity>
+        <Text style={styles.note}>Steps are saved to your account</Text>
       </View>
     );
   }
@@ -354,5 +346,11 @@ const styles = StyleSheet.create({
     color: '#f44336',
     textAlign: 'center',
     marginTop: 100,
+  },
+  note: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });
