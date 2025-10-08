@@ -323,9 +323,55 @@ CREATE TRIGGER validate_sleep_analysis_hypnospy_session_ownership_trigger
   FOR EACH ROW
   EXECUTE FUNCTION validate_sleep_analysis_session_ownership();
 
--- Success! Your Supabase database is now configured for the Polar Sensor App with dual sleep analysis
+-- 22. Create daily_steps table for step counting feature
+CREATE TABLE IF NOT EXISTS daily_steps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  total_steps INTEGER DEFAULT 0,
+  walking_sessions JSONB DEFAULT '[]'::jsonb,
+  distance_meters REAL,
+  calories_burned REAL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, date)
+);
+
+-- 23. Create indexes for daily_steps
+CREATE INDEX IF NOT EXISTS idx_daily_steps_user_id ON daily_steps(user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_steps_date ON daily_steps(date);
+CREATE INDEX IF NOT EXISTS idx_daily_steps_user_date ON daily_steps(user_id, date);
+
+-- 24. Enable RLS on daily_steps
+ALTER TABLE daily_steps ENABLE ROW LEVEL SECURITY;
+
+-- 25. Create RLS Policies for daily_steps table
+CREATE POLICY "Users can view own daily steps"
+  ON daily_steps FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own daily steps"
+  ON daily_steps FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own daily steps"
+  ON daily_steps FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own daily steps"
+  ON daily_steps FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 26. Add updated_at trigger for daily_steps
+CREATE TRIGGER update_daily_steps_updated_at
+  BEFORE UPDATE ON daily_steps
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Success! Your Supabase database is now configured for the Polar Sensor App with dual sleep analysis and step counting
 -- Next steps:
 -- 1. Verify tables were created: Check Tables tab in Supabase Dashboard
 -- 2. Verify RLS is enabled: Should see 🔒 icon next to table names
--- 3. Run this updated schema to add both sleep_analysis tables (native + HypnosPy)
+-- 3. Run this updated schema in Supabase SQL Editor to add the daily_steps table
 -- 4. Test by signing in to the app and syncing data

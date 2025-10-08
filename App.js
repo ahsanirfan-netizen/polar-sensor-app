@@ -29,7 +29,9 @@ import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
+import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
+import StepCounterService from './StepCounterService';
 
 const bleManager = new BleManager();
 
@@ -1192,11 +1194,14 @@ export default function App() {
           });
         }
         
-        setAccelerometer(() => ({ 
+        const accData = { 
           x: x / 1000, 
           y: y / 1000, 
           z: z / 1000 
-        }));
+        };
+        setAccelerometer(() => accData);
+        
+        StepCounterService.detectStep(accData);
       }
     } catch (error) {
       console.error('ACC parse error:', error);
@@ -1234,11 +1239,14 @@ export default function App() {
           });
         }
         
-        setGyroscope(() => ({ 
+        const gyroData = { 
           x: x / 100, 
           y: y / 100, 
           z: z / 100 
-        }));
+        };
+        setGyroscope(() => gyroData);
+        
+        StepCounterService.detectWalkingPattern(gyroData, accelerometer);
       }
     } catch (error) {
       console.error('Gyro parse error:', error);
@@ -1432,6 +1440,14 @@ export default function App() {
           😴 Sleep
         </Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'steps' && styles.tabActive]}
+        onPress={() => setActiveTab('steps')}
+      >
+        <Text style={[styles.tabText, activeTab === 'steps' && styles.tabTextActive]}>
+          🚶 Steps
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -1440,6 +1456,15 @@ export default function App() {
       <View style={styles.container}>
         {renderTabBar()}
         <SleepAnalysisScreen />
+      </View>
+    );
+  }
+
+  if (activeTab === 'steps') {
+    return (
+      <View style={styles.container}>
+        {renderTabBar()}
+        <StepCounterScreen />
       </View>
     );
   }

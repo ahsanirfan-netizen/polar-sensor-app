@@ -21,11 +21,13 @@ export default {
           android: {
             compileSdkVersion: 35,
             targetSdkVersion: 35,
-            buildToolsVersion: "35.0.0"
+            buildToolsVersion: "35.0.0",
+            minSdkVersion: 26
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "react-native-health-connect"
     ],
     ios: {
       supportsTablet: true,
@@ -39,7 +41,15 @@ export default {
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.WRITE_STEPS",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.WRITE_DISTANCE",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.WRITE_HEART_RATE",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.WRITE_SLEEP"
       ],
       intentFilters: [
         {
