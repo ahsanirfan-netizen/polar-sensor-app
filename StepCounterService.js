@@ -1,5 +1,7 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+
+// Lazy load notifications to prevent crashes on import
+let Notifications = null;
 
 class StepCounterService {
   constructor() {
@@ -21,8 +23,23 @@ class StepCounterService {
     this.handlerSetup = false;
   }
 
-  setupNotificationHandler() {
+  async loadNotifications() {
+    if (Notifications) return true;
+    
+    try {
+      Notifications = await import('expo-notifications');
+      return true;
+    } catch (error) {
+      console.error('Failed to load expo-notifications:', error);
+      return false;
+    }
+  }
+
+  async setupNotificationHandler() {
     if (this.handlerSetup) return;
+    
+    const loaded = await this.loadNotifications();
+    if (!loaded) return;
     
     try {
       Notifications.setNotificationHandler({
@@ -39,6 +56,9 @@ class StepCounterService {
   }
 
   async setupNotificationCategories() {
+    const loaded = await this.loadNotifications();
+    if (!loaded) return;
+    
     if (Platform.OS === 'android') {
       await Notifications.setNotificationCategoryAsync('walking_start', [
         {
@@ -74,7 +94,10 @@ class StepCounterService {
   }
 
   async requestNotificationPermissions() {
-    this.setupNotificationHandler();
+    await this.setupNotificationHandler();
+    
+    const loaded = await this.loadNotifications();
+    if (!loaded) return false;
     
     if (Platform.OS === 'android') {
       try {
@@ -136,7 +159,7 @@ class StepCounterService {
 
   async sendWalkingNotification(type) {
     const hasPermission = await this.requestNotificationPermissions();
-    if (!hasPermission) return;
+    if (!hasPermission || !Notifications) return;
 
     if (!this.categoriesSetup) {
       await this.setupNotificationCategories();
