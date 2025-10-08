@@ -148,11 +148,17 @@ class StepCounterService {
       
       if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired) {
         this.pendingStartConfirmation = true;
-        await this.sendWalkingNotification('start');
+        // Auto-start walking without notifications (production safe)
+        if (this.walkingCallback) {
+          this.walkingCallback();
+        }
       } 
       else if (!isLikelyWalking && this.isWalking && !this.pendingStopConfirmation && cooldownExpired) {
         this.pendingStopConfirmation = true;
-        await this.sendWalkingNotification('stop');
+        // Auto-stop walking without notifications (production safe)
+        if (this.walkingStoppedCallback) {
+          this.walkingStoppedCallback();
+        }
       }
     }
   }

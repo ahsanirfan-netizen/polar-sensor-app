@@ -207,7 +207,18 @@ export default function StepCounterScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Step Counter</Text>
+      <Text style={styles.title}>🚶 Step Counter</Text>
+      
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>📡 How It Works</Text>
+        <Text style={styles.infoText}>
+          1. Connect your Polar sensor on Sensor tab{'\n'}
+          2. Enable SDK Mode{'\n'}
+          3. Start walking - detection is automatic!{'\n'}
+          {'\n'}
+          Steps are counted and saved automatically.
+        </Text>
+      </View>
       
       <View style={styles.card}>
         <Text style={styles.label}>Today's Steps</Text>
@@ -341,5 +352,24 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginTop: 16,
+  },
+  infoCard: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196f3',
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#424242',
+    lineHeight: 20,
   },
 });
