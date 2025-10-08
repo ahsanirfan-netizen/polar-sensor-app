@@ -7,12 +7,30 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import StepCounterService from './StepCounterService';
-import HealthConnectService from './HealthConnectService';
-import { supabase } from './supabaseClient';
+
+let Notifications = null;
+let StepCounterService = null;
+let HealthConnectService = null;
+let supabase = null;
+
+try {
+  Notifications = require('expo-notifications');
+  StepCounterService = require('./StepCounterService').default;
+  HealthConnectService = require('./HealthConnectService').default;
+  supabase = require('./supabaseClient').supabase;
+} catch (error) {
+  console.error('Failed to load dependencies:', error);
+}
 
 export default function StepCounterScreen() {
+  if (!Notifications || !StepCounterService || !HealthConnectService || !supabase) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>Failed to load step counter</Text>
+        <Text style={styles.errorSubtext}>Please restart the app</Text>
+      </View>
+    );
+  }
   const [stepCount, setStepCount] = useState(0);
   const [isWalking, setIsWalking] = useState(false);
   const [todaySteps, setTodaySteps] = useState(0);
@@ -365,6 +383,16 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     color: '#666',
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f44336',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#999',
   },
   header: {
     padding: 20,
