@@ -8,13 +8,11 @@ import {
   Alert,
 } from 'react-native';
 
-let Notifications = null;
 let StepCounterService = null;
 let HealthConnectService = null;
 let supabase = null;
 
 try {
-  Notifications = require('expo-notifications');
   StepCounterService = require('./StepCounterService').default;
   HealthConnectService = require('./HealthConnectService').default;
   supabase = require('./supabaseClient').supabase;
@@ -23,7 +21,7 @@ try {
 }
 
 export default function StepCounterScreen() {
-  if (!Notifications || !StepCounterService || !HealthConnectService || !supabase) {
+  if (!StepCounterService || !HealthConnectService || !supabase) {
     return (
       <View style={[styles.container, styles.centered]}>
         <Text style={styles.errorText}>Failed to load step counter</Text>
@@ -57,10 +55,10 @@ export default function StepCounterScreen() {
     
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        StepCounterService.removeNotificationSubscription(notificationListener.current);
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        StepCounterService.removeNotificationSubscription(responseListener.current);
       }
     };
   }, []);
@@ -160,33 +158,37 @@ export default function StepCounterScreen() {
   }, [isWalking]);
 
   useEffect(() => {
-    try {
-      StepCounterService.setWalkingCallbacks(
-        () => setShowWalkingPrompt(true),
-        () => setShowStopPrompt(true)
-      );
+    const setupListeners = async () => {
+      try {
+        StepCounterService.setWalkingCallbacks(
+          () => setShowWalkingPrompt(true),
+          () => setShowStopPrompt(true)
+        );
 
-      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-        console.log('Notification received:', notification);
-      });
+        notificationListener.current = await StepCounterService.addNotificationReceivedListener(notification => {
+          console.log('Notification received:', notification);
+        });
 
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log('Notification response:', response);
-        const actionId = response.actionIdentifier;
-        
-        if (actionId === 'confirm_yes') {
-          handleWalkingConfirmation(true);
-        } else if (actionId === 'confirm_no') {
-          handleWalkingConfirmation(false);
-        } else if (actionId === 'stop_yes') {
-          handleStopWalkingConfirmation(true);
-        } else if (actionId === 'stop_no') {
-          handleStopWalkingConfirmation(false);
-        }
-      });
-    } catch (error) {
-      console.error('Error setting up notification listeners:', error);
-    }
+        responseListener.current = await StepCounterService.addNotificationResponseReceivedListener(response => {
+          console.log('Notification response:', response);
+          const actionId = response.actionIdentifier;
+          
+          if (actionId === 'confirm_yes') {
+            handleWalkingConfirmation(true);
+          } else if (actionId === 'confirm_no') {
+            handleWalkingConfirmation(false);
+          } else if (actionId === 'stop_yes') {
+            handleStopWalkingConfirmation(true);
+          } else if (actionId === 'stop_no') {
+            handleStopWalkingConfirmation(false);
+          }
+        });
+      } catch (error) {
+        console.error('Error setting up notification listeners:', error);
+      }
+    };
+
+    setupListeners();
   }, [handleWalkingConfirmation, handleStopWalkingConfirmation]);
 
   const saveDailySteps = async (session) => {

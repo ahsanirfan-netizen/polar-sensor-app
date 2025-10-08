@@ -273,6 +273,40 @@ class StepCounterService {
     this.pendingStartConfirmation = false;
     this.pendingStopConfirmation = false;
   }
+
+  async addNotificationReceivedListener(callback) {
+    const loaded = await this.loadNotifications();
+    if (!loaded || !Notifications) return null;
+
+    try {
+      return Notifications.addNotificationReceivedListener(callback);
+    } catch (error) {
+      console.error('Error adding notification listener:', error);
+      return null;
+    }
+  }
+
+  async addNotificationResponseReceivedListener(callback) {
+    const loaded = await this.loadNotifications();
+    if (!loaded || !Notifications) return null;
+
+    try {
+      return Notifications.addNotificationResponseReceivedListener(callback);
+    } catch (error) {
+      console.error('Error adding notification response listener:', error);
+      return null;
+    }
+  }
+
+  removeNotificationSubscription(subscription) {
+    if (!subscription || !Notifications) return;
+
+    try {
+      Notifications.removeNotificationSubscription(subscription);
+    } catch (error) {
+      console.error('Error removing notification subscription:', error);
+    }
+  }
 }
 
 export default new StepCounterService();
