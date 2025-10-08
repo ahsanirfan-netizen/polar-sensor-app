@@ -25,7 +25,6 @@ export default function StepCounterScreen() {
   useEffect(() => {
     initializeStepCounter();
     loadTodaySteps();
-    setupNotificationListeners();
     
     return () => {
       if (notificationListener.current) {
@@ -36,32 +35,6 @@ export default function StepCounterScreen() {
       }
     };
   }, []);
-
-  const setupNotificationListeners = () => {
-    StepCounterService.setWalkingCallbacks(
-      () => setShowWalkingPrompt(true),
-      () => setShowStopPrompt(true)
-    );
-
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-    });
-
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-      const actionId = response.actionIdentifier;
-      
-      if (actionId === 'confirm_yes') {
-        handleWalkingConfirmation(true);
-      } else if (actionId === 'confirm_no') {
-        handleWalkingConfirmation(false);
-      } else if (actionId === 'stop_yes') {
-        handleStopWalkingConfirmation(true);
-      } else if (actionId === 'stop_no') {
-        handleStopWalkingConfirmation(false);
-      }
-    });
-  };
 
   const initializeStepCounter = async () => {
     const initialized = await HealthConnectService.initializeHealthConnect();
@@ -152,6 +125,32 @@ export default function StepCounterScreen() {
       return () => clearInterval(interval);
     }
   }, [isWalking]);
+
+  useEffect(() => {
+    StepCounterService.setWalkingCallbacks(
+      () => setShowWalkingPrompt(true),
+      () => setShowStopPrompt(true)
+    );
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response:', response);
+      const actionId = response.actionIdentifier;
+      
+      if (actionId === 'confirm_yes') {
+        handleWalkingConfirmation(true);
+      } else if (actionId === 'confirm_no') {
+        handleWalkingConfirmation(false);
+      } else if (actionId === 'stop_yes') {
+        handleStopWalkingConfirmation(true);
+      } else if (actionId === 'stop_no') {
+        handleStopWalkingConfirmation(false);
+      }
+    });
+  }, []);
 
   const saveDailySteps = async (session) => {
     try {
