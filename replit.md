@@ -49,6 +49,19 @@ The step counting feature employs a hybrid human-in-the-loop approach combining 
 -   **Health Connect Integration**: Automatically syncs step data to Android Health Connect, making it available to Google Fit, Samsung Health, and the entire Android health ecosystem.
 -   **Supabase Storage**: Daily steps are stored in a dedicated `daily_steps` table with walking session details, distance estimates, and calorie calculations.
 
+### Database Schema
+
+**Supabase Tables Required:**
+- `sessions`: Stores sensor recording sessions (created via Supabase dashboard)
+- `sensor_readings`: Stores raw PPG, ACC, Gyro data (created via Supabase dashboard)
+- `sleep_analysis`: Stores sleep analysis results from backend (created via Supabase dashboard)
+- `sleep_analysis_hypnospy`: Stores Cole-Kripke algorithm results (created via Supabase dashboard)
+- `daily_steps`: Stores daily step counts and walking sessions (SQL provided in `supabase_daily_steps_table.sql`)
+
+**Setup Instructions:**
+1. Run the SQL in `supabase_daily_steps_table.sql` in your Supabase SQL Editor (Dashboard → SQL Editor → New Query)
+2. This creates the table, indexes, RLS policies, and permissions
+
 ### Project Configuration
 
 The project uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSdkVersion 35`, and `minSdkVersion 26`. Required permissions include `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `ACCESS_FINE_LOCATION`, and Health Connect permissions (`health.READ_STEPS`, `health.WRITE_STEPS`, etc.). EAS Build is used for cloud-based APK generation.
