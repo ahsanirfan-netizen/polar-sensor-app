@@ -21,11 +21,23 @@ try {
 }
 
 export default function StepCounterScreen() {
-  if (!StepCounterService || !HealthConnectService || !supabase) {
+  // Production safety check - render without crashing even if modules fail
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!StepCounterService || !HealthConnectService || !supabase) {
+      setHasError(true);
+    }
+  }, []);
+
+  if (hasError || !StepCounterService || !HealthConnectService || !supabase) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Failed to load step counter</Text>
-        <Text style={styles.errorSubtext}>Please restart the app</Text>
+        <Text style={styles.errorText}>Step Counter Unavailable</Text>
+        <Text style={styles.errorSubtext}>Required modules could not be loaded</Text>
+        <Text style={{ fontSize: 12, color: '#999', marginTop: 12, textAlign: 'center', paddingHorizontal: 20 }}>
+          This may be due to missing native dependencies in your build.
+        </Text>
       </View>
     );
   }

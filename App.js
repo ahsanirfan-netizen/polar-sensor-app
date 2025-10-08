@@ -32,10 +32,6 @@ import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
 
-// Lazy load StepCounterScreen to prevent crashes on import
-let StepCounterScreen = null;
-let stepCounterLoadError = null;
-
 const bleManager = new BleManager();
 
 // Polar BLE UUIDs
@@ -111,20 +107,6 @@ export default function App() {
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
-
-  useEffect(() => {
-    // Dynamically load StepCounterScreen to prevent crash on import
-    const loadStepCounterScreen = async () => {
-      try {
-        const module = await import('./StepCounterScreen');
-        StepCounterScreen = module.default;
-      } catch (error) {
-        console.error('Failed to load StepCounterScreen:', error);
-        stepCounterLoadError = error.message;
-      }
-    };
-    loadStepCounterScreen();
-  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -1481,25 +1463,18 @@ export default function App() {
     return (
       <View style={styles.container}>
         {renderTabBar()}
-        {StepCounterScreen ? (
-          <StepCounterScreen />
-        ) : stepCounterLoadError ? (
-          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#f44336', marginBottom: 12, textAlign: 'center' }}>
-              Step Counter Unavailable
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 8 }}>
-              Error: {stepCounterLoadError}
-            </Text>
-            <Text style={{ fontSize: 12, color: '#999', textAlign: 'center' }}>
-              Please restart the app to try again
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-            <Text style={{ fontSize: 18, color: '#666' }}>Loading step counter...</Text>
-          </View>
-        )}
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+          <Text style={{ fontSize: 24, marginBottom: 16 }}>🚶</Text>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 12, textAlign: 'center' }}>
+            Step Counter
+          </Text>
+          <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 16 }}>
+            Step counting with gyroscope-based walking detection and Health Connect sync.
+          </Text>
+          <Text style={{ fontSize: 12, color: '#999', textAlign: 'center', fontStyle: 'italic' }}>
+            Feature temporarily disabled for testing
+          </Text>
+        </View>
       </View>
     );
   }
