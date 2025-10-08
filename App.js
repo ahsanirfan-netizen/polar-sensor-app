@@ -29,6 +29,7 @@ import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
+import StepCounterScreenDiagnostic from './StepCounterScreenDiagnostic';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
 
@@ -1463,18 +1464,7 @@ export default function App() {
     return (
       <View style={styles.container}>
         {renderTabBar()}
-        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-          <Text style={{ fontSize: 24, marginBottom: 16 }}>🚶</Text>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 12, textAlign: 'center' }}>
-            Step Counter
-          </Text>
-          <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 16 }}>
-            Step counting with gyroscope-based walking detection and Health Connect sync.
-          </Text>
-          <Text style={{ fontSize: 12, color: '#999', textAlign: 'center', fontStyle: 'italic' }}>
-            Feature temporarily disabled for testing
-          </Text>
-        </View>
+        <StepCounterScreenDiagnostic />
       </View>
     );
   }
