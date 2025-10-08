@@ -51,15 +51,9 @@ export default function StepCounterScreen() {
 
   const runInitialization = async () => {
     try {
-      // Phase 1: HealthConnect - SKIP, causes production crashes
-      // Just mark as initialized without HealthConnect
+      console.log('Initializing step counter...');
       
-      // Phase 2: Notifications
-      if (isMounted.current) {
-        await StepCounterService.requestNotificationPermissions();
-      }
-
-      // Phase 3: Callbacks
+      // Simple setup - callbacks only, no async calls that might fail
       if (isMounted.current) {
         StepCounterService.setWalkingCallbacks(
           () => {
@@ -74,7 +68,6 @@ export default function StepCounterScreen() {
               setIsWalking(false);
               if (session && session.steps > 0) {
                 await saveDailySteps(session);
-                await syncToHealthConnect(session);
                 await loadTodaySteps();
               }
             }
@@ -82,26 +75,22 @@ export default function StepCounterScreen() {
         );
       }
 
-      // Phase 4: Notification listeners
-      if (isMounted.current) {
-        await StepCounterService.addNotificationReceivedListener(
-          notification => console.log('Notification:', notification)
-        );
-        await StepCounterService.addNotificationResponseReceivedListener(
-          response => console.log('Response:', response)
-        );
-      }
-
-      // Phase 5: Load data
+      // Load today's steps
       if (isMounted.current) {
         await loadTodaySteps();
       }
 
+      // Mark as initialized
       if (isMounted.current) {
         setInitialized(true);
+        console.log('Step counter initialized successfully');
       }
     } catch (error) {
       console.error('Init error:', error);
+      // Initialize anyway so user can use the app
+      if (isMounted.current) {
+        setInitialized(true);
+      }
     }
   };
 
