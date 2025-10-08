@@ -241,9 +241,17 @@ class StepCounterService {
     if (this.accBuffer.length < 10) return false;
     
     const recentMean = this.accBuffer.slice(-10).reduce((sum, val) => sum + val, 0) / 10;
-    const threshold = recentMean * 1.15;
     
-    if (magnitude > threshold && (currentTime - this.lastPeakTime) > this.minPeakDistance) {
+    // Much stricter thresholds to prevent false positives
+    const relativeThreshold = recentMean * 1.3; // 30% above mean (was 15%)
+    const absoluteThreshold = 10.5; // Minimum acceleration to count as step
+    
+    // Must exceed BOTH thresholds AND have proper timing
+    const isValidPeak = magnitude > relativeThreshold && 
+                        magnitude > absoluteThreshold && 
+                        (currentTime - this.lastPeakTime) > this.minPeakDistance;
+    
+    if (isValidPeak) {
       this.lastPeakTime = currentTime;
       this.stepCount++;
       if (this.walkingSession) {
