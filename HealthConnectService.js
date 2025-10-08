@@ -1,16 +1,24 @@
 import { Platform } from 'react-native';
-import {
-  initialize,
-  requestPermission,
-  insertRecords,
-  readRecords,
-  getSdkStatus,
-} from 'react-native-health-connect';
+
+// Lazy load native module to prevent crashes on import
+let HealthConnect = null;
 
 class HealthConnectService {
   constructor() {
     this.isInitialized = false;
     this.hasPermissions = false;
+  }
+
+  async loadHealthConnect() {
+    if (HealthConnect) return true;
+    
+    try {
+      HealthConnect = await import('react-native-health-connect');
+      return true;
+    } catch (error) {
+      console.error('Failed to load react-native-health-connect:', error);
+      return false;
+    }
   }
 
   async initializeHealthConnect() {
@@ -19,14 +27,20 @@ class HealthConnectService {
       return false;
     }
 
+    const loaded = await this.loadHealthConnect();
+    if (!loaded) {
+      console.log('Health Connect module not available');
+      return false;
+    }
+
     try {
-      const status = await getSdkStatus();
+      const status = await HealthConnect.getSdkStatus();
       if (status !== 3) {
         console.log('Health Connect not available. Status:', status);
         return false;
       }
 
-      this.isInitialized = await initialize();
+      this.isInitialized = await HealthConnect.initialize();
       console.log('Health Connect initialized:', this.isInitialized);
       return this.isInitialized;
     } catch (error) {
@@ -38,11 +52,11 @@ class HealthConnectService {
   async requestPermissions() {
     if (!this.isInitialized) {
       const initialized = await this.initializeHealthConnect();
-      if (!initialized) return false;
+      if (!initialized || !HealthConnect) return false;
     }
 
     try {
-      const permissions = await requestPermission([
+      const permissions = await HealthConnect.requestPermission([
         { accessType: 'read', recordType: 'Steps' },
         { accessType: 'write', recordType: 'Steps' },
         { accessType: 'read', recordType: 'Distance' },
@@ -65,14 +79,14 @@ class HealthConnectService {
   async syncStepsToHealthConnect(steps, startTime, endTime) {
     if (!this.hasPermissions) {
       const granted = await this.requestPermissions();
-      if (!granted) {
+      if (!granted || !HealthConnect) {
         console.log('Health Connect permissions not granted');
         return false;
       }
     }
 
     try {
-      const result = await insertRecords([
+      const result = await HealthConnect.insertRecords([
         {
           recordType: 'Steps',
           count: steps,
@@ -92,7 +106,7 @@ class HealthConnectService {
   async syncSleepToHealthConnect(sleepOnset, wakeTime, stages = null) {
     if (!this.hasPermissions) {
       const granted = await this.requestPermissions();
-      if (!granted) {
+      if (!granted || !HealthConnect) {
         console.log('Health Connect permissions not granted');
         return false;
       }
@@ -109,7 +123,7 @@ class HealthConnectService {
         sleepRecord.stages = stages;
       }
 
-      const result = await insertRecords([sleepRecord]);
+      const result = await HealthConnect.insertRecords([sleepRecord]);
 
       console.log('Sleep synced to Health Connect:', result);
       return true;
@@ -122,11 +136,11 @@ class HealthConnectService {
   async syncHeartRateToHealthConnect(heartRate, timestamp) {
     if (!this.hasPermissions) {
       const granted = await this.requestPermissions();
-      if (!granted) return false;
+      if (!granted || !HealthConnect) return false;
     }
 
     try {
-      const result = await insertRecords([
+      const result = await HealthConnect.insertRecords([
         {
           recordType: 'HeartRate',
           time: new Date(timestamp).toISOString(),
@@ -144,7 +158,7 @@ class HealthConnectService {
   async getTodaySteps() {
     if (!this.hasPermissions) {
       const granted = await this.requestPermissions();
-      if (!granted) return 0;
+      if (!granted || !HealthConnect) return 0;
     }
 
     try {
@@ -153,7 +167,7 @@ class HealthConnectService {
       const endOfDay = new Date(today);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const result = await readRecords('Steps', {
+      const result = await HealthConnect.readRecords('Steps', {
         timeRangeFilter: {
           operator: 'between',
           startTime: today.toISOString(),
