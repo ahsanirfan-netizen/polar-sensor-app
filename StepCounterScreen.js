@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,12 +19,23 @@ export default function StepCounterScreen() {
   const [walkingSessions, setWalkingSessions] = useState([]);
   const [showWalkingPrompt, setShowWalkingPrompt] = useState(false);
   const [showStopPrompt, setShowStopPrompt] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const notificationListener = useRef();
   const responseListener = useRef();
 
   useEffect(() => {
-    initializeStepCounter();
-    loadTodaySteps();
+    const init = async () => {
+      try {
+        await initializeStepCounter();
+        await loadTodaySteps();
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    init();
     
     return () => {
       if (notificationListener.current) {
@@ -37,19 +48,23 @@ export default function StepCounterScreen() {
   }, []);
 
   const initializeStepCounter = async () => {
-    const initialized = await HealthConnectService.initializeHealthConnect();
-    if (initialized) {
-      const granted = await HealthConnectService.requestPermissions();
-      if (!granted) {
-        Alert.alert(
-          'Permissions Required',
-          'Health Connect permissions are needed to sync step data.',
-          [{ text: 'OK' }]
-        );
+    try {
+      const initialized = await HealthConnectService.initializeHealthConnect();
+      if (initialized) {
+        const granted = await HealthConnectService.requestPermissions();
+        if (!granted) {
+          console.log('Health Connect permissions not granted');
+        }
       }
+    } catch (error) {
+      console.error('Health Connect initialization error:', error);
     }
 
-    await StepCounterService.requestNotificationPermissions();
+    try {
+      await StepCounterService.requestNotificationPermissions();
+    } catch (error) {
+      console.error('Notification permissions error:', error);
+    }
   };
 
   const loadTodaySteps = async () => {
@@ -78,7 +93,7 @@ export default function StepCounterScreen() {
     }
   };
 
-  const handleWalkingConfirmation = async (confirmed) => {
+  const handleWalkingConfirmation = useCallback(async (confirmed) => {
     setShowWalkingPrompt(false);
     
     if (confirmed) {
@@ -87,9 +102,9 @@ export default function StepCounterScreen() {
     } else {
       StepCounterService.recordRejection();
     }
-  };
+  }, []);
 
-  const handleStopWalkingConfirmation = async (confirmed) => {
+  const handleStopWalkingConfirmation = useCallback(async (confirmed) => {
     setShowStopPrompt(false);
     
     if (confirmed) {
@@ -114,7 +129,7 @@ export default function StepCounterScreen() {
     } else {
       StepCounterService.recordRejection();
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isWalking) {
@@ -127,30 +142,34 @@ export default function StepCounterScreen() {
   }, [isWalking]);
 
   useEffect(() => {
-    StepCounterService.setWalkingCallbacks(
-      () => setShowWalkingPrompt(true),
-      () => setShowStopPrompt(true)
-    );
+    try {
+      StepCounterService.setWalkingCallbacks(
+        () => setShowWalkingPrompt(true),
+        () => setShowStopPrompt(true)
+      );
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-    });
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification received:', notification);
+      });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-      const actionId = response.actionIdentifier;
-      
-      if (actionId === 'confirm_yes') {
-        handleWalkingConfirmation(true);
-      } else if (actionId === 'confirm_no') {
-        handleWalkingConfirmation(false);
-      } else if (actionId === 'stop_yes') {
-        handleStopWalkingConfirmation(true);
-      } else if (actionId === 'stop_no') {
-        handleStopWalkingConfirmation(false);
-      }
-    });
-  }, []);
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notification response:', response);
+        const actionId = response.actionIdentifier;
+        
+        if (actionId === 'confirm_yes') {
+          handleWalkingConfirmation(true);
+        } else if (actionId === 'confirm_no') {
+          handleWalkingConfirmation(false);
+        } else if (actionId === 'stop_yes') {
+          handleStopWalkingConfirmation(true);
+        } else if (actionId === 'stop_no') {
+          handleStopWalkingConfirmation(false);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up notification listeners:', error);
+    }
+  }, [handleWalkingConfirmation, handleStopWalkingConfirmation]);
 
   const saveDailySteps = async (session) => {
     try {
@@ -207,6 +226,14 @@ export default function StepCounterScreen() {
       minute: '2-digit' 
     });
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -330,6 +357,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#666',
   },
   header: {
     padding: 20,
