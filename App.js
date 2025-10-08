@@ -29,7 +29,7 @@ import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
-import StepCounterScreenPhased from './StepCounterScreenPhased';
+import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
 
@@ -1464,7 +1464,7 @@ export default function App() {
     return (
       <View style={styles.container}>
         {renderTabBar()}
-        <StepCounterScreenPhased />
+        <StepCounterScreen />
       </View>
     );
   }
