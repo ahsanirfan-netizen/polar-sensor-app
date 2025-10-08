@@ -18,14 +18,24 @@ class StepCounterService {
     this.lastRejectionTime = 0;
     this.rejectionCooldown = 10000;
     this.categoriesSetup = false;
+    this.handlerSetup = false;
+  }
+
+  setupNotificationHandler() {
+    if (this.handlerSetup) return;
     
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
-    });
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        }),
+      });
+      this.handlerSetup = true;
+    } catch (error) {
+      console.error('Failed to setup notification handler:', error);
+    }
   }
 
   async setupNotificationCategories() {
@@ -64,9 +74,16 @@ class StepCounterService {
   }
 
   async requestNotificationPermissions() {
+    this.setupNotificationHandler();
+    
     if (Platform.OS === 'android') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      return status === 'granted';
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        return status === 'granted';
+      } catch (error) {
+        console.error('Failed to request notification permissions:', error);
+        return false;
+      }
     }
     return true;
   }
