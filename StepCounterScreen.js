@@ -119,10 +119,14 @@ export default function StepCounterScreen() {
 
   const saveDailySteps = async (session) => {
     try {
+      console.log('Saving session:', session);
       const today = new Date().toISOString().split('T')[0];
       const user = await supabase.auth.getUser();
       
-      if (!user.data.user) return;
+      if (!user.data.user) {
+        console.log('No user logged in');
+        return;
+      }
 
       const { data: existingData } = await supabase
         .from('daily_steps')
@@ -136,8 +140,10 @@ export default function StepCounterScreen() {
       const estimatedDistance = session.steps * 0.762;
       const estimatedCalories = session.steps * 0.04;
 
+      console.log('Saving total steps:', newTotalSteps);
+
       if (existingData) {
-        await supabase
+        const { error } = await supabase
           .from('daily_steps')
           .update({
             total_steps: newTotalSteps,
@@ -146,8 +152,14 @@ export default function StepCounterScreen() {
             calories_burned: (existingData.calories_burned || 0) + estimatedCalories,
           })
           .eq('id', existingData.id);
+        
+        if (error) {
+          console.error('Update error:', error);
+        } else {
+          console.log('Steps updated successfully');
+        }
       } else {
-        await supabase
+        const { error } = await supabase
           .from('daily_steps')
           .insert({
             user_id: user.data.user.id,
@@ -157,6 +169,12 @@ export default function StepCounterScreen() {
             distance_meters: estimatedDistance,
             calories_burned: estimatedCalories,
           });
+        
+        if (error) {
+          console.error('Insert error:', error);
+        } else {
+          console.log('Steps inserted successfully');
+        }
       }
     } catch (error) {
       console.error('Error saving steps:', error);
