@@ -17,6 +17,7 @@ class StepCounterService {
     this.pendingStopConfirmation = false;
     this.lastRejectionTime = 0;
     this.rejectionCooldown = 10000;
+    this.categoriesSetup = false;
     
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -25,8 +26,6 @@ class StepCounterService {
         shouldSetBadge: false,
       }),
     });
-    
-    this.setupNotificationCategories();
   }
 
   async setupNotificationCategories() {
@@ -121,6 +120,11 @@ class StepCounterService {
   async sendWalkingNotification(type) {
     const hasPermission = await this.requestNotificationPermissions();
     if (!hasPermission) return;
+
+    if (!this.categoriesSetup) {
+      await this.setupNotificationCategories();
+      this.categoriesSetup = true;
+    }
 
     if (type === 'start') {
       await Notifications.scheduleNotificationAsync({
