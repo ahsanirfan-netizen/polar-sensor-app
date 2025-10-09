@@ -25,14 +25,8 @@ export default function StepCounterScreen() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [walkingSessions, setWalkingSessions] = useState([]);
   const [initialized, setInitialized] = useState(false);
-  const [debugLog, setDebugLog] = useState([]);
   
   const isMounted = useRef(true);
-
-  const addDebugLog = (message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugLog(prev => [...prev.slice(-5), `[${timestamp}] ${message}`]);
-  };
 
   // NO automatic initialization - wait for user
   useEffect(() => {
@@ -125,12 +119,11 @@ export default function StepCounterScreen() {
 
   const saveDailySteps = async (session) => {
     try {
-      addDebugLog(`Saving ${session.steps} steps`);
       const today = new Date().toISOString().split('T')[0];
       const user = await supabase.auth.getUser();
       
       if (!user.data.user) {
-        addDebugLog('ERROR: No user logged in');
+        console.log('No user logged in');
         return;
       }
 
@@ -158,9 +151,7 @@ export default function StepCounterScreen() {
           .eq('id', existingData.id);
         
         if (error) {
-          addDebugLog(`ERROR: ${error.message}`);
-        } else {
-          addDebugLog(`✓ Saved! Total: ${newTotalSteps}`);
+          console.error('Update error:', error);
         }
       } else {
         const { error } = await supabase
@@ -175,13 +166,11 @@ export default function StepCounterScreen() {
           });
         
         if (error) {
-          addDebugLog(`ERROR: ${error.message}`);
-        } else {
-          addDebugLog(`✓ Created! Total: ${newTotalSteps}`);
+          console.error('Insert error:', error);
         }
       }
     } catch (error) {
-      addDebugLog(`ERROR: ${error.message}`);
+      console.error('Error saving steps:', error);
     }
   };
 
@@ -197,14 +186,11 @@ export default function StepCounterScreen() {
   };
 
   const manualStop = async () => {
-    addDebugLog('Stopping walking session...');
     const session = StepCounterService.stopWalkingSession();
     setIsWalking(false);
     if (session && session.steps > 0) {
       await saveDailySteps(session);
       await loadTodaySteps();
-    } else {
-      addDebugLog('No steps to save');
     }
   };
 
@@ -277,15 +263,6 @@ export default function StepCounterScreen() {
                 {new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </Text>
             </View>
-          ))}
-        </View>
-      )}
-
-      {debugLog.length > 0 && (
-        <View style={styles.debugCard}>
-          <Text style={styles.debugTitle}>🐛 Debug Log</Text>
-          {debugLog.map((log, index) => (
-            <Text key={index} style={styles.debugText}>{log}</Text>
           ))}
         </View>
       )}
@@ -404,25 +381,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#424242',
     lineHeight: 20,
-  },
-  debugCard: {
-    backgroundColor: '#fff3cd',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#856404',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#856404',
-    fontFamily: 'monospace',
-    marginBottom: 4,
   },
 });
