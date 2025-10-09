@@ -11,7 +11,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
-    this.walkingThreshold = 0.5;
+    this.walkingThreshold = 1.2; // Increased from 0.5 to reduce false positives
+    this.stoppedThreshold = 0.3; // Lower threshold for detecting stopped state
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;
@@ -19,6 +20,8 @@ class StepCounterService {
     this.pendingStopConfirmation = false;
     this.lastRejectionTime = 0;
     this.rejectionCooldown = 10000;
+    this.lastStopTime = 0;
+    this.stopCooldown = 5000; // 5 second cooldown after stopping
     this.categoriesSetup = false;
     this.handlerSetup = false;
   }
@@ -142,20 +145,26 @@ class StepCounterService {
     
     if (this.gyroBuffer.length >= 20) {
       const gyroVariance = this.calculateVariance(this.gyroBuffer);
-      const isLikelyWalking = gyroVariance > this.walkingThreshold;
       const now = Date.now();
       const cooldownExpired = (now - this.lastRejectionTime) > this.rejectionCooldown;
+      const stopCooldownExpired = (now - this.lastStopTime) > this.stopCooldown;
       
-      if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired) {
+      // Use higher threshold to START walking (reduce false starts)
+      const isLikelyWalking = gyroVariance > this.walkingThreshold;
+      // Use lower threshold to STOP walking (detect stopping faster)
+      const isLikelyStopped = gyroVariance < this.stoppedThreshold;
+      
+      if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired && stopCooldownExpired) {
         this.pendingStartConfirmation = true;
         // Auto-start walking without notifications (production safe)
         if (this.walkingCallback) {
           this.walkingCallback();
         }
       } 
-      else if (!isLikelyWalking && this.isWalking && !this.pendingStopConfirmation && cooldownExpired) {
+      else if (isLikelyStopped && this.isWalking && !this.pendingStopConfirmation) {
         this.pendingStopConfirmation = true;
-        // Auto-stop walking without notifications (production safe)
+        this.lastStopTime = now;
+        // Auto-stop: Trigger callback to save session, then stop
         if (this.walkingStoppedCallback) {
           this.walkingStoppedCallback();
         }
@@ -270,6 +279,7 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
+    this.lastStopTime = 0;
     this.pendingStartConfirmation = false;
     this.pendingStopConfirmation = false;
   }
