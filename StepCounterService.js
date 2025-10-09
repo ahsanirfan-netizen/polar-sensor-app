@@ -12,7 +12,7 @@ class StepCounterService {
     this.walkingSession = null;
     this.lastPeakTime = 0;
     this.walkingThreshold = 0.8; // Balanced threshold to detect walking
-    this.stoppedThreshold = 0.3; // Lower threshold for detecting stopped state
+    this.stoppedThreshold = 0.6; // Higher threshold for detecting stopped state (easier to stop)
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;
