@@ -25,6 +25,7 @@ export default function StepCounterScreen() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [walkingSessions, setWalkingSessions] = useState([]);
   const [initialized, setInitialized] = useState(false);
+  const [gyroVariance, setGyroVariance] = useState(0);
   
   const isMounted = useRef(true);
 
@@ -36,13 +37,14 @@ export default function StepCounterScreen() {
     };
   }, []);
 
-  // Step count updater
+  // Step count and variance updater
   useEffect(() => {
-    if (!isWalking) return;
-    
     const interval = setInterval(() => {
       if (isMounted.current) {
-        setStepCount(StepCounterService.getStepCount());
+        if (isWalking) {
+          setStepCount(StepCounterService.getStepCount());
+        }
+        setGyroVariance(StepCounterService.getCurrentVariance());
       }
     }, 500);
     
@@ -251,6 +253,17 @@ export default function StepCounterScreen() {
         )}
       </View>
 
+      <View style={styles.debugCard}>
+        <Text style={styles.debugLabel}>Debug: Gyro Variance</Text>
+        <Text style={styles.debugValue}>{gyroVariance.toFixed(2)}</Text>
+        <Text style={styles.debugInfo}>
+          Start: &gt;0.8 | Stop: &lt;0.6
+        </Text>
+        <Text style={styles.debugInfo}>
+          {gyroVariance < 0.6 ? '✓ Should stop' : gyroVariance > 0.8 ? '✓ Walking detected' : '⚠️ Between thresholds'}
+        </Text>
+      </View>
+
       {walkingSessions.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.label}>Today's Sessions</Text>
@@ -381,5 +394,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#424242',
     lineHeight: 20,
+  },
+  debugCard: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1976d2',
+  },
+  debugLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  debugValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  debugInfo: {
+    fontSize: 12,
+    color: '#1976d2',
+    marginTop: 4,
   },
 });

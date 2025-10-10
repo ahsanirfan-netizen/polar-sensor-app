@@ -24,6 +24,7 @@ class StepCounterService {
     this.stopCooldown = 5000; // 5 second cooldown after stopping
     this.categoriesSetup = false;
     this.handlerSetup = false;
+    this.currentVariance = 0; // For debugging
   }
 
   async loadNotifications() {
@@ -145,6 +146,8 @@ class StepCounterService {
     
     if (this.gyroBuffer.length >= 20) {
       const gyroVariance = this.calculateVariance(this.gyroBuffer);
+      this.currentVariance = gyroVariance; // Store for debugging
+      
       const now = Date.now();
       const cooldownExpired = (now - this.lastRejectionTime) > this.rejectionCooldown;
       const stopCooldownExpired = (now - this.lastStopTime) > this.stopCooldown;
@@ -290,6 +293,10 @@ class StepCounterService {
 
   getIsWalking() {
     return this.isWalking;
+  }
+
+  getCurrentVariance() {
+    return this.currentVariance;
   }
 
   recordRejection() {
