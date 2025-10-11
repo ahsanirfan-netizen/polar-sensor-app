@@ -288,15 +288,17 @@ class StepCounterService {
     
     if (this.accBuffer.length < 10) return false;
     
-    const recentMean = this.accBuffer.slice(-10).reduce((sum, val) => sum + val, 0) / 10;
+    // Use minimum of buffer as baseline (gravity when still) instead of rolling mean
+    const recentMin = Math.min(...this.accBuffer.slice(-20));
     
-    // Peak detection thresholds for G-force scale (magnitude ≈ 1.0 when still)
-    const relativeThreshold = recentMean * 1.15; // 15% above mean
-    const absoluteThreshold = 1.5; // Minimum acceleration magnitude to count as step (G-forces)
+    // Peak detection: look for significant increases from baseline
+    // Walking typically shows 0.3-0.8G increase above baseline gravity
+    const peakThreshold = recentMin + 0.25; // 0.25G above minimum (foot strike)
+    const absoluteMinimum = 1.15; // Must be at least 1.15G to avoid noise
     
-    // Must exceed BOTH thresholds AND have proper timing
-    const isValidPeak = magnitude > relativeThreshold && 
-                        magnitude > absoluteThreshold && 
+    // Must exceed thresholds AND have proper timing (200ms = ~3 steps/sec max)
+    const isValidPeak = magnitude > peakThreshold && 
+                        magnitude > absoluteMinimum && 
                         (currentTime - this.lastPeakTime) > this.minPeakDistance;
     
     if (isValidPeak) {
