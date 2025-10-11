@@ -1194,10 +1194,16 @@ export default function App() {
           });
         }
         
+        // Polar ACC in SDK mode uses 16-bit ADC counts, not milliG
+        // For ±2G range: divide by 16384 (32768/2)
+        // For ±8G range: divide by 4096 (32768/8)
+        // Testing shows ±2G range based on magnitude values
+        const ACC_SCALE_FACTOR = 16384; // ±2G range
+        
         const accData = { 
-          x: x / 1000, 
-          y: y / 1000, 
-          z: z / 1000 
+          x: x / ACC_SCALE_FACTOR, 
+          y: y / ACC_SCALE_FACTOR, 
+          z: z / ACC_SCALE_FACTOR 
         };
         
         // Store raw values for debug display

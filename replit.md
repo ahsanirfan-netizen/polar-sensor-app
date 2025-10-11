@@ -23,6 +23,13 @@ The **react-native-ble-plx** library handles BLE communication, implementing the
 
 The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for advanced sensor data, requiring specific control and data characteristics for configuration and streaming.
 
+**CRITICAL: ACC Data Scaling in SDK Mode**
+- In SDK Mode, ACC data arrives as 16-bit ADC counts (NOT milliG as documented by Polar)
+- Based on empirical testing, the sensor uses ±2G range configuration
+- Scaling factor: **divide raw values by 16384** (32768/2) to get G-force
+- Previous incorrect factor (÷1000) caused 16x scaling error, breaking step detection
+- Variance was 44.559 instead of 0.15-0.3, magnitude was 34G instead of 1-2G
+
 ### Data Persistence Architecture
 
 A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It employs a batched insert system that flushes buffered sensor readings to the database every 1 second via a transaction, preventing race conditions and ensuring data integrity. Recording is user-controlled and automatically stops on disconnect.
