@@ -32,6 +32,7 @@ export default function StepCounterScreen() {
   const [accMag, setAccMag] = useState(0);
   const [accStats, setAccStats] = useState({ min: 0, max: 0, mean: 0 });
   const [rawAccData, setRawAccData] = useState({ x: 0, y: 0, z: 0 });
+  const [rhythmScore, setRhythmScore] = useState(0);
   
   const isMounted = useRef(true);
 
@@ -57,6 +58,7 @@ export default function StepCounterScreen() {
         setAccMag(StepCounterService.getLastAccMag());
         setAccStats(StepCounterService.getAccBufferStats());
         setRawAccData(StepCounterService.getLastRawAccData());
+        setRhythmScore(StepCounterService.getRhythmScore());
       }
     }, 500);
     
@@ -271,14 +273,14 @@ export default function StepCounterScreen() {
       <View style={styles.debugCard}>
         <Text style={styles.debugLabel}>Debug: Accelerometer Analysis</Text>
         <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(3)}</Text>
+        <Text style={styles.debugValue}>Rhythm Score: {rhythmScore.toFixed(2)} (need &gt;0.4 for walking)</Text>
         <Text style={styles.debugInfo}>
-          Start: &gt;0.15 | Stop: &lt;0.05 (G-scale expected)
+          Variance: &gt;0.15 to start | &lt;0.05 to stop
         </Text>
         <Text style={styles.debugInfo}>
-          {gyroVariance < 0.05 ? '✓ Should stop' : gyroVariance > 0.15 ? '✓ Walking detected' : '⚠️ Between thresholds'}
-        </Text>
-        <Text style={styles.debugInfo}>
-          ⚠️ If variance is ~89, check details below
+          {gyroVariance > 0.15 && rhythmScore > 0.4 ? '✓ Walking (variance + rhythm)' : 
+           gyroVariance > 0.15 && rhythmScore <= 0.4 ? '⚠️ High variance but no rhythm (arm movement?)' :
+           gyroVariance < 0.05 ? '✓ Should stop (still)' : '⚠️ Between thresholds'}
         </Text>
       </View>
 

@@ -29,6 +29,8 @@ class StepCounterService {
     this.lastAccData = null; // Store last ACC data for UI debug display
     this.lastAccMag = 0; // Store last ACC magnitude for UI debug display
     this.lastRawAccData = null; // Store last RAW ACC data from sensor
+    this.peakTimestamps = []; // Track peak timing for rhythm detection
+    this.rhythmScore = 0; // For UI debug display
   }
 
   async loadNotifications() {
@@ -136,6 +138,33 @@ class StepCounterService {
     return squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
   }
 
+  // Detect rhythmic pattern (walking has regular peaks at ~1.5-2 Hz, random movement doesn't)
+  detectRhythm() {
+    if (this.peakTimestamps.length < 4) return 0; // Need at least 4 peaks for rhythm
+    
+    // Calculate intervals between peaks
+    const intervals = [];
+    for (let i = 1; i < this.peakTimestamps.length; i++) {
+      intervals.push(this.peakTimestamps[i] - this.peakTimestamps[i - 1]);
+    }
+    
+    // Walking has consistent intervals (300-700ms between steps)
+    // Calculate variance of intervals - low variance = rhythmic
+    const mean = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
+    const variance = intervals.reduce((sum, val) => sum + (val - mean) ** 2, 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Coefficient of variation (CV) = stdDev / mean
+    // Low CV (<0.3) indicates rhythmic pattern, high CV (>0.5) indicates random
+    const cv = stdDev / mean;
+    
+    // Score: 0 = random, 1 = very rhythmic
+    const rhythmScore = Math.max(0, Math.min(1, 1 - cv));
+    this.rhythmScore = rhythmScore;
+    
+    return rhythmScore;
+  }
+
   async detectWalkingPattern(gyroData, accData, rawAccData = null) {
     const gyroMag = this.calculateGyroMagnitude(gyroData);
     const accMag = this.calculateAccMagnitude(accData);
@@ -154,7 +183,26 @@ class StepCounterService {
     this.gyroBuffer.push(gyroMag);
     this.accBuffer.push(accMag);
     
-    if (this.gyroBuffer.length > 50) {
+    // Track peaks BEFORE walking starts (for rhythm detection)
+    const currentTime = Date.now();
+    if (this.accBuffer.length >= 10) {
+      const recentMin = Math.min(...this.accBuffer.slice(-20));
+      const peakThreshold = recentMin + 0.25;
+      const absoluteMinimum = 1.15;
+      
+      // Detect peaks regardless of walking state
+      if (accMag > peakThreshold && accMag > absoluteMinimum && 
+          (currentTime - this.lastPeakTime) > this.minPeakDistance) {
+        this.lastPeakTime = currentTime;
+        this.peakTimestamps.push(currentTime);
+        if (this.peakTimestamps.length > 10) {
+          this.peakTimestamps.shift();
+        }
+      }
+    }
+    
+    // Smaller buffer for faster auto-stop response (30 samples ~1.5 sec)
+    if (this.gyroBuffer.length > 30) {
       this.gyroBuffer.shift();
       this.accBuffer.shift();
     }
@@ -176,10 +224,16 @@ class StepCounterService {
       const cooldownExpired = (now - this.lastRejectionTime) > this.rejectionCooldown;
       const stopCooldownExpired = (now - this.lastStopTime) > this.stopCooldown;
       
-      // Use accelerometer variance for BOTH start and stop (consistent & reliable)
-      // Walking creates high variance from bouncing, still arm has low variance
-      const isLikelyWalking = accVariance > this.walkingThreshold;
-      const isLikelyStopped = accVariance < this.stoppedThreshold;
+      // Calculate rhythm score from peak timing
+      const rhythmScore = this.detectRhythm();
+      
+      // Walking requires BOTH high variance AND rhythmic pattern (>0.4 rhythm score)
+      // This prevents false positives from random arm movements
+      const isLikelyWalking = accVariance > this.walkingThreshold && rhythmScore > 0.4;
+      
+      // For stopping: use last 15 samples for faster response
+      const recentVariance = this.calculateVariance(this.accBuffer.slice(-15));
+      const isLikelyStopped = recentVariance < this.stoppedThreshold;
       
       if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired && stopCooldownExpired) {
         this.pendingStartConfirmation = true;
@@ -246,6 +300,8 @@ class StepCounterService {
     // Clear buffers to start fresh (remove any stale data)
     this.gyroBuffer = [];
     this.accBuffer = [];
+    this.peakTimestamps = []; // Clear rhythm tracking
+    this.rhythmScore = 0;
     this.walkingSession = {
       startTime: new Date().toISOString(),
       steps: 0
@@ -256,6 +312,8 @@ class StepCounterService {
     // Complete reset of all detection state
     this.gyroBuffer = [];
     this.accBuffer = [];
+    this.peakTimestamps = [];
+    this.rhythmScore = 0;
     this.currentVariance = 0;
     this.currentGyroMag = 0;
     console.log('StepCounterService: Detection buffers reset');
@@ -275,6 +333,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.gyroBuffer = [];
     this.accBuffer = [];
+    this.peakTimestamps = []; // Clear rhythm tracking
+    this.rhythmScore = 0;
     this.pendingStopConfirmation = false;
     
     return session;
@@ -304,6 +364,13 @@ class StepCounterService {
     if (isValidPeak) {
       this.lastPeakTime = currentTime;
       this.stepCount++;
+      
+      // Track peak timing for rhythm detection (keep last 10 peaks)
+      this.peakTimestamps.push(currentTime);
+      if (this.peakTimestamps.length > 10) {
+        this.peakTimestamps.shift();
+      }
+      
       if (this.walkingSession) {
         this.walkingSession.steps = this.stepCount;
       }
@@ -317,6 +384,8 @@ class StepCounterService {
     this.isWalking = false;
     this.gyroBuffer = [];
     this.accBuffer = [];
+    this.peakTimestamps = [];
+    this.rhythmScore = 0;
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
@@ -367,6 +436,10 @@ class StepCounterService {
 
   getLastRawAccData() {
     return this.lastRawAccData || { x: 0, y: 0, z: 0 };
+  }
+
+  getRhythmScore() {
+    return this.rhythmScore;
   }
 
   recordRejection() {
