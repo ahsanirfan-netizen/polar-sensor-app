@@ -146,8 +146,9 @@ class StepCounterService {
       this.accBuffer.shift();
     }
     
-    if (this.gyroBuffer.length >= 20) {
+    if (this.gyroBuffer.length >= 20 && this.accBuffer.length >= 20) {
       const gyroVariance = this.calculateVariance(this.gyroBuffer);
+      const accVariance = this.calculateVariance(this.accBuffer);
       this.currentVariance = gyroVariance; // Store for debugging
       
       const now = Date.now();
@@ -156,8 +157,10 @@ class StepCounterService {
       
       // Use higher threshold to START walking (reduce false starts)
       const isLikelyWalking = gyroVariance > this.walkingThreshold;
-      // Use lower threshold to STOP walking (detect stopping faster)
-      const isLikelyStopped = gyroVariance < this.stoppedThreshold;
+      
+      // IMPROVED STOP DETECTION: Use accelerometer variance instead of gyro
+      // Walking has high acc variance (bouncing up/down), still has low acc variance
+      const isLikelyStopped = accVariance < 5; // Much more reliable for detecting stillness
       
       if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired && stopCooldownExpired) {
         this.pendingStartConfirmation = true;
