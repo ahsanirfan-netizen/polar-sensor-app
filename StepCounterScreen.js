@@ -28,6 +28,9 @@ export default function StepCounterScreen() {
   const [gyroVariance, setGyroVariance] = useState(0);
   const [gyroMag, setGyroMag] = useState(0);
   const [gyroStats, setGyroStats] = useState({ min: 0, max: 0, mean: 0 });
+  const [accData, setAccData] = useState({ x: 0, y: 0, z: 0 });
+  const [accMag, setAccMag] = useState(0);
+  const [accStats, setAccStats] = useState({ min: 0, max: 0, mean: 0 });
   
   const isMounted = useRef(true);
 
@@ -49,6 +52,9 @@ export default function StepCounterScreen() {
         setGyroVariance(StepCounterService.getCurrentVariance());
         setGyroMag(StepCounterService.getCurrentGyroMag());
         setGyroStats(StepCounterService.getGyroBufferStats());
+        setAccData(StepCounterService.getLastAccData());
+        setAccMag(StepCounterService.getLastAccMag());
+        setAccStats(StepCounterService.getAccBufferStats());
       }
     }, 500);
     
@@ -270,7 +276,23 @@ export default function StepCounterScreen() {
           {gyroVariance < 0.05 ? '✓ Should stop' : gyroVariance > 0.15 ? '✓ Walking detected' : '⚠️ Between thresholds'}
         </Text>
         <Text style={styles.debugInfo}>
-          ⚠️ If variance is ~89, check console for scale issue
+          ⚠️ If variance is ~89, check details below
+        </Text>
+      </View>
+
+      <View style={styles.debugCard}>
+        <Text style={styles.debugLabel}>Debug: ACC Data Details</Text>
+        <Text style={styles.debugInfo}>
+          Scaled Values (G-force): x={accData.x.toFixed(3)} y={accData.y.toFixed(3)} z={accData.z.toFixed(3)}
+        </Text>
+        <Text style={styles.debugInfo}>
+          Magnitude: {accMag.toFixed(3)} (should be ~1.0 when still)
+        </Text>
+        <Text style={styles.debugInfo}>
+          Buffer: min={accStats.min.toFixed(3)} max={accStats.max.toFixed(3)} mean={accStats.mean.toFixed(3)}
+        </Text>
+        <Text style={styles.debugInfo}>
+          ⚠️ Screenshot this when walking!
         </Text>
       </View>
 

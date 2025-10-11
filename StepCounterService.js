@@ -26,6 +26,8 @@ class StepCounterService {
     this.handlerSetup = false;
     this.currentVariance = 0; // For debugging
     this.currentGyroMag = 0; // For debugging raw gyro values
+    this.lastAccData = null; // Store last ACC data for UI debug display
+    this.lastAccMag = 0; // Store last ACC magnitude for UI debug display
   }
 
   async loadNotifications() {
@@ -136,6 +138,10 @@ class StepCounterService {
   async detectWalkingPattern(gyroData, accData) {
     const gyroMag = this.calculateGyroMagnitude(gyroData);
     const accMag = this.calculateAccMagnitude(accData);
+    
+    // Store for UI debug display
+    this.lastAccData = accData;
+    this.lastAccMag = accMag;
     
     // Debug: Log first few values to understand the data
     if (this.accBuffer.length < 5) {
@@ -337,6 +343,22 @@ class StepCounterService {
     const max = Math.max(...this.gyroBuffer);
     const mean = this.gyroBuffer.reduce((sum, val) => sum + val, 0) / this.gyroBuffer.length;
     return { min, max, mean };
+  }
+
+  getAccBufferStats() {
+    if (this.accBuffer.length === 0) return { min: 0, max: 0, mean: 0 };
+    const min = Math.min(...this.accBuffer);
+    const max = Math.max(...this.accBuffer);
+    const mean = this.accBuffer.reduce((sum, val) => sum + val, 0) / this.accBuffer.length;
+    return { min, max, mean };
+  }
+
+  getLastAccData() {
+    return this.lastAccData || { x: 0, y: 0, z: 0 };
+  }
+
+  getLastAccMag() {
+    return this.lastAccMag;
   }
 
   recordRejection() {
