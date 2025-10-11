@@ -1201,7 +1201,9 @@ export default function App() {
         };
         setAccelerometer(() => accData);
         
+        // Detect steps AND walking pattern for auto-start/stop
         StepCounterService.detectStep(accData);
+        StepCounterService.detectWalkingPattern(gyroscope, accData);
       }
     } catch (error) {
       console.error('ACC parse error:', error);
