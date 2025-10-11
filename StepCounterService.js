@@ -137,6 +137,11 @@ class StepCounterService {
     const gyroMag = this.calculateGyroMagnitude(gyroData);
     const accMag = this.calculateAccMagnitude(accData);
     
+    // Debug: Log first few values to understand the data
+    if (this.accBuffer.length < 5) {
+      console.log('DEBUG ACC:', accData, '→ magnitude:', accMag);
+    }
+    
     this.currentGyroMag = gyroMag; // Store for debugging
     this.gyroBuffer.push(gyroMag);
     this.accBuffer.push(accMag);
@@ -221,10 +226,22 @@ class StepCounterService {
     this.isWalking = true;
     this.stepCount = 0;
     this.pendingStartConfirmation = false;
+    // Clear buffers to start fresh (remove any stale data)
+    this.gyroBuffer = [];
+    this.accBuffer = [];
     this.walkingSession = {
       startTime: new Date().toISOString(),
       steps: 0
     };
+  }
+
+  resetDetection() {
+    // Complete reset of all detection state
+    this.gyroBuffer = [];
+    this.accBuffer = [];
+    this.currentVariance = 0;
+    this.currentGyroMag = 0;
+    console.log('StepCounterService: Detection buffers reset');
   }
 
   stopWalkingSession() {

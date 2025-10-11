@@ -59,6 +59,9 @@ export default function StepCounterScreen() {
     try {
       console.log('Initializing step counter...');
       
+      // Reset detection buffers to clear any stale data
+      StepCounterService.resetDetection();
+      
       // Simple setup - callbacks only, no async calls that might fail
       if (isMounted.current) {
         StepCounterService.setWalkingCallbacks(
