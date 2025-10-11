@@ -139,7 +139,7 @@ class StepCounterService {
     
     // Debug: Log first few values to understand the data
     if (this.accBuffer.length < 5) {
-      console.log('DEBUG ACC:', accData, '→ magnitude:', accMag);
+      console.log('DEBUG ACC buffer:', accData, '→ magnitude:', accMag.toFixed(3));
     }
     
     this.currentGyroMag = gyroMag; // Store for debugging
@@ -153,6 +153,15 @@ class StepCounterService {
     
     if (this.accBuffer.length >= 20) {
       const accVariance = this.calculateVariance(this.accBuffer);
+      
+      // Debug: Log variance calculation details every 50th time
+      if (Math.random() < 0.02) {
+        const min = Math.min(...this.accBuffer);
+        const max = Math.max(...this.accBuffer);
+        const mean = this.accBuffer.reduce((sum, val) => sum + val, 0) / this.accBuffer.length;
+        console.log('VARIANCE DEBUG - Buffer min:', min.toFixed(3), 'max:', max.toFixed(3), 'mean:', mean.toFixed(3), 'variance:', accVariance.toFixed(3));
+      }
+      
       this.currentVariance = accVariance; // Store for debugging (now using ACC variance)
       
       const now = Date.now();

@@ -1199,6 +1199,13 @@ export default function App() {
           y: y / 1000, 
           z: z / 1000 
         };
+        
+        // Debug: Log scaled values and magnitude every 20th sample to avoid spam
+        if (Math.random() < 0.05) {
+          const mag = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
+          console.log('ACC scaled:', accData.x.toFixed(3), accData.y.toFixed(3), accData.z.toFixed(3), '→ mag:', mag.toFixed(3));
+        }
+        
         setAccelerometer(() => accData);
         
         // Detect steps AND walking pattern for auto-start/stop
