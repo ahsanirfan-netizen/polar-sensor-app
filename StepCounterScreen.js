@@ -264,10 +264,13 @@ export default function StepCounterScreen() {
         <Text style={styles.debugLabel}>Debug: Accelerometer Analysis</Text>
         <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(3)}</Text>
         <Text style={styles.debugInfo}>
-          Start: &gt;0.15 | Stop: &lt;0.05
+          Start: &gt;0.15 | Stop: &lt;0.05 (G-scale expected)
         </Text>
         <Text style={styles.debugInfo}>
           {gyroVariance < 0.05 ? '✓ Should stop' : gyroVariance > 0.15 ? '✓ Walking detected' : '⚠️ Between thresholds'}
+        </Text>
+        <Text style={styles.debugInfo}>
+          ⚠️ If variance is ~89, check console for scale issue
         </Text>
       </View>
 

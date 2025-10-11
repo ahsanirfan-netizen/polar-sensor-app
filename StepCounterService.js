@@ -11,8 +11,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
-    this.walkingThreshold = 0.15; // ACC magnitude variance >0.15 indicates walking (G-force values)
-    this.stoppedThreshold = 0.05; // ACC magnitude variance <0.05 indicates stillness (G-force values)
+    this.walkingThreshold = 0.15; // ACC magnitude variance >0.15 indicates walking (G-force scale)
+    this.stoppedThreshold = 0.05; // ACC magnitude variance <0.05 indicates stillness (G-force scale)
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;
@@ -282,9 +282,9 @@ class StepCounterService {
     
     const recentMean = this.accBuffer.slice(-10).reduce((sum, val) => sum + val, 0) / 10;
     
-    // Much stricter thresholds to prevent false positives
-    const relativeThreshold = recentMean * 1.3; // 30% above mean (was 15%)
-    const absoluteThreshold = 10.5; // Minimum acceleration to count as step
+    // Peak detection thresholds for G-force scale (magnitude ≈ 1.0 when still)
+    const relativeThreshold = recentMean * 1.15; // 15% above mean
+    const absoluteThreshold = 1.5; // Minimum acceleration magnitude to count as step (G-forces)
     
     // Must exceed BOTH thresholds AND have proper timing
     const isValidPeak = magnitude > relativeThreshold && 
