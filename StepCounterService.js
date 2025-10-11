@@ -10,7 +10,8 @@ class StepCounterService {
     this.accBuffer = [];
     this.stepCount = 0;
     this.walkingSession = null;
-    this.lastPeakTime = 0;
+    this.lastPeakTime = 0; // For step counting
+    this.lastRhythmPeakTime = 0; // Separate timing for rhythm detection
     this.walkingThreshold = 0.15; // ACC magnitude variance >0.15 indicates walking (G-force scale)
     this.stoppedThreshold = 0.05; // ACC magnitude variance <0.05 indicates stillness (G-force scale)
     this.minPeakDistance = 200;
@@ -184,16 +185,17 @@ class StepCounterService {
     this.accBuffer.push(accMag);
     
     // Track peaks BEFORE walking starts (for rhythm detection)
+    // Uses SEPARATE timing variable to avoid interfering with step counting
     const currentTime = Date.now();
     if (this.accBuffer.length >= 10) {
       const recentMin = Math.min(...this.accBuffer.slice(-20));
       const peakThreshold = recentMin + 0.25;
       const absoluteMinimum = 1.15;
       
-      // Detect peaks regardless of walking state
+      // Detect peaks regardless of walking state (for rhythm analysis)
       if (accMag > peakThreshold && accMag > absoluteMinimum && 
-          (currentTime - this.lastPeakTime) > this.minPeakDistance) {
-        this.lastPeakTime = currentTime;
+          (currentTime - this.lastRhythmPeakTime) > this.minPeakDistance) {
+        this.lastRhythmPeakTime = currentTime;
         this.peakTimestamps.push(currentTime);
         if (this.peakTimestamps.length > 10) {
           this.peakTimestamps.shift();
