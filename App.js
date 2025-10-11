@@ -1203,7 +1203,7 @@ export default function App() {
         
         // Detect steps AND walking pattern for auto-start/stop
         StepCounterService.detectStep(accData);
-        StepCounterService.detectWalkingPattern(gyroscope, accData);
+        StepCounterService.detectWalkingPattern(null, accData); // Pass null for gyro since we use ACC variance only
       }
     } catch (error) {
       console.error('ACC parse error:', error);
@@ -1248,7 +1248,7 @@ export default function App() {
         };
         setGyroscope(() => gyroData);
         
-        StepCounterService.detectWalkingPattern(gyroData, accelerometer);
+        // No detectWalkingPattern call here - only ACC parser handles walking detection
       }
     } catch (error) {
       console.error('Gyro parse error:', error);

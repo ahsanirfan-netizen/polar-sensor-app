@@ -11,8 +11,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
-    this.walkingThreshold = 10; // Accelerometer variance threshold to detect walking
-    this.stoppedThreshold = 5; // Accelerometer variance threshold to detect stopping
+    this.walkingThreshold = 0.15; // ACC magnitude variance >0.15 indicates walking (G-force values)
+    this.stoppedThreshold = 0.05; // ACC magnitude variance <0.05 indicates stillness (G-force values)
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;

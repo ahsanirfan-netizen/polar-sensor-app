@@ -259,12 +259,12 @@ export default function StepCounterScreen() {
 
       <View style={styles.debugCard}>
         <Text style={styles.debugLabel}>Debug: Accelerometer Analysis</Text>
-        <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(1)}</Text>
+        <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(3)}</Text>
         <Text style={styles.debugInfo}>
-          Start: &gt;10 | Stop: &lt;5
+          Start: &gt;0.15 | Stop: &lt;0.05
         </Text>
         <Text style={styles.debugInfo}>
-          {gyroVariance < 5 ? '✓ Should stop' : gyroVariance > 10 ? '✓ Walking detected' : '⚠️ Between thresholds'}
+          {gyroVariance < 0.05 ? '✓ Should stop' : gyroVariance > 0.15 ? '✓ Walking detected' : '⚠️ Between thresholds'}
         </Text>
       </View>
 
