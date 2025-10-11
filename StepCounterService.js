@@ -11,8 +11,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
-    this.walkingThreshold = 5000; // Threshold adjusted for actual gyro scale (was 0.8)
-    this.stoppedThreshold = 2000; // Stopped threshold for actual gyro scale (was 0.6)
+    this.walkingThreshold = 10; // Accelerometer variance threshold to detect walking
+    this.stoppedThreshold = 5; // Accelerometer variance threshold to detect stopping
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;
@@ -146,21 +146,18 @@ class StepCounterService {
       this.accBuffer.shift();
     }
     
-    if (this.gyroBuffer.length >= 20 && this.accBuffer.length >= 20) {
-      const gyroVariance = this.calculateVariance(this.gyroBuffer);
+    if (this.accBuffer.length >= 20) {
       const accVariance = this.calculateVariance(this.accBuffer);
-      this.currentVariance = gyroVariance; // Store for debugging
+      this.currentVariance = accVariance; // Store for debugging (now using ACC variance)
       
       const now = Date.now();
       const cooldownExpired = (now - this.lastRejectionTime) > this.rejectionCooldown;
       const stopCooldownExpired = (now - this.lastStopTime) > this.stopCooldown;
       
-      // Use higher threshold to START walking (reduce false starts)
-      const isLikelyWalking = gyroVariance > this.walkingThreshold;
-      
-      // IMPROVED STOP DETECTION: Use accelerometer variance instead of gyro
-      // Walking has high acc variance (bouncing up/down), still has low acc variance
-      const isLikelyStopped = accVariance < 5; // Much more reliable for detecting stillness
+      // Use accelerometer variance for BOTH start and stop (consistent & reliable)
+      // Walking creates high variance from bouncing, still arm has low variance
+      const isLikelyWalking = accVariance > this.walkingThreshold;
+      const isLikelyStopped = accVariance < this.stoppedThreshold;
       
       if (isLikelyWalking && !this.isWalking && !this.walkingSession && !this.pendingStartConfirmation && cooldownExpired && stopCooldownExpired) {
         this.pendingStartConfirmation = true;
