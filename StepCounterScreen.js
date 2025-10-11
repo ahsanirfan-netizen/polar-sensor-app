@@ -31,6 +31,7 @@ export default function StepCounterScreen() {
   const [accData, setAccData] = useState({ x: 0, y: 0, z: 0 });
   const [accMag, setAccMag] = useState(0);
   const [accStats, setAccStats] = useState({ min: 0, max: 0, mean: 0 });
+  const [rawAccData, setRawAccData] = useState({ x: 0, y: 0, z: 0 });
   
   const isMounted = useRef(true);
 
@@ -55,6 +56,7 @@ export default function StepCounterScreen() {
         setAccData(StepCounterService.getLastAccData());
         setAccMag(StepCounterService.getLastAccMag());
         setAccStats(StepCounterService.getAccBufferStats());
+        setRawAccData(StepCounterService.getLastRawAccData());
       }
     }, 500);
     
@@ -283,7 +285,10 @@ export default function StepCounterScreen() {
       <View style={styles.debugCard}>
         <Text style={styles.debugLabel}>Debug: ACC Data Details</Text>
         <Text style={styles.debugInfo}>
-          Scaled Values (G-force): x={accData.x.toFixed(3)} y={accData.y.toFixed(3)} z={accData.z.toFixed(3)}
+          🔴 RAW from sensor: x={rawAccData.x} y={rawAccData.y} z={rawAccData.z}
+        </Text>
+        <Text style={styles.debugInfo}>
+          Scaled (÷1000): x={accData.x.toFixed(3)} y={accData.y.toFixed(3)} z={accData.z.toFixed(3)}
         </Text>
         <Text style={styles.debugInfo}>
           Magnitude: {accMag.toFixed(3)} (should be ~1.0 when still)

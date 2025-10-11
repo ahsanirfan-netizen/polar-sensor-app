@@ -1200,6 +1200,9 @@ export default function App() {
           z: z / 1000 
         };
         
+        // Store raw values for debug display
+        const rawAccData = { x, y, z };
+        
         // Debug: Log scaled values and magnitude every 20th sample to avoid spam
         if (Math.random() < 0.05) {
           const mag = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
@@ -1208,9 +1211,9 @@ export default function App() {
         
         setAccelerometer(() => accData);
         
-        // Detect steps AND walking pattern for auto-start/stop
+        // Detect steps AND walking pattern for auto-start/stop - pass both raw and scaled
         StepCounterService.detectStep(accData);
-        StepCounterService.detectWalkingPattern(null, accData); // Pass null for gyro since we use ACC variance only
+        StepCounterService.detectWalkingPattern(null, accData, rawAccData); // Pass raw values for debug
       }
     } catch (error) {
       console.error('ACC parse error:', error);
