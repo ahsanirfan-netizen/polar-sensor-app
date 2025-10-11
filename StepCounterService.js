@@ -25,6 +25,7 @@ class StepCounterService {
     this.categoriesSetup = false;
     this.handlerSetup = false;
     this.currentVariance = 0; // For debugging
+    this.currentGyroMag = 0; // For debugging raw gyro values
   }
 
   async loadNotifications() {
@@ -136,6 +137,7 @@ class StepCounterService {
     const gyroMag = this.calculateGyroMagnitude(gyroData);
     const accMag = this.calculateAccMagnitude(accData);
     
+    this.currentGyroMag = gyroMag; // Store for debugging
     this.gyroBuffer.push(gyroMag);
     this.accBuffer.push(accMag);
     
@@ -297,6 +299,18 @@ class StepCounterService {
 
   getCurrentVariance() {
     return this.currentVariance;
+  }
+
+  getCurrentGyroMag() {
+    return this.currentGyroMag;
+  }
+
+  getGyroBufferStats() {
+    if (this.gyroBuffer.length === 0) return { min: 0, max: 0, mean: 0 };
+    const min = Math.min(...this.gyroBuffer);
+    const max = Math.max(...this.gyroBuffer);
+    const mean = this.gyroBuffer.reduce((sum, val) => sum + val, 0) / this.gyroBuffer.length;
+    return { min, max, mean };
   }
 
   recordRejection() {

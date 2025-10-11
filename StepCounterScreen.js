@@ -26,6 +26,8 @@ export default function StepCounterScreen() {
   const [walkingSessions, setWalkingSessions] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [gyroVariance, setGyroVariance] = useState(0);
+  const [gyroMag, setGyroMag] = useState(0);
+  const [gyroStats, setGyroStats] = useState({ min: 0, max: 0, mean: 0 });
   
   const isMounted = useRef(true);
 
@@ -45,6 +47,8 @@ export default function StepCounterScreen() {
           setStepCount(StepCounterService.getStepCount());
         }
         setGyroVariance(StepCounterService.getCurrentVariance());
+        setGyroMag(StepCounterService.getCurrentGyroMag());
+        setGyroStats(StepCounterService.getGyroBufferStats());
       }
     }, 500);
     
@@ -254,13 +258,19 @@ export default function StepCounterScreen() {
       </View>
 
       <View style={styles.debugCard}>
-        <Text style={styles.debugLabel}>Debug: Gyro Variance</Text>
-        <Text style={styles.debugValue}>{gyroVariance.toFixed(0)}</Text>
+        <Text style={styles.debugLabel}>Debug: Gyro Analysis</Text>
+        <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(0)}</Text>
         <Text style={styles.debugInfo}>
           Start: &gt;5000 | Stop: &lt;2000
         </Text>
         <Text style={styles.debugInfo}>
           {gyroVariance < 2000 ? '✓ Should stop' : gyroVariance > 5000 ? '✓ Walking detected' : '⚠️ Between thresholds'}
+        </Text>
+        <Text style={styles.debugInfo}>
+          Current Gyro Mag: {gyroMag.toFixed(1)}
+        </Text>
+        <Text style={styles.debugInfo}>
+          Buffer: Min={gyroStats.min.toFixed(0)} Max={gyroStats.max.toFixed(0)} Avg={gyroStats.mean.toFixed(0)}
         </Text>
       </View>
 
