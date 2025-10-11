@@ -227,9 +227,9 @@ class StepCounterService {
       // Calculate rhythm score from peak timing
       const rhythmScore = this.detectRhythm();
       
-      // Walking requires BOTH high variance AND rhythmic pattern (>0.4 rhythm score)
+      // Walking requires BOTH high variance AND rhythmic pattern (>0.2 rhythm score)
       // This prevents false positives from random arm movements
-      const isLikelyWalking = accVariance > this.walkingThreshold && rhythmScore > 0.4;
+      const isLikelyWalking = accVariance > this.walkingThreshold && rhythmScore > 0.2;
       
       // For stopping: use last 15 samples for faster response
       const recentVariance = this.calculateVariance(this.accBuffer.slice(-15));

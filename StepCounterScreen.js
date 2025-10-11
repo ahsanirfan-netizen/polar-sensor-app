@@ -273,13 +273,13 @@ export default function StepCounterScreen() {
       <View style={styles.debugCard}>
         <Text style={styles.debugLabel}>Debug: Accelerometer Analysis</Text>
         <Text style={styles.debugValue}>Variance: {gyroVariance.toFixed(3)}</Text>
-        <Text style={styles.debugValue}>Rhythm Score: {rhythmScore.toFixed(2)} (need &gt;0.4 for walking)</Text>
+        <Text style={styles.debugValue}>Rhythm Score: {rhythmScore.toFixed(2)} (need &gt;0.2 for walking)</Text>
         <Text style={styles.debugInfo}>
           Variance: &gt;0.15 to start | &lt;0.05 to stop
         </Text>
         <Text style={styles.debugInfo}>
-          {gyroVariance > 0.15 && rhythmScore > 0.4 ? '✓ Walking (variance + rhythm)' : 
-           gyroVariance > 0.15 && rhythmScore <= 0.4 ? '⚠️ High variance but no rhythm (arm movement?)' :
+          {gyroVariance > 0.15 && rhythmScore > 0.2 ? '✓ Walking (variance + rhythm)' : 
+           gyroVariance > 0.15 && rhythmScore <= 0.2 ? '⚠️ High variance but no rhythm (arm movement?)' :
            gyroVariance < 0.05 ? '✓ Should stop (still)' : '⚠️ Between thresholds'}
         </Text>
       </View>
