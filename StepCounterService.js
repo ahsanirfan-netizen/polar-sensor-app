@@ -11,8 +11,8 @@ class StepCounterService {
     this.stepCount = 0;
     this.walkingSession = null;
     this.lastPeakTime = 0;
-    this.walkingThreshold = 0.8; // Balanced threshold to detect walking
-    this.stoppedThreshold = 0.6; // Higher threshold for detecting stopped state (easier to stop)
+    this.walkingThreshold = 5000; // Threshold adjusted for actual gyro scale (was 0.8)
+    this.stoppedThreshold = 2000; // Stopped threshold for actual gyro scale (was 0.6)
     this.minPeakDistance = 200;
     this.walkingCallback = null;
     this.walkingStoppedCallback = null;
