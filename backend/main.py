@@ -1074,6 +1074,8 @@ def analyze_sleep_hypnospy():
         return jsonify({'error': error_msg}), 500
 
 if __name__ == '__main__':
+    # Replit deployment sets PORT automatically, fallback to 8081 for local dev
     port = int(os.getenv('PORT', 8081))
     print(f"Starting Flask server on 0.0.0.0:{port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    print(f"Health check available at: http://0.0.0.0:{port}/health")
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)

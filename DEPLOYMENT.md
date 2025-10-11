@@ -6,20 +6,21 @@ The Python Flask backend (`backend/main.py`) processes raw sensor data from Supa
 
 ## Deployment on Replit
 
-This Repl is configured for **VM deployment** which keeps the backend API always running.
+This Repl is configured for **Reserved VM deployment** which keeps the backend API always running.
 
 ### Deployment Configuration
 
-- **Target**: VM (always-on server for stateful APIs)
-- **Command**: `gunicorn --bind=0.0.0.0:5000 --reuse-port -w 2 backend.main:app`
-- **Workers**: 2 (sufficient for concurrent analysis requests)
+- **Target**: Reserved VM (always-on server for stateful APIs and background processing)
+- **Command**: `python backend/main.py`
+- **Server**: Flask development server with threading enabled
+- **Port**: Automatically set via PORT environment variable
 
 ### Steps to Deploy
 
 1. **Click the "Deploy" button** in the Replit interface (top right)
 2. The deployment will:
    - Install Python dependencies from `backend/requirements.txt`
-   - Start the Gunicorn WSGI server on port 5000
+   - Start the Flask server with threading enabled
    - Expose the API at a stable Replit deployment URL
 
 3. **Copy the deployment URL** (e.g., `https://your-repl.repl.co`)
@@ -73,12 +74,14 @@ If you prefer not to use Replit deployments:
 
 1. **Railway**: Free tier with 500 hours/month
    - Connect GitHub repo
-   - Set start command: `gunicorn --bind=0.0.0.0:$PORT -w 2 backend.main:app`
+   - Set start command: `python backend/main.py`
 
 2. **Render**: Free tier with 750 hours/month
    - Deploy as Web Service
-   - Set start command: `gunicorn --bind=0.0.0.0:$PORT -w 2 backend.main:app`
+   - Set start command: `python backend/main.py`
 
 3. **Vercel**: Serverless deployment (may have cold starts)
    - Use `vercel.json` configuration
    - Good for low-traffic scenarios
+   
+**Note**: For production deployments, consider using Gunicorn for better performance if your deployment platform supports it. However, if Gunicorn causes issues (port binding, worker timeout), Flask's threaded server works well for moderate traffic.
