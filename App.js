@@ -1174,12 +1174,18 @@ export default function App() {
       const sampleCount = data[10];
       let offset = 11;
       
-      if (offset + 6 <= data.length) {
+      console.log(`ACC packet: ${sampleCount} samples`);
+      
+      // Loop through ALL samples in the packet
+      for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        offset += 6;
         
-        console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
+        if (i === 0) {
+          console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
+        }
         
         if (isRecordingRef.current) {
           const timestamp = new Date().toISOString();
@@ -1207,18 +1213,18 @@ export default function App() {
           z: z / ACC_SCALE_FACTOR 
         };
         
-        // Store raw values for debug display
-        const rawAccData = { x, y, z };
-        
         // Debug: Log scaled values and magnitude every 20th sample to avoid spam
         if (Math.random() < 0.05) {
           const mag = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
           console.log('ACC scaled:', accData.x.toFixed(3), accData.y.toFixed(3), accData.z.toFixed(3), '→ mag:', mag.toFixed(3));
         }
         
-        setAccelerometer(() => accData);
+        // Update display with last sample
+        if (i === sampleCount - 1) {
+          setAccelerometer(() => accData);
+        }
         
-        // Feed ACC data to both step counters for parallel testing
+        // Feed ALL samples to both step counters
         StepCounterService.detectStep(accData);
         WaveletStepCounter.detectStep(accData);
       }
@@ -1237,12 +1243,18 @@ export default function App() {
       const sampleCount = data[10];
       let offset = 11;
       
-      if (offset + 6 <= data.length) {
+      console.log(`Gyro packet: ${sampleCount} samples`);
+      
+      // Loop through ALL samples in the packet
+      for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        offset += 6;
         
-        console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
+        if (i === 0) {
+          console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
+        }
         
         if (isRecordingRef.current) {
           const timestamp = new Date().toISOString();
@@ -1258,14 +1270,15 @@ export default function App() {
           });
         }
         
-        const gyroData = { 
-          x: x / 100, 
-          y: y / 100, 
-          z: z / 100 
-        };
-        setGyroscope(() => gyroData);
-        
-        // No detectWalkingPattern call here - only ACC parser handles walking detection
+        // Update display with last sample
+        if (i === sampleCount - 1) {
+          const gyroData = { 
+            x: x / 100, 
+            y: y / 100, 
+            z: z / 100 
+          };
+          setGyroscope(() => gyroData);
+        }
       }
     } catch (error) {
       console.error('Gyro parse error:', error);
