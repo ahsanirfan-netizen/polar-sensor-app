@@ -9,6 +9,7 @@ class StepCounterService {
     this.maxBufferSize = 20; // Keep last 20 samples (~1 second at 50ms rate)
     this.debugLogs = []; // Store logs for UI display
     this.maxLogs = 20; // Keep last 20 log entries
+    this.peakTimestamps = []; // Track peak timing for rhythm detection
   }
 
   calculateMagnitude(acc) {
@@ -22,6 +23,29 @@ class StepCounterService {
     if (this.debugLogs.length > this.maxLogs) {
       this.debugLogs.shift();
     }
+  }
+
+  calculateRhythm() {
+    // Need at least 4 peaks to detect rhythm
+    if (this.peakTimestamps.length < 4) return 0;
+    
+    // Calculate intervals between consecutive peaks
+    const intervals = [];
+    for (let i = 1; i < this.peakTimestamps.length; i++) {
+      intervals.push(this.peakTimestamps[i] - this.peakTimestamps[i - 1]);
+    }
+    
+    // Calculate coefficient of variation (CV)
+    // Walking has consistent intervals (~500ms) with low CV (<0.3)
+    // Random arm movements have irregular intervals with high CV (>0.8)
+    const mean = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
+    const variance = intervals.reduce((sum, val) => sum + (val - mean) ** 2, 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+    const cv = stdDev / mean;
+    
+    // Convert CV to rhythm score: 0 = random, 1 = very rhythmic
+    const rhythmScore = Math.max(0, Math.min(1, 1 - cv));
+    return rhythmScore;
   }
 
   detectStep(accData) {
@@ -49,14 +73,44 @@ class StepCounterService {
     // Peak detection: Must be 0.3G above average baseline
     const peakThreshold = baseline + 0.3;
     
-    const isValidPeak = magnitude > peakThreshold && 
-                        (currentTime - this.lastPeakTime) > this.minPeakDistance;
+    const isPeak = magnitude > peakThreshold && 
+                   (currentTime - this.lastPeakTime) > this.minPeakDistance;
     
-    if (isValidPeak) {
-      this.lastPeakTime = currentTime;
-      this.stepCount++;
-      this.log(`Step #${this.stepCount} | Mag: ${magnitude.toFixed(2)} | Base: ${baseline.toFixed(2)}`);
-      return true;
+    if (isPeak) {
+      // Reset stale timestamps if gap > 2 seconds (indicates stop in walking)
+      if (this.peakTimestamps.length > 0) {
+        const lastPeakTime = this.peakTimestamps[this.peakTimestamps.length - 1];
+        const gap = currentTime - lastPeakTime;
+        if (gap > 2000) {
+          this.peakTimestamps = [];
+          this.log(`Rhythm reset (${(gap/1000).toFixed(1)}s idle)`);
+        }
+      }
+      
+      // Track peak timing for rhythm detection
+      this.peakTimestamps.push(currentTime);
+      if (this.peakTimestamps.length > 10) {
+        this.peakTimestamps.shift(); // Keep last 10 peaks only
+      }
+      
+      // Need at least 4 peaks to calculate rhythm - don't count until then
+      if (this.peakTimestamps.length < 4) {
+        this.log(`Peak ${this.peakTimestamps.length}/4 (building rhythm)`);
+        return false;
+      }
+      
+      // Calculate rhythm score
+      const rhythmScore = this.calculateRhythm();
+      
+      // Count as step ONLY if rhythm is detected (score > 0.2)
+      if (rhythmScore > 0.2) {
+        this.lastPeakTime = currentTime;
+        this.stepCount++;
+        this.log(`Step #${this.stepCount} | Mag: ${magnitude.toFixed(2)} | Rhythm: ${rhythmScore.toFixed(2)}`);
+        return true;
+      } else {
+        this.log(`Peak ignored (no rhythm) | Mag: ${magnitude.toFixed(2)} | Rhythm: ${rhythmScore.toFixed(2)}`);
+      }
     }
     
     return false;
@@ -74,6 +128,7 @@ class StepCounterService {
     this.stepCount = 0;
     this.lastPeakTime = 0;
     this.accBuffer = [];
+    this.peakTimestamps = [];
     this.debugLogs = [];
     this.log('Counter reset');
   }
