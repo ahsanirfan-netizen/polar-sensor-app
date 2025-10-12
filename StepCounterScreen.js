@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 let StepCounterService = null;
+let WaveletStepCounter = null;
 
 try {
   StepCounterService = require('./StepCounterService').default;
@@ -9,8 +10,15 @@ try {
   console.error('Failed to load StepCounterService:', error);
 }
 
+try {
+  WaveletStepCounter = require('./WaveletStepCounter').default;
+} catch (error) {
+  console.error('Failed to load WaveletStepCounter:', error);
+}
+
 export default function StepCounterScreen() {
-  const [stepCount, setStepCount] = useState(0);
+  const [peakStepCount, setPeakStepCount] = useState(0);
+  const [fftStepCount, setFftStepCount] = useState(0);
   const [debugLogs, setDebugLogs] = useState([]);
   const isMounted = useRef(true);
   const scrollViewRef = useRef(null);
@@ -18,20 +26,36 @@ export default function StepCounterScreen() {
   useEffect(() => {
     isMounted.current = true;
     
-    // Reset counter when screen loads
+    // Reset both counters when screen loads
     StepCounterService?.reset();
+    WaveletStepCounter?.reset();
     
     return () => {
       isMounted.current = false;
     };
   }, []);
 
-  // Update step count and logs every 500ms
+  // Update step counts and logs every 500ms
   useEffect(() => {
     const interval = setInterval(() => {
-      if (isMounted.current && StepCounterService) {
-        setStepCount(StepCounterService.getStepCount());
-        setDebugLogs(StepCounterService.getDebugLogs());
+      if (isMounted.current) {
+        if (StepCounterService) {
+          setPeakStepCount(StepCounterService.getStepCount());
+        }
+        if (WaveletStepCounter) {
+          setFftStepCount(WaveletStepCounter.getStepCount());
+        }
+        
+        // Combine logs from both algorithms
+        const peakLogs = StepCounterService?.getDebugLogs() || [];
+        const fftLogs = WaveletStepCounter?.getDebugLogs() || [];
+        
+        // Interleave logs with labels
+        const combinedLogs = [];
+        peakLogs.forEach(log => combinedLogs.push(`[PEAK] ${log}`));
+        fftLogs.forEach(log => combinedLogs.push(`[FFT] ${log}`));
+        
+        setDebugLogs(combinedLogs.slice(-20)); // Keep last 20
       }
     }, 500);
     
@@ -47,9 +71,18 @@ export default function StepCounterScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.stepDisplay}>
-        <Text style={styles.stepCount}>{stepCount}</Text>
-        <Text style={styles.label}>Steps</Text>
+      <View style={styles.compareContainer}>
+        <View style={styles.algorithmBox}>
+          <Text style={styles.algorithmLabel}>Peak Detection</Text>
+          <Text style={styles.stepCount}>{peakStepCount}</Text>
+          <Text style={styles.label}>Steps</Text>
+        </View>
+        
+        <View style={styles.algorithmBox}>
+          <Text style={styles.algorithmLabel}>FFT (Wavelet)</Text>
+          <Text style={styles.stepCountFft}>{fftStepCount}</Text>
+          <Text style={styles.label}>Steps</Text>
+        </View>
       </View>
       
       <View style={styles.consoleContainer}>
@@ -78,20 +111,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     padding: 20,
   },
-  stepDisplay: {
+  compareContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  algorithmBox: {
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 30,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    flex: 1,
+    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  algorithmLabel: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 10,
+    fontWeight: '600',
   },
   stepCount: {
-    fontSize: 100,
+    fontSize: 60,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: '#FF9800',
+  },
+  stepCountFft: {
+    fontSize: 60,
+    fontWeight: 'bold',
+    color: '#4CAF50',
   },
   label: {
-    fontSize: 24,
+    fontSize: 16,
     color: '#666',
-    marginTop: 10,
+    marginTop: 5,
   },
   consoleContainer: {
     flex: 1,

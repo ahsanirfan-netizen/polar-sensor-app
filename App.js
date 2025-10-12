@@ -32,6 +32,7 @@ import SleepAnalysisScreen from './SleepAnalysisScreen';
 import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
+import WaveletStepCounter from './WaveletStepCounter';
 
 const bleManager = new BleManager();
 
@@ -1217,8 +1218,9 @@ export default function App() {
         
         setAccelerometer(() => accData);
         
-        // Simple step detection from ACC data
+        // Feed ACC data to both step counters for parallel testing
         StepCounterService.detectStep(accData);
+        WaveletStepCounter.detectStep(accData);
       }
     } catch (error) {
       console.error('ACC parse error:', error);

@@ -7,12 +7,12 @@ import FFT from 'fft.js';
 class WaveletStepCounter {
   constructor() {
     this.stepCount = 0;
-    this.sampleRate = 20; // Hz - assuming ~50ms sampling from BLE
+    this.sampleRate = 52; // Hz - Polar Verity Sense ACC actual sampling rate
     this.windowSize = 1.0; // 1 second windows
     this.samplesPerWindow = Math.round(this.sampleRate * this.windowSize);
     
     // FFT size must be power of 2
-    this.fftSize = 32; // Nearest power of 2 >= samplesPerWindow
+    this.fftSize = 64; // Nearest power of 2 >= 52 samples
     this.fft = new FFT(this.fftSize);
     
     this.magnitudeBuffer = [];
@@ -126,7 +126,7 @@ class WaveletStepCounter {
     
     // Log first sample
     if (this.stepCount === 0 && this.magnitudeBuffer.length === 0) {
-      this.log('FFT step counter started');
+      this.log(`FFT counter started (${this.sampleRate}Hz, ${this.fftSize}-point FFT)`);
     }
 
     // Add to buffer
