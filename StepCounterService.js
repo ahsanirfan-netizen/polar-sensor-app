@@ -10,6 +10,8 @@ class StepCounterService {
     this.debugLogs = []; // Store logs for UI display
     this.maxLogs = 20; // Keep last 20 log entries
     this.peakTimestamps = []; // Track peak timing for rhythm detection
+    this.sampleCount = 0; // Track total samples for debug logging
+    this.lastLogTime = 0; // For periodic debug logging
   }
 
   calculateMagnitude(acc) {
@@ -51,6 +53,7 @@ class StepCounterService {
   detectStep(accData) {
     const magnitude = this.calculateMagnitude(accData);
     const currentTime = Date.now();
+    this.sampleCount++;
     
     // Log first sample
     if (this.stepCount === 0 && this.accBuffer.length === 0) {
@@ -72,6 +75,12 @@ class StepCounterService {
     
     // Peak detection: Must be 0.3G above average baseline
     const peakThreshold = baseline + 0.3;
+    
+    // Log magnitude/threshold every 1 second for debugging
+    if (currentTime - this.lastLogTime > 1000) {
+      this.log(`Mag: ${magnitude.toFixed(2)} | Base: ${baseline.toFixed(2)} | Thresh: ${peakThreshold.toFixed(2)}`);
+      this.lastLogTime = currentTime;
+    }
     
     const isPeak = magnitude > peakThreshold && 
                    (currentTime - this.lastPeakTime) > this.minPeakDistance;
@@ -130,6 +139,8 @@ class StepCounterService {
     this.accBuffer = [];
     this.peakTimestamps = [];
     this.debugLogs = [];
+    this.sampleCount = 0;
+    this.lastLogTime = 0;
     this.log('Counter reset');
   }
 }
