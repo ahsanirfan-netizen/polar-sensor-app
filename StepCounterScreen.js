@@ -1,20 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-
-let StepCounterService = null;
-let WaveletStepCounter = null;
-
-try {
-  StepCounterService = require('./StepCounterService').default;
-} catch (error) {
-  console.error('Failed to load StepCounterService:', error);
-}
-
-try {
-  WaveletStepCounter = require('./WaveletStepCounter').default;
-} catch (error) {
-  console.error('Failed to load WaveletStepCounter:', error);
-}
+import StepCounterService from './StepCounterService';
+import WaveletStepCounter from './WaveletStepCounter';
 
 export default function StepCounterScreen() {
   const [peakStepCount, setPeakStepCount] = useState(0);
@@ -26,9 +13,8 @@ export default function StepCounterScreen() {
   useEffect(() => {
     isMounted.current = true;
     
-    // Reset both counters when screen loads
-    StepCounterService?.reset();
-    WaveletStepCounter?.reset();
+    // Don't reset counters - App.js owns their lifecycle
+    // Screen just displays their current state
     
     return () => {
       isMounted.current = false;
@@ -39,16 +25,12 @@ export default function StepCounterScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (isMounted.current) {
-        if (StepCounterService) {
-          setPeakStepCount(StepCounterService.getStepCount());
-        }
-        if (WaveletStepCounter) {
-          setFftStepCount(WaveletStepCounter.getStepCount());
-        }
+        setPeakStepCount(StepCounterService.getStepCount());
+        setFftStepCount(WaveletStepCounter.getStepCount());
         
         // Combine logs from both algorithms
-        const peakLogs = StepCounterService?.getDebugLogs() || [];
-        const fftLogs = WaveletStepCounter?.getDebugLogs() || [];
+        const peakLogs = StepCounterService.getDebugLogs();
+        const fftLogs = WaveletStepCounter.getDebugLogs();
         
         // Interleave logs with labels
         const combinedLogs = [];
