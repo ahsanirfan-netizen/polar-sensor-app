@@ -17,7 +17,9 @@ class WaveletStepCounter {
     
     this.magnitudeBuffer = [];
     this.debugLogs = [];
-    this.maxLogs = 20;
+    this.maxLogs = 30;
+    this.totalSamples = 0;
+    this.windowsProcessed = 0;
     
     // Walking frequency range
     this.minFreq = 0.5; // 30 steps/min
@@ -76,6 +78,8 @@ class WaveletStepCounter {
       return 0; // Not enough data
     }
 
+    this.windowsProcessed++;
+
     // Prepare data for FFT (pad or truncate to fftSize)
     const input = new Float32Array(this.fftSize);
     for (let i = 0; i < this.fftSize; i++) {
@@ -105,14 +109,14 @@ class WaveletStepCounter {
     // Find dominant frequency
     const result = this.findDominantFrequency(output);
     
-    // Count steps if confident
+    // Count steps - use MUCH lower confidence threshold
     let windowSteps = 0;
-    if (result.confidence > 5.0 && result.frequency >= this.minFreq) {
+    if (result.confidence > 2.0 && result.frequency >= this.minFreq && result.frequency <= this.maxFreq) {
       // Frequency = steps per second in this window
       windowSteps = result.frequency * this.windowSize;
-      this.log(`Window: ${result.frequency.toFixed(2)} Hz, ${windowSteps.toFixed(1)} steps (conf: ${result.confidence.toFixed(1)})`);
+      this.log(`Win${this.windowsProcessed}: ${result.frequency.toFixed(2)}Hz → ${windowSteps.toFixed(1)} steps (conf:${result.confidence.toFixed(1)})`);
     } else {
-      this.log(`Window: No walking detected (freq: ${result.frequency.toFixed(2)}, conf: ${result.confidence.toFixed(1)})`);
+      this.log(`Win${this.windowsProcessed}: Rejected ${result.frequency.toFixed(2)}Hz (conf:${result.confidence.toFixed(1)})`);
     }
 
     // Clear buffer for next window
@@ -123,14 +127,20 @@ class WaveletStepCounter {
 
   detectStep(accData) {
     const magnitude = this.calculateMagnitude(accData);
+    this.totalSamples++;
     
     // Log first sample
-    if (this.stepCount === 0 && this.magnitudeBuffer.length === 0) {
-      this.log(`FFT counter started (${this.sampleRate}Hz, ${this.fftSize}-point FFT)`);
+    if (this.totalSamples === 1) {
+      this.log(`Started: ${this.sampleRate}Hz, ${this.fftSize}-pt FFT, ${this.samplesPerWindow} samples/win`);
     }
 
     // Add to buffer
     this.magnitudeBuffer.push(magnitude);
+
+    // Log buffer status every 52 samples (1 second)
+    if (this.totalSamples % 52 === 0) {
+      this.log(`Buffer: ${this.magnitudeBuffer.length}/${this.samplesPerWindow} | Total samples: ${this.totalSamples}`);
+    }
 
     // Process window when full
     if (this.magnitudeBuffer.length >= this.samplesPerWindow) {
@@ -154,6 +164,8 @@ class WaveletStepCounter {
     this.stepCount = 0;
     this.magnitudeBuffer = [];
     this.debugLogs = [];
+    this.totalSamples = 0;
+    this.windowsProcessed = 0;
     this.log('FFT counter reset');
   }
 }
