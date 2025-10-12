@@ -69,11 +69,14 @@ class StepCounterService {
     // Need at least 10 samples to establish baseline
     if (this.accBuffer.length < 10) return false;
     
-    // Use MEAN (average) as baseline - more stable than minimum
-    // Standing/walking baseline should be around 1.0-1.1G (gravity)
-    const baseline = this.accBuffer.reduce((sum, val) => sum + val, 0) / this.accBuffer.length;
+    // Use 25th percentile as baseline (lower quartile)
+    // This ignores peaks and focuses on resting values
+    // Prevents baseline drift during walking
+    const sortedBuffer = [...this.accBuffer].sort((a, b) => a - b);
+    const percentileIndex = Math.floor(sortedBuffer.length * 0.25);
+    const baseline = sortedBuffer[percentileIndex];
     
-    // Peak detection: Must be 0.3G above average baseline
+    // Peak detection: Must be 0.3G above baseline
     const peakThreshold = baseline + 0.3;
     
     // Log magnitude/threshold every 1 second for debugging
