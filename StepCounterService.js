@@ -78,8 +78,8 @@ class StepCounterService {
     // Rhythm detection handles false positives, so we can be more sensitive
     const peakThreshold = baseline + 0.25;
     
-    // Log magnitude/threshold every 1 second for debugging
-    if (currentTime - this.lastLogTime > 1000) {
+    // Log magnitude/threshold every 5 seconds for debugging
+    if (currentTime - this.lastLogTime > 5000) {
       this.log(`Mag: ${magnitude.toFixed(2)} | Base: ${baseline.toFixed(2)} | Thresh: ${peakThreshold.toFixed(2)}`);
       this.lastLogTime = currentTime;
     }
