@@ -30,6 +30,14 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 - Previous incorrect factor (÷1000) caused 16x scaling error, breaking step detection
 - Variance was 44.559 instead of 0.15-0.3, magnitude was 34G instead of 1-2G
 
+**CRITICAL: Multi-Sample Packet Parsing**
+- Each BLE packet contains MULTIPLE sensor samples (not just one)
+- The `sampleCount` field at data[10] indicates how many samples are in the packet
+- At 52 Hz with ~4 packets/sec, each packet contains ~13 samples
+- Code MUST loop through all samples using `for (i=0; i<sampleCount; i++)` and increment offset by 6 bytes per sample
+- Previous bug: Only parsed first sample per packet, causing 0.8 Hz instead of 52 Hz effective rate
+- Affects ACC, Gyro, and potentially other sensor streams
+
 ### Data Persistence Architecture
 
 A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It employs a batched insert system that flushes buffered sensor readings to the database every 1 second via a transaction, preventing race conditions and ensuring data integrity. Recording is user-controlled and automatically stops on disconnect.
