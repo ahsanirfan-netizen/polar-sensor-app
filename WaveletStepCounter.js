@@ -20,6 +20,8 @@ class WaveletStepCounter {
     this.maxLogs = 30;
     this.totalSamples = 0;
     this.windowsProcessed = 0;
+    this.firstSampleTime = null;
+    this.lastSampleTime = null;
     
     // Walking frequency range
     this.minFreq = 0.5; // 30 steps/min
@@ -126,30 +128,42 @@ class WaveletStepCounter {
   }
 
   detectStep(accData) {
-    const magnitude = this.calculateMagnitude(accData);
-    this.totalSamples++;
-    
-    // Log first sample
-    if (this.totalSamples === 1) {
-      this.log(`Started: ${this.sampleRate}Hz, ${this.fftSize}-pt FFT, ${this.samplesPerWindow} samples/win`);
+    try {
+      const now = Date.now();
+      const magnitude = this.calculateMagnitude(accData);
+      this.totalSamples++;
+      
+      // Track timing
+      if (!this.firstSampleTime) {
+        this.firstSampleTime = now;
+        this.log(`Started: ${this.sampleRate}Hz, ${this.fftSize}-pt FFT, ${this.samplesPerWindow} samples/win`);
+      }
+      this.lastSampleTime = now;
+
+      // Add to buffer
+      this.magnitudeBuffer.push(magnitude);
+
+      // Log buffer status every 52 samples (1 second)
+      if (this.totalSamples % 52 === 0) {
+        const elapsedSec = (now - this.firstSampleTime) / 1000;
+        const actualRate = this.totalSamples / elapsedSec;
+        this.log(`Buf: ${this.magnitudeBuffer.length}/${this.samplesPerWindow} | ${this.totalSamples} samples in ${elapsedSec.toFixed(1)}s (${actualRate.toFixed(1)}Hz)`);
+      }
+
+      // Process window when full
+      if (this.magnitudeBuffer.length >= this.samplesPerWindow) {
+        const windowSteps = this.processWindow();
+        this.stepCount += Math.round(windowSteps);
+        this.log(`Total steps: ${this.stepCount}`);
+        return windowSteps > 0;
+      }
+
+      return false;
+    } catch (error) {
+      this.log(`ERROR: ${error.message}`);
+      console.error('FFT detectStep error:', error);
+      return false;
     }
-
-    // Add to buffer
-    this.magnitudeBuffer.push(magnitude);
-
-    // Log buffer status every 52 samples (1 second)
-    if (this.totalSamples % 52 === 0) {
-      this.log(`Buffer: ${this.magnitudeBuffer.length}/${this.samplesPerWindow} | Total samples: ${this.totalSamples}`);
-    }
-
-    // Process window when full
-    if (this.magnitudeBuffer.length >= this.samplesPerWindow) {
-      const windowSteps = this.processWindow();
-      this.stepCount += Math.round(windowSteps);
-      return windowSteps > 0;
-    }
-
-    return false;
   }
 
   getStepCount() {
@@ -166,6 +180,8 @@ class WaveletStepCounter {
     this.debugLogs = [];
     this.totalSamples = 0;
     this.windowsProcessed = 0;
+    this.firstSampleTime = null;
+    this.lastSampleTime = null;
     this.log('FFT counter reset');
   }
 }
