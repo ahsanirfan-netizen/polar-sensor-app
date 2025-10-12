@@ -1217,9 +1217,8 @@ export default function App() {
         
         setAccelerometer(() => accData);
         
-        // Detect steps AND walking pattern for auto-start/stop - pass both raw and scaled
+        // Simple step detection from ACC data
         StepCounterService.detectStep(accData);
-        StepCounterService.detectWalkingPattern(null, accData, rawAccData); // Pass raw values for debug
       }
     } catch (error) {
       console.error('ACC parse error:', error);
