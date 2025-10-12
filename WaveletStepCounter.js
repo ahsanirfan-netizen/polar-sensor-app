@@ -137,17 +137,24 @@ class WaveletStepCounter {
       if (!this.firstSampleTime) {
         this.firstSampleTime = now;
         this.log(`Started: ${this.sampleRate}Hz, ${this.fftSize}-pt FFT, ${this.samplesPerWindow} samples/win`);
+        console.log('FFT Counter: First sample received, starting counter');
       }
       this.lastSampleTime = now;
 
       // Add to buffer
       this.magnitudeBuffer.push(magnitude);
+      
+      // Log every 10 samples to track data flow
+      if (this.totalSamples % 10 === 0) {
+        this.log(`${this.totalSamples} samples | buf: ${this.magnitudeBuffer.length}/${this.samplesPerWindow}`);
+        console.log(`FFT: ${this.totalSamples} samples received, buffer: ${this.magnitudeBuffer.length}`);
+      }
 
       // Log buffer status every 52 samples (1 second)
       if (this.totalSamples % 52 === 0) {
         const elapsedSec = (now - this.firstSampleTime) / 1000;
         const actualRate = this.totalSamples / elapsedSec;
-        this.log(`Buf: ${this.magnitudeBuffer.length}/${this.samplesPerWindow} | ${this.totalSamples} samples in ${elapsedSec.toFixed(1)}s (${actualRate.toFixed(1)}Hz)`);
+        this.log(`✓ ${this.totalSamples} samples in ${elapsedSec.toFixed(1)}s (${actualRate.toFixed(1)}Hz)`);
       }
 
       // Process window when full
@@ -175,6 +182,12 @@ class WaveletStepCounter {
   }
 
   reset() {
+    const resetStack = new Error().stack;
+    console.warn('FFT RESET CALLED! Stack:', resetStack);
+    
+    const hadSamples = this.totalSamples > 0;
+    const bufferSize = this.magnitudeBuffer.length;
+    
     this.stepCount = 0;
     this.magnitudeBuffer = [];
     this.debugLogs = [];
@@ -182,7 +195,12 @@ class WaveletStepCounter {
     this.windowsProcessed = 0;
     this.firstSampleTime = null;
     this.lastSampleTime = null;
-    this.log('FFT counter reset');
+    
+    if (hadSamples) {
+      this.log(`⚠️ RESET! Lost ${bufferSize} samples`);
+    } else {
+      this.log('FFT counter reset');
+    }
   }
 }
 
