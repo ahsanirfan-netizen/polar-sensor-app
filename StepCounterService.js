@@ -42,15 +42,14 @@ class StepCounterService {
     // Need at least 10 samples to establish baseline
     if (this.accBuffer.length < 10) return false;
     
-    // Use minimum of buffer as baseline (gravity when still ~1.0G)
-    const baseline = Math.min(...this.accBuffer);
+    // Use MEAN (average) as baseline - more stable than minimum
+    // Standing/walking baseline should be around 1.0-1.1G (gravity)
+    const baseline = this.accBuffer.reduce((sum, val) => sum + val, 0) / this.accBuffer.length;
     
-    // Peak detection: 0.25G above baseline, minimum 1.15G absolute
-    const peakThreshold = baseline + 0.25;
-    const absoluteMinimum = 1.15;
+    // Peak detection: Must be 0.3G above average baseline
+    const peakThreshold = baseline + 0.3;
     
     const isValidPeak = magnitude > peakThreshold && 
-                        magnitude > absoluteMinimum && 
                         (currentTime - this.lastPeakTime) > this.minPeakDistance;
     
     if (isValidPeak) {
