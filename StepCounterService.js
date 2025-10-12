@@ -18,6 +18,11 @@ class StepCounterService {
     const magnitude = this.calculateMagnitude(accData);
     const currentTime = Date.now();
     
+    // Log timestamp to diagnose delay
+    if (this.stepCount === 0) {
+      console.log('[STEP] First ACC sample received at:', new Date().toISOString());
+    }
+    
     // Add to buffer
     this.accBuffer.push(magnitude);
     if (this.accBuffer.length > this.maxBufferSize) {
@@ -41,7 +46,7 @@ class StepCounterService {
     if (isValidPeak) {
       this.lastPeakTime = currentTime;
       this.stepCount++;
-      console.log('Step detected! Count:', this.stepCount, 'Magnitude:', magnitude.toFixed(3), 'Baseline:', baseline.toFixed(3));
+      console.log('[STEP] Step #' + this.stepCount + ' detected at', new Date().toISOString(), '| Mag:', magnitude.toFixed(3), 'Baseline:', baseline.toFixed(3));
       return true;
     }
     
