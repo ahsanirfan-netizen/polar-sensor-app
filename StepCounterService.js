@@ -69,15 +69,14 @@ class StepCounterService {
     // Need at least 10 samples to establish baseline
     if (this.accBuffer.length < 10) return false;
     
-    // Use 25th percentile as baseline (lower quartile)
-    // This ignores peaks and focuses on resting values
-    // Prevents baseline drift during walking
-    const sortedBuffer = [...this.accBuffer].sort((a, b) => a - b);
-    const percentileIndex = Math.floor(sortedBuffer.length * 0.25);
-    const baseline = sortedBuffer[percentileIndex];
+    // Use MINIMUM as baseline - ignores all peaks, no drift
+    // Apply floor at 0.8G to prevent noise from driving threshold too low
+    const rawBaseline = Math.min(...this.accBuffer);
+    const baseline = Math.max(0.8, rawBaseline);
     
-    // Peak detection: Must be 0.3G above baseline
-    const peakThreshold = baseline + 0.3;
+    // Peak detection: Must be 0.25G above baseline
+    // Rhythm detection handles false positives, so we can be more sensitive
+    const peakThreshold = baseline + 0.25;
     
     // Log magnitude/threshold every 1 second for debugging
     if (currentTime - this.lastLogTime > 1000) {
