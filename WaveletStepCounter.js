@@ -138,6 +138,7 @@ class WaveletStepCounter {
         this.firstSampleTime = now;
         this.log(`Started: ${this.sampleRate}Hz, ${this.fftSize}-pt FFT, ${this.samplesPerWindow} samples/win`);
         console.log('FFT Counter: First sample received, starting counter');
+        console.log(`FFT: Magnitude = ${magnitude.toFixed(3)}G`);
       }
       this.lastSampleTime = now;
 
