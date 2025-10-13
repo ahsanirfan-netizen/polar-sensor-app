@@ -672,7 +672,7 @@ export default function App() {
       // Request high connection priority for faster packet delivery
       try {
         await device.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
-        console.log('High connection priority requested on reconnect');
+        console.log('Connection priority: HIGH ✓ (reconnect)');
       } catch (error) {
         console.log('Connection priority request failed on reconnect:', error.message);
       }
@@ -815,7 +815,7 @@ export default function App() {
       // Request high connection priority for faster packet delivery
       try {
         await connected.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
-        console.log('High connection priority requested');
+        console.log('Connection priority: HIGH ✓');
       } catch (error) {
         console.log('Connection priority request failed:', error.message);
       }
