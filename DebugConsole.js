@@ -101,6 +101,7 @@ function addLog(type, args) {
 export default function DebugConsole() {
   const [logs, setLogs] = useState(globalThis.__debugConsole.logBuffer);
   const [isVisible, setIsVisible] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
@@ -114,10 +115,10 @@ export default function DebugConsole() {
   }, []);
 
   useEffect(() => {
-    if (scrollViewRef.current && isVisible) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+    if (scrollViewRef.current && isVisible && autoScroll) {
+      scrollViewRef.current.scrollToEnd({ animated: false });
     }
-  }, [logs, isVisible]);
+  }, [logs, isVisible, autoScroll]);
 
   const clearLogs = () => {
     globalThis.__debugConsole.logBuffer = [];
@@ -162,10 +163,16 @@ export default function DebugConsole() {
               </Text>
               <View style={styles.headerButtons}>
                 <TouchableOpacity 
-                  style={styles.clearButton}
+                  style={[styles.actionButton, autoScroll && styles.actionButtonActive]}
+                  onPress={() => setAutoScroll(!autoScroll)}
+                >
+                  <Text style={styles.actionButtonText}>{autoScroll ? '⏸ Pause' : '▶ Auto'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionButton}
                   onPress={clearLogs}
                 >
-                  <Text style={styles.clearButtonText}>Clear</Text>
+                  <Text style={styles.actionButtonText}>Clear</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.closeButton}
@@ -210,12 +217,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    zIndex: 999,
+    zIndex: 9999,
   },
   floatingButtonText: {
     color: '#fff',
@@ -229,13 +236,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 10000,
     justifyContent: 'flex-end',
   },
   consolePanel: {
     backgroundColor: '#1a1a1a',
-    height: '70%',
+    height: '80%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -255,17 +262,20 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  clearButton: {
-    backgroundColor: '#ff6b6b',
-    paddingHorizontal: 12,
+  actionButton: {
+    backgroundColor: '#6c757d',
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 4,
   },
-  clearButtonText: {
+  actionButtonActive: {
+    backgroundColor: '#28a745',
+  },
+  actionButtonText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   closeButton: {
