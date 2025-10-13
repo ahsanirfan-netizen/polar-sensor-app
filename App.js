@@ -34,6 +34,7 @@ import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
 import WaveletStepCounter from './WaveletStepCounter';
 import DataRateMonitor from './DataRateMonitor';
+import DebugConsole from './DebugConsole';
 
 const bleManager = new BleManager();
 
@@ -1653,7 +1654,12 @@ export default function App() {
   };
 
   if (!session) {
-    return <AuthScreen onAuthStateChange={(session) => setSession(session)} />;
+    return (
+      <View style={{ flex: 1 }}>
+        <AuthScreen onAuthStateChange={(session) => setSession(session)} />
+        <DebugConsole />
+      </View>
+    );
   }
 
   const renderTabBar = () => (
@@ -1690,6 +1696,7 @@ export default function App() {
       <View style={styles.container}>
         {renderTabBar()}
         <SleepAnalysisScreen />
+        <DebugConsole />
       </View>
     );
   }
@@ -1699,6 +1706,7 @@ export default function App() {
       <View style={styles.container}>
         {renderTabBar()}
         <StepCounterScreen />
+        <DebugConsole />
       </View>
     );
   }
@@ -1986,6 +1994,7 @@ export default function App() {
           <Button title="Logout" onPress={handleLogout} color="#6c757d" />
         </View>
         <StatusBar style="auto" />
+        <DebugConsole />
       </View>
     );
   }
@@ -2055,6 +2064,7 @@ export default function App() {
       )}
       
       <StatusBar style="auto" />
+      <DebugConsole />
     </View>
   );
 }
