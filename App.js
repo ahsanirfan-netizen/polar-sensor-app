@@ -1166,7 +1166,6 @@ export default function App() {
 
   const parseACCData = (data) => {
     try {
-      console.log('ACC data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
       incrementPacketCount();
       if (data.length < 17) return;
       
@@ -1174,7 +1173,7 @@ export default function App() {
       const sampleCount = data[10];
       let offset = 11;
       
-      console.log(`ACC packet: ${sampleCount} samples`);
+      console.log(`📦 ACC: ${sampleCount} samples in packet`);
       
       // Loop through ALL samples in the packet
       for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
