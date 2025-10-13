@@ -30,16 +30,23 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 - Previous incorrect factor (÷1000) caused 16x scaling error, breaking step detection
 - Variance was 44.559 instead of 0.15-0.3, magnitude was 34G instead of 1-2G
 
-**CRITICAL: Multi-Sample Packet Parsing (FIXED)**
-- Each BLE packet contains MULTIPLE sensor samples (not just one)
-- **Raw format (frame types 0x00-0x02)**: Header is bytes 0-10, samples start at byte 11, NO sampleCount field exists
-- **Must calculate sampleCount** from packet length: `Math.floor((data.length - 11) / bytesPerSample)`
-  - ACC/Gyro/Mag: 6 bytes per sample (x,y,z = 2 bytes each)
-  - PPG: 3 bytes per sample (22-bit value)
-- At 52 Hz with ~4 packets/sec, each packet contains ~13 samples
-- Code loops through all samples starting at offset 11
-- **Previous bug (FIXED Oct 2025)**: Incorrectly read byte 10 as sampleCount, processed only 1 sample per packet → 0.9 Hz instead of 52 Hz
-- Fix calculates sampleCount from packet length and processes all ~13 samples per packet for ACC, Gyro, PPG, and Mag streams
+**CRITICAL: Delta Compression Packet Parsing (FIXED Oct 2025)**
+- Polar Verity Sense uses **delta compression** to optimize BLE bandwidth
+- Packets arrive every **1-2 seconds** (not 4 Hz as initially expected), containing **~50-70 samples each** at 52 Hz internal sampling
+- **Header structure**: Bytes 0-9 (PMD type, timestamp, frame type), samples start at byte 10
+- **Frame type byte 9**:
+  - `0x00`: Uncompressed format (all samples 6 bytes)
+  - `0x81` (129): Delta compressed format (first sample 6 bytes, rest 3 bytes)
+  
+**Delta Compressed Format (0x81)**:
+- **First sample** (6 bytes): Full x,y,z values as int16 (2 bytes each)
+- **Subsequent samples** (3 bytes each): dx,dy,dz deltas as int8 (1 byte each)
+- Reconstruct by adding deltas: `x[n] = x[n-1] + dx`, `y[n] = y[n-1] + dy`, `z[n] = z[n-1] + dz`
+
+**Example**: 223-byte packet = 10 header + 6 first sample + 207 delta samples = 1 + 69 = 70 total samples
+
+**Previous bug**: Assumed all samples were 6 bytes → only extracted 1 sample per packet (98.5% data loss!)
+**Fix**: Check frame type and parse accordingly → full 52 Hz data rate achieved
 
 ### Data Persistence Architecture
 

@@ -1183,71 +1183,147 @@ export default function App() {
     try {
       incrementPacketCount();
       DataRateMonitor.addPacket();
-      if (data.length < 17) return;
+      if (data.length < 16) return;
       
       const frameType = data[9];
+      const ACC_SCALE_FACTOR = 16384; // ±2G range: 16-bit ADC / 2G
       
-      // Raw format (0x00-0x02): Calculate sampleCount from packet length
-      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
-      const headerSize = 11; // Bytes 0-10 are header
-      const bytesPerSample = 6; // x,y,z = 2 bytes each
-      const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 11; // Samples start at byte 11
+      let offset = 10; // Samples start at byte 10 (header is bytes 0-9)
+      let sampleCount = 0;
       
-      console.log(`📦 ACC: ${sampleCount} samples in packet (length ${data.length})`);
+      // Check if delta compressed (0x81 = 129) or uncompressed (0x00)
+      const isDeltaCompressed = frameType === 0x81 || frameType === 129;
       
-      // Loop through ALL samples in the packet
-      for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
-        const x = data.readInt16LE(offset);
-        const y = data.readInt16LE(offset + 2);
-        const z = data.readInt16LE(offset + 4);
-        offset += 6;
+      if (isDeltaCompressed) {
+        // DELTA COMPRESSED FORMAT
+        // First sample: 6 bytes (full x,y,z as int16)
+        // Remaining samples: 3 bytes each (dx,dy,dz as int8)
         
-        if (i === 0) {
-          console.log('ACC raw values - x:', x, 'y:', y, 'z:', z);
-        }
+        if (data.length < 16) return; // Need at least header + first sample
+        
+        // First sample (full resolution)
+        const x0 = data.readInt16LE(offset);
+        const y0 = data.readInt16LE(offset + 2);
+        const z0 = data.readInt16LE(offset + 4);
+        offset += 6;
+        sampleCount = 1;
+        
+        // Process first sample
+        const accData0 = { 
+          x: x0 / ACC_SCALE_FACTOR, 
+          y: y0 / ACC_SCALE_FACTOR, 
+          z: z0 / ACC_SCALE_FACTOR 
+        };
         
         if (isRecordingRef.current) {
-          const timestamp = new Date().toISOString();
           addToDbBuffer({
-            timestamp: timestamp,
+            timestamp: new Date().toISOString(),
             ppg: null,
-            acc_x: x,
-            acc_y: y,
-            acc_z: z,
+            acc_x: x0,
+            acc_y: y0,
+            acc_z: z0,
             gyro_x: null,
             gyro_y: null,
             gyro_z: null
           });
         }
         
-        // Polar ACC in SDK mode uses 16-bit ADC counts, not milliG
-        // For ±2G range: divide by 16384 (32768/2)
-        // For ±8G range: divide by 4096 (32768/8)
-        // Testing shows ±2G range based on magnitude values
-        const ACC_SCALE_FACTOR = 16384; // ±2G range
-        
-        const accData = { 
-          x: x / ACC_SCALE_FACTOR, 
-          y: y / ACC_SCALE_FACTOR, 
-          z: z / ACC_SCALE_FACTOR 
-        };
-        
-        // Debug: Log scaled values and magnitude every 20th sample to avoid spam
-        if (Math.random() < 0.05) {
-          const mag = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-          console.log('ACC scaled:', accData.x.toFixed(3), accData.y.toFixed(3), accData.z.toFixed(3), '→ mag:', mag.toFixed(3));
-        }
-        
-        // Update display with last sample
-        if (i === sampleCount - 1) {
-          setAccelerometer(() => accData);
-        }
-        
-        // Feed ALL samples to data rate monitor and step counters
         DataRateMonitor.addSample();
-        StepCounterService.detectStep(accData);
-        WaveletStepCounter.detectStep(accData);
+        StepCounterService.detectStep(accData0);
+        WaveletStepCounter.detectStep(accData0);
+        
+        // Last full sample values for delta reconstruction
+        let lastX = x0;
+        let lastY = y0;
+        let lastZ = z0;
+        
+        // Process delta samples (3 bytes each)
+        while (offset + 3 <= data.length) {
+          const dx = data.readInt8(offset);
+          const dy = data.readInt8(offset + 1);
+          const dz = data.readInt8(offset + 2);
+          offset += 3;
+          sampleCount++;
+          
+          // Reconstruct full values
+          const x = lastX + dx;
+          const y = lastY + dy;
+          const z = lastZ + dz;
+          
+          lastX = x;
+          lastY = y;
+          lastZ = z;
+          
+          if (isRecordingRef.current) {
+            addToDbBuffer({
+              timestamp: new Date().toISOString(),
+              ppg: null,
+              acc_x: x,
+              acc_y: y,
+              acc_z: z,
+              gyro_x: null,
+              gyro_y: null,
+              gyro_z: null
+            });
+          }
+          
+          const accData = { 
+            x: x / ACC_SCALE_FACTOR, 
+            y: y / ACC_SCALE_FACTOR, 
+            z: z / ACC_SCALE_FACTOR 
+          };
+          
+          DataRateMonitor.addSample();
+          StepCounterService.detectStep(accData);
+          WaveletStepCounter.detectStep(accData);
+          
+          // Update display with last sample
+          if (offset + 3 > data.length) {
+            setAccelerometer(() => accData);
+          }
+        }
+        
+        console.log(`📦 ACC (DELTA): ${sampleCount} samples from ${data.length}-byte packet`);
+        
+      } else {
+        // UNCOMPRESSED FORMAT (all samples are 6 bytes)
+        sampleCount = Math.floor((data.length - 10) / 6);
+        
+        console.log(`📦 ACC (RAW): ${sampleCount} samples from ${data.length}-byte packet`);
+        
+        for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
+          const x = data.readInt16LE(offset);
+          const y = data.readInt16LE(offset + 2);
+          const z = data.readInt16LE(offset + 4);
+          offset += 6;
+          
+          if (isRecordingRef.current) {
+            addToDbBuffer({
+              timestamp: new Date().toISOString(),
+              ppg: null,
+              acc_x: x,
+              acc_y: y,
+              acc_z: z,
+              gyro_x: null,
+              gyro_y: null,
+              gyro_z: null
+            });
+          }
+          
+          const accData = { 
+            x: x / ACC_SCALE_FACTOR, 
+            y: y / ACC_SCALE_FACTOR, 
+            z: z / ACC_SCALE_FACTOR 
+          };
+          
+          DataRateMonitor.addSample();
+          StepCounterService.detectStep(accData);
+          WaveletStepCounter.detectStep(accData);
+          
+          if (i === sampleCount - 1) {
+            setAccelerometer(() => accData);
+          }
+        }
       }
     } catch (error) {
       console.error('ACC parse error:', error);
@@ -1256,54 +1332,108 @@ export default function App() {
 
   const parseGyroData = (data) => {
     try {
-      console.log('Gyro data received, length:', data.length, 'type:', '0x' + data[0].toString(16));
       incrementPacketCount();
-      if (data.length < 17) return;
+      if (data.length < 16) return;
       
       const frameType = data[9];
+      let offset = 10; // Samples start at byte 10
+      let sampleCount = 0;
       
-      // Raw format (0x00-0x02): Calculate sampleCount from packet length
-      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
-      const headerSize = 11; // Bytes 0-10 are header
-      const bytesPerSample = 6; // x,y,z = 2 bytes each
-      const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 11; // Samples start at byte 11
+      const isDeltaCompressed = frameType === 0x81 || frameType === 129;
       
-      console.log(`Gyro packet: ${sampleCount} samples (length ${data.length})`);
-      
-      // Loop through ALL samples in the packet
-      for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
-        const x = data.readInt16LE(offset);
-        const y = data.readInt16LE(offset + 2);
-        const z = data.readInt16LE(offset + 4);
-        offset += 6;
+      if (isDeltaCompressed) {
+        // DELTA COMPRESSED FORMAT
+        if (data.length < 16) return;
         
-        if (i === 0) {
-          console.log('Gyro raw values - x:', x, 'y:', y, 'z:', z);
-        }
+        // First sample (full resolution)
+        const x0 = data.readInt16LE(offset);
+        const y0 = data.readInt16LE(offset + 2);
+        const z0 = data.readInt16LE(offset + 4);
+        offset += 6;
+        sampleCount = 1;
         
         if (isRecordingRef.current) {
-          const timestamp = new Date().toISOString();
           addToDbBuffer({
-            timestamp: timestamp,
+            timestamp: new Date().toISOString(),
             ppg: null,
             acc_x: null,
             acc_y: null,
             acc_z: null,
-            gyro_x: x,
-            gyro_y: y,
-            gyro_z: z
+            gyro_x: x0,
+            gyro_y: y0,
+            gyro_z: z0
           });
         }
         
-        // Update display with last sample
-        if (i === sampleCount - 1) {
-          const gyroData = { 
-            x: x / 100, 
-            y: y / 100, 
-            z: z / 100 
-          };
-          setGyroscope(() => gyroData);
+        let lastX = x0;
+        let lastY = y0;
+        let lastZ = z0;
+        
+        // Process delta samples
+        while (offset + 3 <= data.length) {
+          const dx = data.readInt8(offset);
+          const dy = data.readInt8(offset + 1);
+          const dz = data.readInt8(offset + 2);
+          offset += 3;
+          sampleCount++;
+          
+          const x = lastX + dx;
+          const y = lastY + dy;
+          const z = lastZ + dz;
+          
+          lastX = x;
+          lastY = y;
+          lastZ = z;
+          
+          if (isRecordingRef.current) {
+            addToDbBuffer({
+              timestamp: new Date().toISOString(),
+              ppg: null,
+              acc_x: null,
+              acc_y: null,
+              acc_z: null,
+              gyro_x: x,
+              gyro_y: y,
+              gyro_z: z
+            });
+          }
+          
+          if (offset + 3 > data.length) {
+            const gyroData = { x: x / 100, y: y / 100, z: z / 100 };
+            setGyroscope(() => gyroData);
+          }
+        }
+        
+        console.log(`📦 Gyro (DELTA): ${sampleCount} samples from ${data.length}-byte packet`);
+        
+      } else {
+        // UNCOMPRESSED FORMAT
+        sampleCount = Math.floor((data.length - 10) / 6);
+        console.log(`📦 Gyro (RAW): ${sampleCount} samples from ${data.length}-byte packet`);
+        
+        for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
+          const x = data.readInt16LE(offset);
+          const y = data.readInt16LE(offset + 2);
+          const z = data.readInt16LE(offset + 4);
+          offset += 6;
+          
+          if (isRecordingRef.current) {
+            addToDbBuffer({
+              timestamp: new Date().toISOString(),
+              ppg: null,
+              acc_x: null,
+              acc_y: null,
+              acc_z: null,
+              gyro_x: x,
+              gyro_y: y,
+              gyro_z: z
+            });
+          }
+          
+          if (i === sampleCount - 1) {
+            const gyroData = { x: x / 100, y: y / 100, z: z / 100 };
+            setGyroscope(() => gyroData);
+          }
         }
       }
     } catch (error) {
