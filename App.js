@@ -1313,17 +1313,31 @@ export default function App() {
       if (data.length < 17) return;
       
       const frameType = data[9];
-      const sampleCount = data[10];
-      let offset = 11;
       
-      if (offset + 6 <= data.length) {
+      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
+      // Calculate sampleCount from packet length: (total - header) / bytes_per_sample
+      const headerSize = 10;
+      const bytesPerSample = 6; // x,y,z = 2 bytes each
+      const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
+      let offset = 10; // Samples start at byte 10 in raw format
+      
+      console.log(`Mag packet: ${sampleCount} samples (length ${data.length})`);
+      
+      // Loop through all samples and display the last one
+      for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
         const x = data.readInt16LE(offset);
         const y = data.readInt16LE(offset + 2);
         const z = data.readInt16LE(offset + 4);
+        offset += 6;
         
-        console.log('Mag raw values - x:', x, 'y:', y, 'z:', z);
+        if (i === 0) {
+          console.log('Mag raw values - x:', x, 'y:', y, 'z:', z);
+        }
         
-        setMagnetometer({ x, y, z });
+        // Update display with last sample
+        if (i === sampleCount - 1) {
+          setMagnetometer({ x, y, z });
+        }
       }
     } catch (error) {
       console.error('Mag parse error:', error);
