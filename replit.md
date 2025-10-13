@@ -70,7 +70,7 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 -   **Automated Sleep Analysis**: Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
 -   **Step Counting with Health Connect**: Hybrid human-in-the-loop step counting using gyroscope-based walking detection, user confirmation notifications, peak detection algorithm for step counting, and automatic Health Connect sync.
 -   **Tab Navigation**: Tab-based UI allowing users to switch between real-time sensor monitoring, sleep analysis, and step counting views.
--   **On-Device Debug Console**: Floating button overlay that captures and displays all console logs on-device, with safe serialization for errors, circular objects, BigInt, and Symbols. Persists across fast refresh using globalThis.
+-   **On-Device Debug Console**: Floating button overlay that captures and displays all console logs on-device using Modal component (renders above all UI). Features include pause/resume auto-scroll, safe serialization for errors/circular objects/BigInt/Symbols, and persistence across fast refresh using globalThis.
 
 ### Step Counting Architecture
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 
 // Use globalThis to persist across fast refresh
 if (!globalThis.__debugConsole) {
@@ -145,8 +145,13 @@ export default function DebugConsole() {
         </Text>
       </TouchableOpacity>
 
-      {/* Full screen overlay when visible */}
-      {isVisible && (
+      {/* Full screen overlay in Modal - renders on top of everything */}
+      <Modal
+        visible={isVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsVisible(false)}
+      >
         <TouchableOpacity 
           style={styles.overlay}
           activeOpacity={1}
@@ -201,7 +206,7 @@ export default function DebugConsole() {
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
-      )}
+      </Modal>
     </>
   );
 }
@@ -217,12 +222,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 10,
+    elevation: 999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    zIndex: 9999,
+    zIndex: 999999,
   },
   floatingButtonText: {
     color: '#fff',
@@ -231,13 +236,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    zIndex: 10000,
     justifyContent: 'flex-end',
   },
   consolePanel: {
