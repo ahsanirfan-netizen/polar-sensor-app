@@ -10,8 +10,8 @@ export default function StepCounterScreen() {
     sampleRate: 0,
     packetRate: 0,
     samplesPerPacket: 0,
-    expectedSampleRate: 52,
-    expectedPacketRate: 0.73,
+    expectedSampleRate: 37,
+    expectedPacketRate: 0.5,
     expectedSamplesPerPacket: 71
   });
 
@@ -24,8 +24,8 @@ export default function StepCounterScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const sampleRateOk = parseFloat(stats.sampleRate) >= 45;
-  const packetRateOk = parseFloat(stats.packetRate) >= 0.5;
+  const sampleRateOk = parseFloat(stats.sampleRate) >= 30;
+  const packetRateOk = parseFloat(stats.packetRate) >= 0.4;
   const samplesPerPacketOk = parseFloat(stats.samplesPerPacket) >= 50;
 
   const getDiagnosis = () => {

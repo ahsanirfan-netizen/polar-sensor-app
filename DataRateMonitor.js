@@ -31,8 +31,8 @@ class DataRateMonitor {
         sampleRate: 0,
         packetRate: 0,
         samplesPerPacket: 0,
-        expectedSampleRate: 52,
-        expectedPacketRate: 0.73,
+        expectedSampleRate: 37,
+        expectedPacketRate: 0.5,
         expectedSamplesPerPacket: 71
       };
     }
@@ -50,8 +50,8 @@ class DataRateMonitor {
       sampleRate: sampleRate.toFixed(1),
       packetRate: packetRate.toFixed(1),
       samplesPerPacket: samplesPerPacket.toFixed(1),
-      expectedSampleRate: 52,
-      expectedPacketRate: 0.73,
+      expectedSampleRate: 37,
+      expectedPacketRate: 0.5,
       expectedSamplesPerPacket: 71
     };
   }

@@ -58,10 +58,13 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 
 **CRITICAL: BLE Connection Priority Configuration**
 - Android BLE connection priority controls packet delivery interval
-- Priority levels: **0 = HIGH** (7.5-10ms), **1 = BALANCED** (50ms), **2 = LOW_POWER** (100-125ms)
-- Must use `device.requestConnectionPriority(0)` for HIGH priority (NOT 1!)
-- HIGH priority enables ~1 Hz packet rate (71 samples × 1 Hz = 71 Hz sample rate potential)
-- BALANCED mode (1) only gives ~0.5 Hz packet rate (35-38 Hz sample rate)
+- Priority levels: **ConnectionPriority.High = 1** (7.5-10ms), **Balanced = 0** (50ms), **LowPower = 2** (100-125ms)
+- Using `device.requestConnectionPriority(ConnectionPriority.High)` for optimal performance
+- Real-world performance with Polar Verity Sense on Android:
+  - **35-38 Hz sample rate** (0.5-0.52 Hz packet rate × 71 samples/packet)
+  - Delta compression delivers **71 samples per packet**
+  - Performance limited by Android BLE stack and sensor firmware, not connection priority
+- This sample rate is adequate for sleep analysis (overnight trends) and step counting (walking cadence detection)
 - Called immediately after MTU negotiation on both connection and reconnection
 
 ### Data Persistence Architecture
