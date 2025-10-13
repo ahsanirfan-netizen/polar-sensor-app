@@ -1012,13 +1012,26 @@ export default function App() {
       if (data.length < 15) return;
       
       const frameType = data[9];
-      const sampleCount = data[10];
-      let offset = 11;
       
-      if (offset + 3 <= data.length) {
+      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
+      // PPG samples are 22-bit (3 bytes each)
+      const headerSize = 10;
+      const bytesPerSample = 3; // 22-bit PPG value
+      const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
+      let offset = 10; // Samples start at byte 10 in raw format
+      
+      console.log(`📦 PPG: ${sampleCount} samples in packet (length ${data.length})`);
+      
+      // Process all PPG samples
+      for (let i = 0; i < sampleCount && offset + 3 <= data.length; i++) {
         const ppg0 = (data[offset] | (data[offset+1] << 8) | (data[offset+2] << 16)) & 0x3FFFFF;
+        offset += 3;
+        
         if (ppg0 !== 0) {
-          setPpg(() => ppg0);
+          // Update display with last sample
+          if (i === sampleCount - 1) {
+            setPpg(() => ppg0);
+          }
           
           const timestamp = new Date().toISOString();
           ppgBufferRef.current.push(ppg0);
