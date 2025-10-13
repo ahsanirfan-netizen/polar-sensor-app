@@ -1244,10 +1244,15 @@ export default function App() {
       if (data.length < 17) return;
       
       const frameType = data[9];
-      const sampleCount = data[10];
-      let offset = 11;
       
-      console.log(`Gyro packet: ${sampleCount} samples`);
+      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
+      // Calculate sampleCount from packet length: (total - header) / bytes_per_sample
+      const headerSize = 10;
+      const bytesPerSample = 6; // x,y,z = 2 bytes each
+      const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
+      let offset = 10; // Samples start at byte 10 in raw format
+      
+      console.log(`Gyro packet: ${sampleCount} samples (length ${data.length})`);
       
       // Loop through ALL samples in the packet
       for (let i = 0; i < sampleCount && offset + 6 <= data.length; i++) {
