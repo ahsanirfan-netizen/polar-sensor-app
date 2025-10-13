@@ -1,87 +1,68 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import StepCounterService from './StepCounterService';
-import WaveletStepCounter from './WaveletStepCounter';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import DataRateMonitor from './DataRateMonitor';
 
 export default function StepCounterScreen() {
-  const [peakStepCount, setPeakStepCount] = useState(0);
-  const [fftStepCount, setFftStepCount] = useState(0);
-  const [debugLogs, setDebugLogs] = useState([]);
-  const isMounted = useRef(true);
-  const scrollViewRef = useRef(null);
+  const [stats, setStats] = useState({
+    totalSamples: 0,
+    elapsedSeconds: 0,
+    currentRate: 0,
+    expectedRate: 52
+  });
 
-  useEffect(() => {
-    isMounted.current = true;
-    
-    // Don't reset counters - App.js owns their lifecycle
-    // Screen just displays their current state
-    
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Update step counts and logs every 500ms
+  // Update stats every 100ms for responsive display
   useEffect(() => {
     const interval = setInterval(() => {
-      if (isMounted.current) {
-        setPeakStepCount(StepCounterService.getStepCount());
-        setFftStepCount(WaveletStepCounter.getStepCount());
-        
-        // Combine logs from both algorithms
-        const peakLogs = StepCounterService.getDebugLogs();
-        const fftLogs = WaveletStepCounter.getDebugLogs();
-        
-        // Interleave logs with labels
-        const combinedLogs = [];
-        peakLogs.forEach(log => combinedLogs.push(`[PEAK] ${log}`));
-        fftLogs.forEach(log => combinedLogs.push(`[FFT] ${log}`));
-        
-        setDebugLogs(combinedLogs.slice(-20)); // Keep last 20
-      }
-    }, 500);
+      setStats(DataRateMonitor.getStats());
+    }, 100);
     
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll to bottom when logs update
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
-    }
-  }, [debugLogs]);
+  const ratePercentage = stats.expectedRate > 0 
+    ? ((parseFloat(stats.currentRate) / stats.expectedRate) * 100).toFixed(0)
+    : 0;
+
+  const isHealthy = parseFloat(stats.currentRate) >= 50;
+  const rateColor = isHealthy ? '#4CAF50' : '#f44336';
 
   return (
     <View style={styles.container}>
-      <View style={styles.compareContainer}>
-        <View style={styles.algorithmBox}>
-          <Text style={styles.algorithmLabel}>Peak Detection</Text>
-          <Text style={styles.stepCount}>{peakStepCount}</Text>
-          <Text style={styles.label}>Steps</Text>
-        </View>
-        
-        <View style={styles.algorithmBox}>
-          <Text style={styles.algorithmLabel}>FFT (Wavelet)</Text>
-          <Text style={styles.stepCountFft}>{fftStepCount}</Text>
-          <Text style={styles.label}>Steps</Text>
-        </View>
-      </View>
+      <Text style={styles.title}>ACC Data Rate Monitor</Text>
       
-      <View style={styles.consoleContainer}>
-        <Text style={styles.consoleTitle}>Debug Console</Text>
-        <ScrollView 
-          ref={scrollViewRef}
-          style={styles.consoleScroll}
-          contentContainerStyle={styles.consoleContent}
-        >
-          {debugLogs.length === 0 ? (
-            <Text style={styles.consoleText}>Waiting for ACC data...</Text>
-          ) : (
-            debugLogs.map((log, index) => (
-              <Text key={index} style={styles.consoleText}>{log}</Text>
-            ))
-          )}
-        </ScrollView>
+      <View style={styles.statsCard}>
+        <Text style={styles.label}>Total Samples</Text>
+        <Text style={styles.bigNumber}>{stats.totalSamples}</Text>
+      </View>
+
+      <View style={styles.statsCard}>
+        <Text style={styles.label}>Elapsed Time</Text>
+        <Text style={styles.bigNumber}>{stats.elapsedSeconds} sec</Text>
+      </View>
+
+      <View style={styles.statsCard}>
+        <Text style={styles.label}>Current Rate</Text>
+        <Text style={[styles.bigNumber, { color: rateColor }]}>
+          {stats.currentRate} Hz
+        </Text>
+        <Text style={styles.sublabel}>
+          ({ratePercentage}% of expected {stats.expectedRate} Hz)
+        </Text>
+      </View>
+
+      <View style={[styles.statusCard, { backgroundColor: isHealthy ? '#E8F5E9' : '#FFEBEE' }]}>
+        <Text style={[styles.statusText, { color: isHealthy ? '#2E7D32' : '#C62828' }]}>
+          {isHealthy ? '✓ Data stream healthy' : '✗ Data stream issues detected'}
+        </Text>
+        {!isHealthy && stats.totalSamples > 0 && (
+          <Text style={styles.statusHint}>
+            Expected: ~52 samples/second{'\n'}
+            Getting: ~{stats.currentRate} samples/second{'\n'}
+            {parseFloat(stats.currentRate) < 5 
+              ? 'Multi-sample parsing may be broken' 
+              : 'Rate is low but not zero'}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -93,69 +74,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     padding: 20,
   },
-  compareContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 30,
-    marginBottom: 20,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+    color: '#333',
   },
-  algorithmBox: {
-    alignItems: 'center',
+  statsCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
-    flex: 1,
-    marginHorizontal: 5,
+    padding: 24,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  algorithmLabel: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 10,
-    fontWeight: '600',
-  },
-  stepCount: {
-    fontSize: 60,
-    fontWeight: 'bold',
-    color: '#FF9800',
-  },
-  stepCountFft: {
-    fontSize: 60,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    alignItems: 'center',
   },
   label: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 5,
-  },
-  consoleContainer: {
-    flex: 1,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 20,
-  },
-  consoleTitle: {
-    color: '#4CAF50',
     fontSize: 14,
+    color: '#999',
+    marginBottom: 8,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  bigNumber: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#2196F3',
+  },
+  sublabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+  },
+  statusCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  consoleScroll: {
-    flex: 1,
-  },
-  consoleContent: {
-    paddingBottom: 10,
-  },
-  consoleText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'monospace',
-    marginBottom: 4,
+  statusHint: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
 });

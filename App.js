@@ -33,6 +33,7 @@ import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
 import WaveletStepCounter from './WaveletStepCounter';
+import DataRateMonitor from './DataRateMonitor';
 
 const bleManager = new BleManager();
 
@@ -1241,7 +1242,8 @@ export default function App() {
           setAccelerometer(() => accData);
         }
         
-        // Feed ALL samples to both step counters
+        // Feed ALL samples to data rate monitor and step counters
+        DataRateMonitor.addSample();
         StepCounterService.detectStep(accData);
         WaveletStepCounter.detectStep(accData);
       }
