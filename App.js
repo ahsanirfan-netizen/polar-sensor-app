@@ -742,13 +742,12 @@ export default function App() {
       await startACCStream(device);
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // TEMPORARILY DISABLED for bandwidth testing
-      // console.log('Sending gyroscope start command...');
-      // await startGyroStream(device);
-      // await new Promise(resolve => setTimeout(resolve, 300));
+      console.log('Sending gyroscope start command...');
+      await startGyroStream(device);
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // console.log('Sending PPG start command...');
-      // await startPPGStream(device);
+      console.log('Sending PPG start command...');
+      await startPPGStream(device);
     } catch (error) {
       console.error('Error setting up SDK mode:', error);
     }
