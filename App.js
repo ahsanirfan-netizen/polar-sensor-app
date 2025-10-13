@@ -667,6 +667,14 @@ export default function App() {
         console.log('MTU request failed on reconnect:', error.message);
       }
       
+      // Request high connection priority for faster packet delivery
+      try {
+        await device.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
+        console.log('High connection priority requested on reconnect');
+      } catch (error) {
+        console.log('Connection priority request failed on reconnect:', error.message);
+      }
+      
       console.log('Reconnected successfully!');
       successfulReconnectsRef.current = successfulReconnectsRef.current + 1;
       setSuccessfulReconnects(successfulReconnectsRef.current);
@@ -799,6 +807,14 @@ export default function App() {
         console.log(`MTU negotiated: ${mtu} bytes`);
       } catch (error) {
         console.log('MTU request failed (iOS ignores this):', error.message);
+      }
+      
+      // Request high connection priority for faster packet delivery
+      try {
+        await connected.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
+        console.log('High connection priority requested');
+      } catch (error) {
+        console.log('Connection priority request failed:', error.message);
       }
       
       setConnectedDevice(connected);
