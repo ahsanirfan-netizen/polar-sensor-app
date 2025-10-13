@@ -48,6 +48,14 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 **Previous bug**: Assumed all samples were 6 bytes → only extracted 1 sample per packet (98.5% data loss!)
 **Fix**: Check frame type and parse accordingly → full 52 Hz data rate achieved
 
+**CRITICAL: MTU (Maximum Transmission Unit) Configuration**
+- Android default MTU is **23 bytes**, limiting BLE notifications to ~20 byte payload
+- Polar's delta compressed packets are **200+ bytes**
+- Without MTU negotiation, packets truncate to 22 bytes → only 2 samples extracted
+- **Solution**: Request `device.requestMTU(247)` immediately after `discoverAllServicesAndCharacteristics()`
+- Applied to both initial connection and reconnection paths
+- iOS ignores MTU requests (uses 185-byte default which is sufficient)
+
 ### Data Persistence Architecture
 
 A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It employs a batched insert system that flushes buffered sensor readings to the database every 1 second via a transaction, preventing race conditions and ensuring data integrity. Recording is user-controlled and automatically stops on disconnect.
