@@ -1013,12 +1013,12 @@ export default function App() {
       
       const frameType = data[9];
       
-      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
-      // PPG samples are 22-bit (3 bytes each)
-      const headerSize = 10;
+      // Raw format (0x00-0x02): Calculate sampleCount from packet length
+      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
+      const headerSize = 11; // Bytes 0-10 are header
       const bytesPerSample = 3; // 22-bit PPG value
       const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 10; // Samples start at byte 10 in raw format
+      let offset = 11; // Samples start at byte 11
       
       console.log(`📦 PPG: ${sampleCount} samples in packet (length ${data.length})`);
       
@@ -1184,12 +1184,12 @@ export default function App() {
       
       const frameType = data[9];
       
-      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
-      // Calculate sampleCount from packet length: (total - header) / bytes_per_sample
-      const headerSize = 10;
+      // Raw format (0x00-0x02): Calculate sampleCount from packet length
+      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
+      const headerSize = 11; // Bytes 0-10 are header
       const bytesPerSample = 6; // x,y,z = 2 bytes each
       const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 10; // Samples start at byte 10 in raw format
+      let offset = 11; // Samples start at byte 11
       
       console.log(`📦 ACC: ${sampleCount} samples in packet (length ${data.length})`);
       
@@ -1258,12 +1258,12 @@ export default function App() {
       
       const frameType = data[9];
       
-      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
-      // Calculate sampleCount from packet length: (total - header) / bytes_per_sample
-      const headerSize = 10;
+      // Raw format (0x00-0x02): Calculate sampleCount from packet length
+      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
+      const headerSize = 11; // Bytes 0-10 are header
       const bytesPerSample = 6; // x,y,z = 2 bytes each
       const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 10; // Samples start at byte 10 in raw format
+      let offset = 11; // Samples start at byte 11
       
       console.log(`Gyro packet: ${sampleCount} samples (length ${data.length})`);
       
@@ -1314,12 +1314,12 @@ export default function App() {
       
       const frameType = data[9];
       
-      // Raw format (0x00-0x02): samples start at byte 10, no sampleCount field
-      // Calculate sampleCount from packet length: (total - header) / bytes_per_sample
-      const headerSize = 10;
+      // Raw format (0x00-0x02): Calculate sampleCount from packet length
+      // Header is 10 bytes (0-9), then 1 byte at position 10, samples start at 11
+      const headerSize = 11; // Bytes 0-10 are header
       const bytesPerSample = 6; // x,y,z = 2 bytes each
       const sampleCount = Math.floor((data.length - headerSize) / bytesPerSample);
-      let offset = 10; // Samples start at byte 10 in raw format
+      let offset = 11; // Samples start at byte 11
       
       console.log(`Mag packet: ${sampleCount} samples (length ${data.length})`);
       

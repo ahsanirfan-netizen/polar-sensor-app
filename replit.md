@@ -32,14 +32,14 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 
 **CRITICAL: Multi-Sample Packet Parsing (FIXED)**
 - Each BLE packet contains MULTIPLE sensor samples (not just one)
-- **Raw format (frame types 0x00-0x02)**: Samples start at byte 10, NO sampleCount field exists
-- **Must calculate sampleCount** from packet length: `Math.floor((data.length - 10) / bytesPerSample)`
+- **Raw format (frame types 0x00-0x02)**: Header is bytes 0-10, samples start at byte 11, NO sampleCount field exists
+- **Must calculate sampleCount** from packet length: `Math.floor((data.length - 11) / bytesPerSample)`
   - ACC/Gyro/Mag: 6 bytes per sample (x,y,z = 2 bytes each)
   - PPG: 3 bytes per sample (22-bit value)
 - At 52 Hz with ~4 packets/sec, each packet contains ~13 samples
-- Code loops through all samples starting at offset 10
-- **Previous bug (FIXED Oct 2025)**: Incorrectly read byte 10 as sampleCount (it's actually first sample data), used offset 11 instead of 10, processed only 1 sample per packet → 0.9 Hz instead of 52 Hz
-- Fix ensures all ~13 samples per packet are processed for ACC, Gyro, PPG, and Mag streams
+- Code loops through all samples starting at offset 11
+- **Previous bug (FIXED Oct 2025)**: Incorrectly read byte 10 as sampleCount, processed only 1 sample per packet → 0.9 Hz instead of 52 Hz
+- Fix calculates sampleCount from packet length and processes all ~13 samples per packet for ACC, Gyro, PPG, and Mag streams
 
 ### Data Persistence Architecture
 
