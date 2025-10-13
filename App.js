@@ -1181,6 +1181,7 @@ export default function App() {
   const parseACCData = (data) => {
     try {
       incrementPacketCount();
+      DataRateMonitor.addPacket();
       if (data.length < 17) return;
       
       const frameType = data[9];
