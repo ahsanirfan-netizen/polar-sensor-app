@@ -663,7 +663,8 @@ export default function App() {
       // Request maximum MTU for large delta-compressed packets
       try {
         const mtu = await device.requestMTU(247);
-        console.log(`MTU negotiated on reconnect: ${mtu} bytes`);
+        const mtuValue = typeof mtu === 'object' ? mtu.mtu || JSON.stringify(mtu) : mtu;
+        console.log(`MTU negotiated on reconnect: ${mtuValue} bytes`);
       } catch (error) {
         console.log('MTU request failed on reconnect:', error.message);
       }
@@ -805,7 +806,8 @@ export default function App() {
       // Request maximum MTU for large delta-compressed packets (200+ bytes)
       try {
         const mtu = await connected.requestMTU(247);
-        console.log(`MTU negotiated: ${mtu} bytes`);
+        const mtuValue = typeof mtu === 'object' ? mtu.mtu || JSON.stringify(mtu) : mtu;
+        console.log(`MTU negotiated: ${mtuValue} bytes`);
       } catch (error) {
         console.log('MTU request failed (iOS ignores this):', error.message);
       }
