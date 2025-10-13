@@ -659,6 +659,14 @@ export default function App() {
       const device = await bleManager.connectToDevice(deviceInfo.id);
       await device.discoverAllServicesAndCharacteristics();
       
+      // Request maximum MTU for large delta-compressed packets
+      try {
+        const mtu = await device.requestMTU(247);
+        console.log(`MTU negotiated on reconnect: ${mtu} bytes`);
+      } catch (error) {
+        console.log('MTU request failed on reconnect:', error.message);
+      }
+      
       console.log('Reconnected successfully!');
       successfulReconnectsRef.current = successfulReconnectsRef.current + 1;
       setSuccessfulReconnects(successfulReconnectsRef.current);
@@ -784,6 +792,15 @@ export default function App() {
       
       const connected = await device.connect();
       await connected.discoverAllServicesAndCharacteristics();
+      
+      // Request maximum MTU for large delta-compressed packets (200+ bytes)
+      try {
+        const mtu = await connected.requestMTU(247);
+        console.log(`MTU negotiated: ${mtu} bytes`);
+      } catch (error) {
+        console.log('MTU request failed (iOS ignores this):', error.message);
+      }
+      
       setConnectedDevice(connected);
       
       const deviceInfo = {
