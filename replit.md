@@ -56,6 +56,14 @@ The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for
 - Applied to both initial connection and reconnection paths
 - iOS ignores MTU requests (uses 185-byte default which is sufficient)
 
+**CRITICAL: BLE Connection Priority Configuration**
+- Android BLE connection priority controls packet delivery interval
+- Priority levels: **0 = HIGH** (7.5-10ms), **1 = BALANCED** (50ms), **2 = LOW_POWER** (100-125ms)
+- Must use `device.requestConnectionPriority(0)` for HIGH priority (NOT 1!)
+- HIGH priority enables ~1 Hz packet rate (71 samples × 1 Hz = 71 Hz sample rate potential)
+- BALANCED mode (1) only gives ~0.5 Hz packet rate (35-38 Hz sample rate)
+- Called immediately after MTU negotiation on both connection and reconnection
+
 ### Data Persistence Architecture
 
 A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It employs a batched insert system that flushes buffered sensor readings to the database every 1 second via a transaction, preventing race conditions and ensuring data integrity. Recording is user-controlled and automatically stops on disconnect.

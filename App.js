@@ -21,7 +21,7 @@ import {
   Alert,
   Switch
 } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
+import { BleManager, ConnectionPriority } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
 import { useKeepAwake } from 'expo-keep-awake';
 import FFT from 'fft.js';
@@ -669,9 +669,9 @@ export default function App() {
         console.log('MTU request failed on reconnect:', error.message);
       }
       
-      // Request high connection priority for faster packet delivery
+      // Request high connection priority for faster packet delivery (7.5-10ms intervals)
       try {
-        await device.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
+        await device.requestConnectionPriority(ConnectionPriority.High); // High=0, Balanced=1, LowPower=2
         console.log('Connection priority: HIGH ✓ (reconnect)');
       } catch (error) {
         console.log('Connection priority request failed on reconnect:', error.message);
@@ -812,9 +812,9 @@ export default function App() {
         console.log('MTU request failed (iOS ignores this):', error.message);
       }
       
-      // Request high connection priority for faster packet delivery
+      // Request high connection priority for faster packet delivery (7.5-10ms intervals)
       try {
-        await connected.requestConnectionPriority(1); // 1 = CONNECTION_PRIORITY_HIGH
+        await connected.requestConnectionPriority(ConnectionPriority.High); // High=0, Balanced=1, LowPower=2
         console.log('Connection priority: HIGH ✓');
       } catch (error) {
         console.log('Connection priority request failed:', error.message);
