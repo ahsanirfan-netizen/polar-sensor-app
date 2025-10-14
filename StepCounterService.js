@@ -35,17 +35,17 @@ class StepCounterService {
     }
   }
 
-  detectStep(accData) {
-    if (!accData || accData.x === undefined) return false;
+  detectStep(gyroData) {
+    if (!gyroData || gyroData.x === undefined) return false;
     
-    this.fftCounter.addAccSample(accData.x, accData.y, accData.z);
+    this.fftCounter.addGyroSample(gyroData.x, gyroData.y, gyroData.z);
     
     const stats = this.fftCounter.getStats();
     const currentTime = Date.now();
     
     if (stats.bufferFilled && currentTime - this.lastLogTime > 5000) {
       const walkingStatus = stats.isWalking ? 'WALKING' : 'still';
-      this.log(`${walkingStatus} | ${stats.stepsPerMinute} spm | Freq: ${stats.dominantFrequency} Hz | Peak: ${stats.peakMagnitude}`);
+      this.log(`${walkingStatus} | ${stats.stepsPerMinute} spm | Axis: ${stats.dominantAxis} | Freq: ${stats.dominantFrequency} Hz | Peak: ${stats.peakMagnitude}`);
       this.lastLogTime = currentTime;
     }
     
