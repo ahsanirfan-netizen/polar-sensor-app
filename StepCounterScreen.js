@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import DataRateMonitor from './DataRateMonitor';
+import StepCounterService from './StepCounterService';
 
 export default function StepCounterScreen() {
   const [stats, setStats] = useState({
@@ -15,10 +16,21 @@ export default function StepCounterScreen() {
     expectedSamplesPerPacket: 71
   });
 
+  const [fftStats, setFFTStats] = useState({
+    totalSteps: 0,
+    isWalking: false,
+    cadence: 0,
+    stepsPerMinute: 0,
+    dominantFrequency: '0.00',
+    peakMagnitude: '0.000',
+    bufferFilled: false
+  });
+
   // Update stats every 100ms for responsive display
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(DataRateMonitor.getStats());
+      setFFTStats(StepCounterService.getFFTStats());
     }, 100);
     
     return () => clearInterval(interval);
@@ -58,48 +70,57 @@ export default function StepCounterScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>BLE Data Rate Diagnostic</Text>
+      <Text style={styles.title}>FFT Step Counter</Text>
       
-      <View style={styles.row}>
-        <View style={styles.statsCard}>
-          <Text style={styles.label}>Sample Rate</Text>
-          <Text style={[styles.bigNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.sampleRate}
-          </Text>
-          <Text style={styles.sublabel}>Hz (expect {stats.expectedSampleRate})</Text>
-        </View>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.label}>Packet Rate</Text>
-          <Text style={[styles.bigNumber, { color: packetRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.packetRate}
-          </Text>
-          <Text style={styles.sublabel}>Hz (expect {stats.expectedPacketRate})</Text>
-        </View>
-      </View>
-
-      <View style={styles.statsCard}>
-        <Text style={styles.label}>Samples Per Packet</Text>
-        <Text style={[styles.bigNumber, { color: samplesPerPacketOk ? '#4CAF50' : '#f44336' }]}>
-          {stats.samplesPerPacket}
+      <View style={styles.stepCard}>
+        <Text style={styles.label}>Total Steps</Text>
+        <Text style={[styles.hugeNumber, { color: '#2196F3' }]}>
+          {fftStats.totalSteps}
         </Text>
-        <Text style={styles.sublabel}>samples (expect {stats.expectedSamplesPerPacket})</Text>
+        <Text style={[styles.walkingStatus, { 
+          color: fftStats.isWalking ? '#4CAF50' : '#999',
+          fontWeight: fftStats.isWalking ? 'bold' : 'normal'
+        }]}>
+          {fftStats.bufferFilled ? (fftStats.isWalking ? '🚶 WALKING' : 'Standing Still') : 'Buffering...'}
+        </Text>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.statsCard}>
+          <Text style={styles.label}>Cadence</Text>
+          <Text style={[styles.bigNumber, { color: fftStats.isWalking ? '#4CAF50' : '#999' }]}>
+            {fftStats.stepsPerMinute}
+          </Text>
+          <Text style={styles.sublabel}>steps/min</Text>
+        </View>
+
+        <View style={styles.statsCard}>
+          <Text style={styles.label}>Frequency</Text>
+          <Text style={[styles.bigNumber, { color: fftStats.isWalking ? '#2196F3' : '#999' }]}>
+            {fftStats.dominantFrequency}
+          </Text>
+          <Text style={styles.sublabel}>Hz</Text>
+        </View>
       </View>
 
       <View style={styles.row}>
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Total Samples</Text>
-          <Text style={styles.miniNumber}>{stats.totalSamples}</Text>
+          <Text style={styles.miniLabel}>Peak Magnitude</Text>
+          <Text style={styles.miniNumber}>{fftStats.peakMagnitude}</Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Total Packets</Text>
-          <Text style={styles.miniNumber}>{stats.totalPackets}</Text>
+          <Text style={styles.miniLabel}>Sample Rate</Text>
+          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
+            {stats.sampleRate} Hz
+          </Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Elapsed</Text>
-          <Text style={styles.miniNumber}>{stats.elapsedSeconds}s</Text>
+          <Text style={styles.miniLabel}>Packet Rate</Text>
+          <Text style={[styles.miniNumber, { color: packetRateOk ? '#4CAF50' : '#f44336' }]}>
+            {stats.packetRate} Hz
+          </Text>
         </View>
       </View>
 
@@ -125,6 +146,27 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     color: '#333',
+  },
+  stepCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 30,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  hugeNumber: {
+    fontSize: 80,
+    fontWeight: 'bold',
+    marginVertical: 10,
+  },
+  walkingStatus: {
+    fontSize: 18,
+    marginTop: 10,
   },
   row: {
     flexDirection: 'row',
