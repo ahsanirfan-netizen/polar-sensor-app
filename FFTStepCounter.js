@@ -218,8 +218,9 @@ export class FFTStepCounter {
       this.isConfirmedWalking = false;
     }
     
-    // Only count steps when CONFIRMED walking (not just detected)
-    if (this.isConfirmedWalking) {
+    // Only count steps when BOTH confirmed walking AND currently detected
+    // This prevents counting during the stop-confirmation window
+    if (this.isConfirmedWalking && this.isWalking) {
       // Gyro measures arm swing frequency, which equals step frequency (no doubling needed)
       // Cap at realistic walking/running cadence: 0.8-3.5 Hz = 48-210 steps/min
       const minCadence = 0.8; // 48 steps/min (very slow walking)
