@@ -4,7 +4,8 @@ export class FFTStepCounter {
   constructor(sampleRate = 37) {
     this.sampleRate = sampleRate;
     this.windowSizeSeconds = 4;
-    this.bufferSize = Math.floor(sampleRate * this.windowSizeSeconds);
+    const idealSize = sampleRate * this.windowSizeSeconds;
+    this.bufferSize = Math.pow(2, Math.round(Math.log2(idealSize)));
     this.fftInterval = 2000;
     
     this.magnitudeBuffer = new Array(this.bufferSize).fill(0);
