@@ -156,7 +156,11 @@ export class FFTStepCounter {
     this.isWalking = normalizedMagnitude > this.peakThreshold && this.dominantFrequency >= this.walkingFreqMin;
     
     if (this.isWalking) {
-      this.currentCadence = this.dominantFrequency * 2;
+      // Gyro measures arm swing frequency, which equals step frequency (no doubling needed)
+      // Cap at realistic walking/running cadence: 0.8-3.5 Hz = 48-210 steps/min
+      const minCadence = 0.8; // 48 steps/min (very slow walking)
+      const maxCadence = 3.5; // 210 steps/min (fast running)
+      this.currentCadence = Math.max(minCadence, Math.min(this.dominantFrequency, maxCadence));
       
       const now = Date.now();
       let elapsed = (now - this.lastStepTime) / 1000;

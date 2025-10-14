@@ -88,7 +88,7 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 
 The step counting feature employs **FFT-based frequency-domain analysis** on gyroscope data for accurate walking detection and step counting:
 
--   **Gyro-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of gyroscope data to detect walking patterns in the 0.5-4 Hz frequency range (30-240 steps/min). FFT runs every 2 seconds with 50% window overlap for continuous analysis. Detected frequency is doubled to convert stride frequency (both legs) to step frequency (individual footfalls).
+-   **Gyro-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of gyroscope data to detect walking patterns in the 0.5-4 Hz frequency range. FFT runs every 2 seconds with 50% window overlap for continuous analysis. Detected frequency directly represents step frequency (arm swing rate equals step rate), clamped to realistic biomechanical limits of 0.8-3.5 Hz (48-210 steps/min).
 -   **Dominant Axis Selection**: Automatically selects the gyroscope axis (X, Y, or Z) with the highest variance over a 50-sample window, ensuring optimal signal capture regardless of device orientation. Gyroscopes naturally filter gravity (no DC offset) and provide cleaner periodic walking signals than accelerometers.
 -   **Gyro Normalization**: Raw gyroscope values (typically 1000-5000 range) are divided by 1000 to normalize to 0-5 range, matching accelerometer magnitude scale for consistent FFT analysis and threshold calibration.
 -   **Circular Buffer System**: Maintains a 128-sample circular buffer (power-of-2 requirement for FFT.js) at 37 Hz effective sample rate of normalized gyroscope values. Automatically handles sample wrapping and DC removal.
