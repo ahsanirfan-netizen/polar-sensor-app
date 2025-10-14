@@ -1239,6 +1239,7 @@ export default function App() {
         const x0 = data.readInt16LE(offset);
         const y0 = data.readInt16LE(offset + 2);
         const z0 = data.readInt16LE(offset + 4);
+        console.log(`🔍 ACC RAW: x=${x0}, y=${y0}, z=${z0} | Scaled: x=${(x0/ACC_SCALE_FACTOR).toFixed(3)}, y=${(y0/ACC_SCALE_FACTOR).toFixed(3)}, z=${(z0/ACC_SCALE_FACTOR).toFixed(3)}`);
         offset += 6;
         sampleCount = 1;
         
