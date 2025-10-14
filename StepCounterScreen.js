@@ -29,6 +29,8 @@ export default function StepCounterScreen() {
     peakMagnitude: '0.000',
     movingAverage: '0.000',
     adaptiveThreshold: '0.000',
+    autocorrelation: '0.000',
+    periodicityThreshold: '0.500',
     maWindowSize: 15,
     maSampleCount: 0,
     bufferFilled: false,
@@ -41,8 +43,10 @@ export default function StepCounterScreen() {
   const [currentMAWindow, setCurrentMAWindow] = useState(15);
   const [framesToConfirmInput, setFramesToConfirmInput] = useState('');
   const [currentFramesToConfirm, setCurrentFramesToConfirm] = useState(3);
+  const [periodicityThresholdInput, setPeriodicityThresholdInput] = useState('');
+  const [currentPeriodicityThreshold, setCurrentPeriodicityThreshold] = useState(0.5);
 
-  // Initialize threshold, MA window, and frames to confirm on mount
+  // Initialize threshold, MA window, frames to confirm, and periodicity threshold on mount
   useEffect(() => {
     const threshold = StepCounterService.getThreshold();
     setCurrentThreshold(threshold);
@@ -55,6 +59,10 @@ export default function StepCounterScreen() {
     const framesToConfirm = StepCounterService.getFramesToConfirm();
     setCurrentFramesToConfirm(framesToConfirm);
     setFramesToConfirmInput(framesToConfirm.toString());
+    
+    const periodicityThreshold = StepCounterService.getPeriodicityThreshold();
+    setCurrentPeriodicityThreshold(periodicityThreshold);
+    setPeriodicityThresholdInput(periodicityThreshold.toString());
   }, []);
 
   // Update stats every 100ms for responsive display
@@ -70,10 +78,16 @@ export default function StepCounterScreen() {
         setCurrentFramesToConfirm(actualFrames);
         setFramesToConfirmInput(actualFrames.toString());
       }
+      
+      const actualPeriodicityThreshold = StepCounterService.getPeriodicityThreshold();
+      if (actualPeriodicityThreshold !== currentPeriodicityThreshold) {
+        setCurrentPeriodicityThreshold(actualPeriodicityThreshold);
+        setPeriodicityThresholdInput(actualPeriodicityThreshold.toString());
+      }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [currentFramesToConfirm]);
+  }, [currentFramesToConfirm, currentPeriodicityThreshold]);
 
   const handleSaveThreshold = async () => {
     const success = await StepCounterService.setThreshold(thresholdInput);
@@ -108,6 +122,18 @@ export default function StepCounterScreen() {
     } else {
       Alert.alert('Error', 'Please enter a valid number of frames between 1 and 10');
       setFramesToConfirmInput(currentFramesToConfirm.toString());
+    }
+  };
+
+  const handleSavePeriodicityThreshold = async () => {
+    const success = await StepCounterService.setPeriodicityThreshold(periodicityThresholdInput);
+    if (success) {
+      const newThreshold = StepCounterService.getPeriodicityThreshold();
+      setCurrentPeriodicityThreshold(newThreshold);
+      Alert.alert('Success', `Periodicity threshold saved: ${newThreshold.toFixed(2)}\n\nHigher = stricter periodic requirement`);
+    } else {
+      Alert.alert('Error', 'Please enter a valid threshold between 0 and 1 (e.g., 0.3, 0.5, 0.7)');
+      setPeriodicityThresholdInput(currentPeriodicityThreshold.toString());
     }
   };
 
@@ -207,6 +233,27 @@ export default function StepCounterScreen() {
 
       <View style={styles.row}>
         <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>Autocorrelation</Text>
+          <Text style={[styles.miniNumber, { color: fftStats.autocorrelation > fftStats.periodicityThreshold ? '#4CAF50' : '#f44336' }]}>
+            {fftStats.autocorrelation}
+          </Text>
+        </View>
+
+        <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>Periodicity Threshold</Text>
+          <Text style={[styles.miniNumber, { color: '#3F51B5' }]}>{fftStats.periodicityThreshold}</Text>
+        </View>
+
+        <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>Periodic?</Text>
+          <Text style={[styles.miniNumber, { color: fftStats.autocorrelation > fftStats.periodicityThreshold ? '#4CAF50' : '#999' }]}>
+            {fftStats.autocorrelation > fftStats.periodicityThreshold ? '✓' : '✗'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.miniCard}>
           <Text style={styles.miniLabel}>Gyro Axis</Text>
           <Text style={[styles.miniNumber, { color: '#9C27B0' }]}>
             {fftStats.dominantAxis?.toUpperCase() || 'Y'}
@@ -257,6 +304,33 @@ export default function StepCounterScreen() {
         </Text>
         <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
           Higher = fewer phantom steps, longer startup delay
+        </Text>
+      </View>
+
+      <View style={styles.thresholdCard}>
+        <Text style={styles.thresholdTitle}>Periodicity Threshold (NEW!)</Text>
+        <Text style={styles.thresholdHint}>Current: {currentPeriodicityThreshold.toFixed(2)}</Text>
+        <View style={styles.thresholdRow}>
+          <TextInput
+            style={styles.thresholdInput}
+            value={periodicityThresholdInput}
+            onChangeText={setPeriodicityThresholdInput}
+            keyboardType="numeric"
+            placeholder="0.5"
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity style={styles.saveButton} onPress={handleSavePeriodicityThreshold}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.thresholdGuide}>
+          Range: 0.0-1.0. Validates gyro signal is truly periodic (walking) vs random motion.
+        </Text>
+        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
+          Higher = stricter (fewer false positives). Try 0.3-0.7 range.
+        </Text>
+        <Text style={[styles.thresholdGuide, { marginTop: 5, fontWeight: 'bold', color: '#2196F3' }]}>
+          This filters phantom steps from non-periodic arm movements!
         </Text>
       </View>
 

@@ -48,6 +48,10 @@ export class FFTStepCounter {
     this.maMultiplier = 1.15; // Peak must be 15% above MA to trigger walking
     this.maFloorClamp = 0.02; // Minimum threshold to prevent MA collapse
     
+    // Periodicity validation via autocorrelation
+    this.periodicityThreshold = 0.5; // Autocorrelation threshold for periodic walking
+    this.autocorrelation = 0; // Current autocorrelation value
+    
     this.fft = new FFT(this.bufferSize);
     this.fftInput = new Array(this.bufferSize * 2);
     this.fftOutput = new Array(this.bufferSize * 2);
@@ -97,6 +101,34 @@ export class FFTStepCounter {
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
     return squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+  }
+
+  calculateAutocorrelation(signal, lag) {
+    // Calculate autocorrelation at specified lag
+    // Returns value between -1 and 1 (higher = more periodic)
+    
+    const n = signal.length;
+    if (lag >= n || lag < 1) {
+      return 0; // Invalid lag
+    }
+    
+    // Calculate mean
+    const mean = signal.reduce((sum, val) => sum + val, 0) / n;
+    
+    // Calculate autocorrelation coefficient
+    let numerator = 0;
+    let denominator = 0;
+    
+    for (let i = 0; i < n - lag; i++) {
+      numerator += (signal[i] - mean) * (signal[i + lag] - mean);
+    }
+    
+    for (let i = 0; i < n; i++) {
+      denominator += Math.pow(signal[i] - mean, 2);
+    }
+    
+    // Return normalized autocorrelation (-1 to 1)
+    return denominator === 0 ? 0 : numerator / denominator;
   }
 
   updateMovingAverage(newPeak) {
@@ -192,13 +224,31 @@ export class FFTStepCounter {
     this.peakMagnitude = normalizedMagnitude;
     this.dominantFrequency = peakBin * freqResolution;
     
+    // Calculate autocorrelation to validate periodicity
+    // Expected lag = samples per cycle = sampleRate / frequency
+    const orderedBuffer = this.getOrderedBuffer();
+    let autocorr = 0;
+    
+    if (this.dominantFrequency > 0) {
+      const expectedLag = Math.round(this.sampleRate / this.dominantFrequency);
+      autocorr = this.calculateAutocorrelation(orderedBuffer, expectedLag);
+    }
+    
+    this.autocorrelation = autocorr;
+    
     // Use adaptive threshold instead of fixed
     const adaptiveThreshold = this.getAdaptiveThreshold();
     const wasConfirmedWalking = this.isConfirmedWalking;
-    this.isWalking = normalizedMagnitude > adaptiveThreshold && this.dominantFrequency >= this.walkingFreqMin;
     
-    // Update MA only when NOT walking (track stationary baseline only)
-    if (!this.isWalking) {
+    // Dual-gate validation: magnitude threshold AND periodicity check
+    const magnitudeCheck = normalizedMagnitude > adaptiveThreshold && this.dominantFrequency >= this.walkingFreqMin;
+    const periodicityCheck = autocorr > this.periodicityThreshold;
+    
+    this.isWalking = magnitudeCheck && periodicityCheck;
+    
+    // Update MA only when magnitude is below threshold (truly stationary)
+    // Do NOT update MA for high-magnitude non-periodic motion (would inflate threshold)
+    if (!magnitudeCheck) {
       this.updateMovingAverage(normalizedMagnitude);
     }
     
@@ -258,6 +308,8 @@ export class FFTStepCounter {
       peakMagnitude: this.peakMagnitude.toFixed(3),
       movingAverage: this.movingAverage.toFixed(3),
       adaptiveThreshold: this.getAdaptiveThreshold().toFixed(3),
+      autocorrelation: this.autocorrelation.toFixed(3),
+      periodicityThreshold: this.periodicityThreshold.toFixed(3),
       maWindowSize: this.maWindowSize,
       maSampleCount: this.peakHistory.length,
       bufferFilled: this.bufferFilled,
@@ -279,6 +331,7 @@ export class FFTStepCounter {
     this.peakMagnitude = 0;
     this.peakHistory = []; // Clear MA history
     this.movingAverage = 0;
+    this.autocorrelation = 0; // Reset autocorrelation
     this.consecutiveWalkingFrames = 0;
     this.consecutiveStationaryFrames = 0;
     this.isConfirmedWalking = false;
@@ -328,5 +381,18 @@ export class FFTStepCounter {
 
   getFramesToConfirm() {
     return this.framesToConfirm;
+  }
+
+  setPeriodicityThreshold(newThreshold) {
+    const threshold = parseFloat(newThreshold);
+    if (!isNaN(threshold) && threshold >= 0 && threshold <= 1) {
+      this.periodicityThreshold = threshold;
+      return true;
+    }
+    return false;
+  }
+
+  getPeriodicityThreshold() {
+    return this.periodicityThreshold;
   }
 }

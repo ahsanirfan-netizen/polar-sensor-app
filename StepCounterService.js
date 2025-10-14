@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const THRESHOLD_STORAGE_KEY = '@step_counter_threshold';
 const MA_WINDOW_SIZE_KEY = '@step_counter_ma_window';
 const FRAMES_TO_CONFIRM_KEY = '@step_counter_frames_to_confirm';
+const PERIODICITY_THRESHOLD_KEY = '@step_counter_periodicity_threshold';
 
 class StepCounterService {
   constructor() {
@@ -14,6 +15,7 @@ class StepCounterService {
     this.loadThreshold();
     this.loadMAWindowSize();
     this.loadFramesToConfirm();
+    this.loadPeriodicityThreshold();
   }
 
   async loadThreshold() {
@@ -58,6 +60,21 @@ class StepCounterService {
       }
     } catch (error) {
       console.error('Error loading frames to confirm:', error);
+    }
+  }
+
+  async loadPeriodicityThreshold() {
+    try {
+      const savedThreshold = await AsyncStorage.getItem(PERIODICITY_THRESHOLD_KEY);
+      if (savedThreshold !== null) {
+        const threshold = parseFloat(savedThreshold);
+        if (!isNaN(threshold) && threshold >= 0 && threshold <= 1) {
+          this.fftCounter.setPeriodicityThreshold(threshold);
+          console.log(`Loaded saved periodicity threshold: ${threshold}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading periodicity threshold:', error);
     }
   }
 
@@ -154,6 +171,23 @@ class StepCounterService {
 
   getFramesToConfirm() {
     return this.fftCounter.getFramesToConfirm();
+  }
+
+  async setPeriodicityThreshold(newThreshold) {
+    const success = this.fftCounter.setPeriodicityThreshold(newThreshold);
+    if (success) {
+      try {
+        await AsyncStorage.setItem(PERIODICITY_THRESHOLD_KEY, newThreshold.toString());
+        console.log(`Saved periodicity threshold to storage: ${newThreshold}`);
+      } catch (error) {
+        console.error('Error saving periodicity threshold:', error);
+      }
+    }
+    return success;
+  }
+
+  getPeriodicityThreshold() {
+    return this.fftCounter.getPeriodicityThreshold();
   }
 }
 
