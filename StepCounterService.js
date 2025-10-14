@@ -51,6 +51,14 @@ class StepCounterService {
     this.lastLogTime = 0;
     this.log('FFT Step Counter reset');
   }
+
+  setThreshold(newThreshold) {
+    return this.fftCounter.setThreshold(newThreshold);
+  }
+
+  getThreshold() {
+    return this.fftCounter.getThreshold();
+  }
 }
 
 export default new StepCounterService();

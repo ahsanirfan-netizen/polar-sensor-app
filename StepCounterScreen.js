@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import DataRateMonitor from './DataRateMonitor';
 import StepCounterService from './StepCounterService';
 
@@ -26,6 +26,16 @@ export default function StepCounterScreen() {
     bufferFilled: false
   });
 
+  const [thresholdInput, setThresholdInput] = useState('');
+  const [currentThreshold, setCurrentThreshold] = useState(0.03);
+
+  // Initialize threshold on mount
+  useEffect(() => {
+    const threshold = StepCounterService.getThreshold();
+    setCurrentThreshold(threshold);
+    setThresholdInput(threshold.toString());
+  }, []);
+
   // Update stats every 100ms for responsive display
   useEffect(() => {
     const interval = setInterval(() => {
@@ -35,6 +45,18 @@ export default function StepCounterScreen() {
     
     return () => clearInterval(interval);
   }, []);
+
+  const handleSaveThreshold = () => {
+    const success = StepCounterService.setThreshold(thresholdInput);
+    if (success) {
+      const newThreshold = StepCounterService.getThreshold();
+      setCurrentThreshold(newThreshold);
+      Alert.alert('Success', `Threshold updated to ${newThreshold.toFixed(3)}`);
+    } else {
+      Alert.alert('Error', 'Please enter a valid threshold between 0 and 1 (e.g., 0.03)');
+      setThresholdInput(currentThreshold.toString());
+    }
+  };
 
   const sampleRateOk = parseFloat(stats.sampleRate) >= 30;
   const packetRateOk = parseFloat(stats.packetRate) >= 0.4;
@@ -127,6 +149,27 @@ export default function StepCounterScreen() {
       <View style={[styles.diagnosisCard, { backgroundColor: diagnosis.color + '20' }]}>
         <Text style={[styles.diagnosisText, { color: diagnosis.color }]}>
           {diagnosis.text}
+        </Text>
+      </View>
+
+      <View style={styles.thresholdCard}>
+        <Text style={styles.thresholdTitle}>Walking Detection Threshold</Text>
+        <Text style={styles.thresholdHint}>Current: {currentThreshold.toFixed(3)}</Text>
+        <View style={styles.thresholdRow}>
+          <TextInput
+            style={styles.thresholdInput}
+            value={thresholdInput}
+            onChangeText={setThresholdInput}
+            keyboardType="numeric"
+            placeholder="0.03"
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveThreshold}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.thresholdGuide}>
+          Typical range: 0.02-0.05. Lower = more sensitive.
         </Text>
       </View>
     </View>
@@ -239,5 +282,59 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  thresholdCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  thresholdTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  thresholdHint: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 12,
+  },
+  thresholdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thresholdInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    color: '#333',
+  },
+  saveButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  thresholdGuide: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

@@ -142,4 +142,17 @@ export class FFTStepCounter {
     this.lastFFTTime = 0;
     this.lastStepTime = Date.now();
   }
+
+  setThreshold(newThreshold) {
+    const threshold = parseFloat(newThreshold);
+    if (!isNaN(threshold) && threshold > 0 && threshold < 1) {
+      this.peakThreshold = threshold;
+      return true;
+    }
+    return false;
+  }
+
+  getThreshold() {
+    return this.peakThreshold;
+  }
 }
