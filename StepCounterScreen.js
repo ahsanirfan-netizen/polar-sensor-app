@@ -54,7 +54,7 @@ export default function StepCounterScreen() {
       setCurrentThreshold(newThreshold);
       Alert.alert('Success', `Threshold saved permanently: ${newThreshold.toFixed(3)}`);
     } else {
-      Alert.alert('Error', 'Please enter a valid threshold between 0 and 1 (e.g., 0.03)');
+      Alert.alert('Error', 'Please enter a valid threshold greater than 0 (e.g., 0.03, 0.5, 1.5)');
       setThresholdInput(currentThreshold.toString());
     }
   };

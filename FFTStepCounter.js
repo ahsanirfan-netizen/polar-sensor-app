@@ -207,7 +207,7 @@ export class FFTStepCounter {
 
   setThreshold(newThreshold) {
     const threshold = parseFloat(newThreshold);
-    if (!isNaN(threshold) && threshold > 0 && threshold < 1) {
+    if (!isNaN(threshold) && threshold > 0) {
       this.peakThreshold = threshold;
       return true;
     }
