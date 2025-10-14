@@ -61,11 +61,19 @@ export default function StepCounterScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(DataRateMonitor.getStats());
-      setFFTStats(StepCounterService.getFFTStats());
+      const newFFTStats = StepCounterService.getFFTStats();
+      setFFTStats(newFFTStats);
+      
+      // Sync UI with actual values from service (handles async load)
+      const actualFrames = StepCounterService.getFramesToConfirm();
+      if (actualFrames !== currentFramesToConfirm) {
+        setCurrentFramesToConfirm(actualFrames);
+        setFramesToConfirmInput(actualFrames.toString());
+      }
     }, 100);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [currentFramesToConfirm]);
 
   const handleSaveThreshold = async () => {
     const success = await StepCounterService.setThreshold(thresholdInput);
