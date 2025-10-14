@@ -17,7 +17,7 @@ class StepCounterService {
       const savedThreshold = await AsyncStorage.getItem(THRESHOLD_STORAGE_KEY);
       if (savedThreshold !== null) {
         const threshold = parseFloat(savedThreshold);
-        if (!isNaN(threshold) && threshold > 0 && threshold < 1) {
+        if (!isNaN(threshold) && threshold > 0) {
           this.fftCounter.setThreshold(threshold);
           console.log(`Loaded saved threshold: ${threshold}`);
         }
