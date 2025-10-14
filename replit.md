@@ -79,18 +79,19 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 -   **Local SQLite Database**: Persists sensor data for post-processing, utilizing batched inserts and robust error handling.
 -   **Cloud Sync to Supabase**: Automatic syncing of sensor readings and sessions to Supabase PostgreSQL database with Row Level Security (RLS) policies.
 -   **Automated Sleep Analysis**: Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
--   **Step Counting with Health Connect**: Hybrid human-in-the-loop step counting using gyroscope-based walking detection, user confirmation notifications, peak detection algorithm for step counting, and automatic Health Connect sync.
+-   **FFT-Based Step Counting**: Frequency-domain analysis on accelerometer data (0.5-4 Hz walking range) with 4-second FFT windows, automatic walking detection, fractional step accumulation, and Health Connect sync.
 -   **Tab Navigation**: Tab-based UI allowing users to switch between real-time sensor monitoring, sleep analysis, and step counting views.
 -   **On-Device Debug Console**: Floating button overlay that captures and displays all console logs on-device using Modal component (renders above all UI). Features include pause/resume auto-scroll, safe serialization for errors/circular objects/BigInt/Symbols, and persistence across fast refresh using globalThis.
 
 ### Step Counting Architecture
 
-The step counting feature employs a hybrid human-in-the-loop approach combining automated sensor analysis with user confirmation for maximum accuracy:
+The step counting feature employs **FFT-based frequency-domain analysis** on accelerometer data for accurate walking detection and step counting:
 
--   **Walking Detection**: Uses gyroscope variance analysis to detect rhythmic walking patterns, achieving ~85-90% accuracy comparable to commercial smartwatches. BLE sensor streams (ACC and Gyro data from SDK Mode) are fed to StepCounterService for real-time pattern analysis.
--   **User Confirmation**: Sends push notifications with action buttons when walking is detected, allowing users to confirm or reject before step counting begins. Includes a 10-second cooldown after rejection to prevent notification spam.
--   **Peak Detection Algorithm**: Employs accelerometer magnitude analysis with adaptive thresholding to count individual steps during confirmed walking sessions.
--   **Notification System**: Uses Expo Notifications with response listeners for confirmation flow. Notification categories support Yes/No action buttons for walking start/stop prompts. Pending confirmation flags prevent duplicate notifications during user decision.
+-   **FFT-Based Walking Detection**: Uses Fast Fourier Transform on 4-second windows of accelerometer magnitude data to detect walking patterns in the 0.5-4 Hz frequency range (30-240 steps/min). FFT runs every 2 seconds with 50% window overlap for continuous analysis.
+-   **Circular Buffer System**: Maintains a 148-sample circular buffer (4 seconds at 37 Hz) of accelerometer magnitude values (√(x² + y² + z²)). Automatically handles DC removal (gravity offset) and sample wrapping.
+-   **Frequency Spectrum Analysis**: Analyzes FFT output to find dominant frequency peaks in the walking range. Peak magnitude threshold of 0.15 (normalized) determines walking vs. stationary state.
+-   **Fractional Step Accumulation**: Uses double-precision accumulator to integrate cadence (Hz) over elapsed time without rounding errors. Clamps elapsed time to FFT interval (2s) to prevent overcounting from clock jitter.
+-   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), dominant frequency (Hz), and peak magnitude for debugging and calibration.
 -   **Health Connect Integration**: Automatically syncs step data to Android Health Connect, making it available to Google Fit, Samsung Health, and the entire Android health ecosystem.
 -   **Supabase Storage**: Daily steps are stored in a dedicated `daily_steps` table with walking session details, distance estimates, and calorie calculations.
 

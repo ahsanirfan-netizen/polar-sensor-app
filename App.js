@@ -32,7 +32,6 @@ import SleepAnalysisScreen from './SleepAnalysisScreen';
 import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
 import StepCounterService from './StepCounterService';
-import WaveletStepCounter from './WaveletStepCounter';
 import DataRateMonitor from './DataRateMonitor';
 import DebugConsole from './DebugConsole';
 
@@ -1265,7 +1264,6 @@ export default function App() {
         
         DataRateMonitor.addSample();
         StepCounterService.detectStep(accData0);
-        WaveletStepCounter.detectStep(accData0);
         
         // Last full sample values for delta reconstruction
         let lastX = x0;
@@ -1310,7 +1308,6 @@ export default function App() {
           
           DataRateMonitor.addSample();
           StepCounterService.detectStep(accData);
-          WaveletStepCounter.detectStep(accData);
           
           // Update display with last sample
           if (offset + 3 > data.length) {
@@ -1353,7 +1350,6 @@ export default function App() {
           
           DataRateMonitor.addSample();
           StepCounterService.detectStep(accData);
-          WaveletStepCounter.detectStep(accData);
           
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
