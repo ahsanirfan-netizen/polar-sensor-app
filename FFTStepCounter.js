@@ -30,6 +30,12 @@ export class FFTStepCounter {
     this.peakMagnitude = 0;
     this.dominantAxis = 'y'; // Default to Y axis
     
+    // Consecutive frame tracking for confirmation
+    this.consecutiveWalkingFrames = 0;
+    this.consecutiveStationaryFrames = 0;
+    this.framesToConfirm = 3; // Require 3 consecutive frames (6 seconds)
+    this.isConfirmedWalking = false;
+    
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
     this.peakThreshold = 0.03; // Keep for legacy/fallback
@@ -188,7 +194,7 @@ export class FFTStepCounter {
     
     // Use adaptive threshold instead of fixed
     const adaptiveThreshold = this.getAdaptiveThreshold();
-    const wasWalking = this.isWalking;
+    const wasConfirmedWalking = this.isConfirmedWalking;
     this.isWalking = normalizedMagnitude > adaptiveThreshold && this.dominantFrequency >= this.walkingFreqMin;
     
     // Update MA only when NOT walking (track stationary baseline only)
@@ -196,7 +202,24 @@ export class FFTStepCounter {
       this.updateMovingAverage(normalizedMagnitude);
     }
     
+    // Update consecutive frame counters
     if (this.isWalking) {
+      this.consecutiveWalkingFrames++;
+      this.consecutiveStationaryFrames = 0;
+    } else {
+      this.consecutiveStationaryFrames++;
+      this.consecutiveWalkingFrames = 0;
+    }
+    
+    // Confirm walking only after N consecutive frames
+    if (this.consecutiveWalkingFrames >= this.framesToConfirm) {
+      this.isConfirmedWalking = true;
+    } else if (this.consecutiveStationaryFrames >= this.framesToConfirm) {
+      this.isConfirmedWalking = false;
+    }
+    
+    // Only count steps when CONFIRMED walking (not just detected)
+    if (this.isConfirmedWalking) {
       // Gyro measures arm swing frequency, which equals step frequency (no doubling needed)
       // Cap at realistic walking/running cadence: 0.8-3.5 Hz = 48-210 steps/min
       const minCadence = 0.8; // 48 steps/min (very slow walking)
@@ -214,7 +237,7 @@ export class FFTStepCounter {
       this.lastStepTime = now;
     } else {
       this.currentCadence = 0;
-      if (wasWalking) {
+      if (wasConfirmedWalking) {
         this.lastStepTime = Date.now();
       }
     }
@@ -224,6 +247,9 @@ export class FFTStepCounter {
     return {
       totalSteps: Math.round(this.totalStepsFractional),
       isWalking: this.isWalking,
+      isConfirmedWalking: this.isConfirmedWalking,
+      consecutiveWalkingFrames: this.consecutiveWalkingFrames,
+      consecutiveStationaryFrames: this.consecutiveStationaryFrames,
       cadence: this.currentCadence,
       stepsPerMinute: Math.round(this.currentCadence * 60),
       dominantFrequency: this.dominantFrequency.toFixed(2),
@@ -251,6 +277,9 @@ export class FFTStepCounter {
     this.peakMagnitude = 0;
     this.peakHistory = []; // Clear MA history
     this.movingAverage = 0;
+    this.consecutiveWalkingFrames = 0;
+    this.consecutiveStationaryFrames = 0;
+    this.isConfirmedWalking = false;
     this.lastFFTTime = 0;
     this.lastStepTime = Date.now();
     this.dominantAxis = 'y';
