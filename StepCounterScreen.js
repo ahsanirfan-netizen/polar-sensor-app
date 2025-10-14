@@ -46,12 +46,12 @@ export default function StepCounterScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSaveThreshold = () => {
-    const success = StepCounterService.setThreshold(thresholdInput);
+  const handleSaveThreshold = async () => {
+    const success = await StepCounterService.setThreshold(thresholdInput);
     if (success) {
       const newThreshold = StepCounterService.getThreshold();
       setCurrentThreshold(newThreshold);
-      Alert.alert('Success', `Threshold updated to ${newThreshold.toFixed(3)}`);
+      Alert.alert('Success', `Threshold saved permanently: ${newThreshold.toFixed(3)}`);
     } else {
       Alert.alert('Error', 'Please enter a valid threshold between 0 and 1 (e.g., 0.03)');
       setThresholdInput(currentThreshold.toString());

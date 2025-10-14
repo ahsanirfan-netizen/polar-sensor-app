@@ -1,4 +1,7 @@
 import { FFTStepCounter } from './FFTStepCounter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const THRESHOLD_STORAGE_KEY = '@step_counter_threshold';
 
 class StepCounterService {
   constructor() {
@@ -6,6 +9,22 @@ class StepCounterService {
     this.debugLogs = [];
     this.maxLogs = 20;
     this.lastLogTime = 0;
+    this.loadThreshold();
+  }
+
+  async loadThreshold() {
+    try {
+      const savedThreshold = await AsyncStorage.getItem(THRESHOLD_STORAGE_KEY);
+      if (savedThreshold !== null) {
+        const threshold = parseFloat(savedThreshold);
+        if (!isNaN(threshold) && threshold > 0 && threshold < 1) {
+          this.fftCounter.setThreshold(threshold);
+          console.log(`Loaded saved threshold: ${threshold}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading threshold:', error);
+    }
   }
 
   log(message) {
@@ -52,8 +71,17 @@ class StepCounterService {
     this.log('FFT Step Counter reset');
   }
 
-  setThreshold(newThreshold) {
-    return this.fftCounter.setThreshold(newThreshold);
+  async setThreshold(newThreshold) {
+    const success = this.fftCounter.setThreshold(newThreshold);
+    if (success) {
+      try {
+        await AsyncStorage.setItem(THRESHOLD_STORAGE_KEY, newThreshold.toString());
+        console.log(`Saved threshold to storage: ${newThreshold}`);
+      } catch (error) {
+        console.error('Error saving threshold:', error);
+      }
+    }
+    return success;
   }
 
   getThreshold() {
