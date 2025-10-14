@@ -89,7 +89,7 @@ The step counting feature employs **FFT-based frequency-domain analysis** on acc
 
 -   **FFT-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of accelerometer magnitude data to detect walking patterns in the 0.5-4 Hz frequency range (30-240 steps/min). FFT runs every 2 seconds with 50% window overlap for continuous analysis.
 -   **Circular Buffer System**: Maintains a 128-sample circular buffer (power-of-2 requirement for FFT.js) at 37 Hz effective sample rate of accelerometer magnitude values (√(x² + y² + z²)). Automatically handles DC removal (gravity offset) and sample wrapping.
--   **Frequency Spectrum Analysis**: Analyzes FFT output to find dominant frequency peaks in the walking range. Peak magnitude threshold of 0.003 (normalized, calibrated from real-world testing with 39-step walk) determines walking vs. stationary state.
+-   **Frequency Spectrum Analysis**: Analyzes FFT output to find dominant frequency peaks in the walking range. Peak magnitude threshold of 0.0015 (normalized, calibrated from real-world testing with 125-step walk showing 0.003 peak) determines walking vs. stationary state.
 -   **Fractional Step Accumulation**: Uses double-precision accumulator to integrate cadence (Hz) over elapsed time without rounding errors. Clamps elapsed time to FFT interval (2s) to prevent overcounting from clock jitter.
 -   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), dominant frequency (Hz), and peak magnitude for debugging and calibration.
 -   **Health Connect Integration**: Automatically syncs step data to Android Health Connect, making it available to Google Fit, Samsung Health, and the entire Android health ecosystem.
