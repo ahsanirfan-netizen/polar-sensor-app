@@ -2,6 +2,7 @@ import { FFTStepCounter } from './FFTStepCounter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const THRESHOLD_STORAGE_KEY = '@step_counter_threshold';
+const MA_WINDOW_SIZE_KEY = '@step_counter_ma_window';
 
 class StepCounterService {
   constructor() {
@@ -10,6 +11,7 @@ class StepCounterService {
     this.maxLogs = 20;
     this.lastLogTime = 0;
     this.loadThreshold();
+    this.loadMAWindowSize();
   }
 
   async loadThreshold() {
@@ -24,6 +26,21 @@ class StepCounterService {
       }
     } catch (error) {
       console.error('Error loading threshold:', error);
+    }
+  }
+
+  async loadMAWindowSize() {
+    try {
+      const savedWindowSize = await AsyncStorage.getItem(MA_WINDOW_SIZE_KEY);
+      if (savedWindowSize !== null) {
+        const windowSize = parseInt(savedWindowSize);
+        if (!isNaN(windowSize) && windowSize >= 5 && windowSize <= 60) {
+          this.fftCounter.setMAWindowSize(windowSize);
+          console.log(`Loaded saved MA window size: ${windowSize}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading MA window size:', error);
     }
   }
 
@@ -86,6 +103,23 @@ class StepCounterService {
 
   getThreshold() {
     return this.fftCounter.getThreshold();
+  }
+
+  async setMAWindowSize(newSize) {
+    const success = this.fftCounter.setMAWindowSize(newSize);
+    if (success) {
+      try {
+        await AsyncStorage.setItem(MA_WINDOW_SIZE_KEY, newSize.toString());
+        console.log(`Saved MA window size to storage: ${newSize}`);
+      } catch (error) {
+        console.error('Error saving MA window size:', error);
+      }
+    }
+    return success;
+  }
+
+  getMAWindowSize() {
+    return this.fftCounter.getMAWindowSize();
   }
 }
 

@@ -23,18 +23,28 @@ export default function StepCounterScreen() {
     stepsPerMinute: 0,
     dominantFrequency: '0.00',
     peakMagnitude: '0.000',
+    movingAverage: '0.000',
+    adaptiveThreshold: '0.000',
+    maWindowSize: 15,
+    maSampleCount: 0,
     bufferFilled: false,
     dominantAxis: 'y'
   });
 
   const [thresholdInput, setThresholdInput] = useState('');
   const [currentThreshold, setCurrentThreshold] = useState(0.03);
+  const [maWindowInput, setMAWindowInput] = useState('');
+  const [currentMAWindow, setCurrentMAWindow] = useState(15);
 
-  // Initialize threshold on mount
+  // Initialize threshold and MA window on mount
   useEffect(() => {
     const threshold = StepCounterService.getThreshold();
     setCurrentThreshold(threshold);
     setThresholdInput(threshold.toString());
+    
+    const maWindow = StepCounterService.getMAWindowSize();
+    setCurrentMAWindow(maWindow);
+    setMAWindowInput(maWindow.toString());
   }, []);
 
   // Update stats every 100ms for responsive display
@@ -56,6 +66,18 @@ export default function StepCounterScreen() {
     } else {
       Alert.alert('Error', 'Please enter a valid threshold greater than 0 (e.g., 0.03, 0.5, 1.5)');
       setThresholdInput(currentThreshold.toString());
+    }
+  };
+
+  const handleSaveMAWindow = async () => {
+    const success = await StepCounterService.setMAWindowSize(maWindowInput);
+    if (success) {
+      const newWindow = StepCounterService.getMAWindowSize();
+      setCurrentMAWindow(newWindow);
+      Alert.alert('Success', `MA window size saved: ${newWindow} samples (${newWindow * 2}s of history)`);
+    } else {
+      Alert.alert('Error', 'Please enter a valid window size between 5 and 60 samples');
+      setMAWindowInput(currentMAWindow.toString());
     }
   };
 
@@ -133,9 +155,28 @@ export default function StepCounterScreen() {
         </View>
 
         <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>Moving Average</Text>
+          <Text style={[styles.miniNumber, { color: '#FF9800' }]}>{fftStats.movingAverage}</Text>
+        </View>
+
+        <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>Adaptive Threshold</Text>
+          <Text style={[styles.miniNumber, { color: '#E91E63' }]}>{fftStats.adaptiveThreshold}</Text>
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.miniCard}>
           <Text style={styles.miniLabel}>Gyro Axis</Text>
           <Text style={[styles.miniNumber, { color: '#9C27B0' }]}>
             {fftStats.dominantAxis?.toUpperCase() || 'Y'}
+          </Text>
+        </View>
+
+        <View style={styles.miniCard}>
+          <Text style={styles.miniLabel}>MA Samples</Text>
+          <Text style={[styles.miniNumber, { color: '#00BCD4' }]}>
+            {fftStats.maSampleCount}/{fftStats.maWindowSize}
           </Text>
         </View>
 
@@ -154,7 +195,33 @@ export default function StepCounterScreen() {
       </View>
 
       <View style={styles.thresholdCard}>
-        <Text style={styles.thresholdTitle}>Walking Detection Threshold</Text>
+        <Text style={styles.thresholdTitle}>Moving Average Window Size</Text>
+        <Text style={styles.thresholdHint}>
+          Current: {currentMAWindow} samples ({currentMAWindow * 2}s history)
+        </Text>
+        <View style={styles.thresholdRow}>
+          <TextInput
+            style={styles.thresholdInput}
+            value={maWindowInput}
+            onChangeText={setMAWindowInput}
+            keyboardType="numeric"
+            placeholder="15"
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveMAWindow}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.thresholdGuide}>
+          Range: 5-60 samples. Higher = smoother, more stable detection.
+        </Text>
+        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
+          Walking detected when Peak {">"} MA × 1.15
+        </Text>
+      </View>
+
+      <View style={styles.thresholdCard}>
+        <Text style={styles.thresholdTitle}>Legacy Threshold (Fallback)</Text>
         <Text style={styles.thresholdHint}>Current: {currentThreshold.toFixed(3)}</Text>
         <View style={styles.thresholdRow}>
           <TextInput
@@ -170,7 +237,7 @@ export default function StepCounterScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.thresholdGuide}>
-          Typical range: 0.02-0.05. Lower = more sensitive.
+          Used only during first 5 samples while MA bootstraps.
         </Text>
       </View>
     </ScrollView>

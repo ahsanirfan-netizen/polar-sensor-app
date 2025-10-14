@@ -32,7 +32,15 @@ export class FFTStepCounter {
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.03;
+    this.peakThreshold = 0.03; // Keep for legacy/fallback
+    
+    // Moving average for adaptive threshold
+    this.maWindowSize = 15; // Default: 15 samples = 30 seconds of history
+    this.peakHistory = [];
+    this.movingAverage = 0;
+    this.maBootstrapMin = 5; // Minimum samples before enabling adaptive detection
+    this.maMultiplier = 1.15; // Peak must be 15% above MA to trigger walking
+    this.maFloorClamp = 0.02; // Minimum threshold to prevent MA collapse
     
     this.fft = new FFT(this.bufferSize);
     this.fftInput = new Array(this.bufferSize * 2);
@@ -83,6 +91,32 @@ export class FFTStepCounter {
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
     return squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+  }
+
+  updateMovingAverage(newPeak) {
+    // Add new peak to history
+    this.peakHistory.push(newPeak);
+    
+    // Keep only last N samples (circular buffer)
+    if (this.peakHistory.length > this.maWindowSize) {
+      this.peakHistory.shift();
+    }
+    
+    // Calculate moving average
+    if (this.peakHistory.length > 0) {
+      const sum = this.peakHistory.reduce((acc, val) => acc + val, 0);
+      this.movingAverage = sum / this.peakHistory.length;
+    }
+  }
+
+  getAdaptiveThreshold() {
+    // Bootstrap: use fixed threshold until we have enough samples
+    if (this.peakHistory.length < this.maBootstrapMin) {
+      return this.peakThreshold;
+    }
+    
+    // Adaptive threshold: MA * multiplier, but never below floor clamp
+    return Math.max(this.movingAverage * this.maMultiplier, this.maFloorClamp);
   }
 
   addGyroSample(x, y, z) {
@@ -152,8 +186,15 @@ export class FFTStepCounter {
     this.peakMagnitude = normalizedMagnitude;
     this.dominantFrequency = peakBin * freqResolution;
     
+    // Use adaptive threshold instead of fixed
+    const adaptiveThreshold = this.getAdaptiveThreshold();
     const wasWalking = this.isWalking;
-    this.isWalking = normalizedMagnitude > this.peakThreshold && this.dominantFrequency >= this.walkingFreqMin;
+    this.isWalking = normalizedMagnitude > adaptiveThreshold && this.dominantFrequency >= this.walkingFreqMin;
+    
+    // Update MA only when NOT walking (track stationary baseline only)
+    if (!this.isWalking) {
+      this.updateMovingAverage(normalizedMagnitude);
+    }
     
     if (this.isWalking) {
       // Gyro measures arm swing frequency, which equals step frequency (no doubling needed)
@@ -187,6 +228,10 @@ export class FFTStepCounter {
       stepsPerMinute: Math.round(this.currentCadence * 60),
       dominantFrequency: this.dominantFrequency.toFixed(2),
       peakMagnitude: this.peakMagnitude.toFixed(3),
+      movingAverage: this.movingAverage.toFixed(3),
+      adaptiveThreshold: this.getAdaptiveThreshold().toFixed(3),
+      maWindowSize: this.maWindowSize,
+      maSampleCount: this.peakHistory.length,
       bufferFilled: this.bufferFilled,
       dominantAxis: this.dominantAxis
     };
@@ -204,6 +249,8 @@ export class FFTStepCounter {
     this.isWalking = false;
     this.dominantFrequency = 0;
     this.peakMagnitude = 0;
+    this.peakHistory = []; // Clear MA history
+    this.movingAverage = 0;
     this.lastFFTTime = 0;
     this.lastStepTime = Date.now();
     this.dominantAxis = 'y';
@@ -220,5 +267,22 @@ export class FFTStepCounter {
 
   getThreshold() {
     return this.peakThreshold;
+  }
+
+  setMAWindowSize(newSize) {
+    const size = parseInt(newSize);
+    if (!isNaN(size) && size >= 5 && size <= 60) {
+      this.maWindowSize = size;
+      // Trim history if new size is smaller
+      while (this.peakHistory.length > this.maWindowSize) {
+        this.peakHistory.shift();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  getMAWindowSize() {
+    return this.maWindowSize;
   }
 }
