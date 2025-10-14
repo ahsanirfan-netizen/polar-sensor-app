@@ -19,6 +19,9 @@ export default function StepCounterScreen() {
   const [fftStats, setFFTStats] = useState({
     totalSteps: 0,
     isWalking: false,
+    isConfirmedWalking: false,
+    consecutiveWalkingFrames: 0,
+    consecutiveStationaryFrames: 0,
     cadence: 0,
     stepsPerMinute: 0,
     dominantFrequency: '0.00',
@@ -123,17 +126,27 @@ export default function StepCounterScreen() {
           {fftStats.totalSteps}
         </Text>
         <Text style={[styles.walkingStatus, { 
-          color: fftStats.isWalking ? '#4CAF50' : '#999',
-          fontWeight: fftStats.isWalking ? 'bold' : 'normal'
+          color: fftStats.isConfirmedWalking ? '#4CAF50' : '#999',
+          fontWeight: fftStats.isConfirmedWalking ? 'bold' : 'normal'
         }]}>
-          {fftStats.bufferFilled ? (fftStats.isWalking ? '🚶 WALKING' : 'Standing Still') : 'Buffering...'}
+          {fftStats.bufferFilled ? (fftStats.isConfirmedWalking ? '🚶 WALKING (COUNTING)' : 'Standing Still') : 'Buffering...'}
         </Text>
+        {fftStats.bufferFilled && fftStats.isWalking && !fftStats.isConfirmedWalking && (
+          <Text style={[styles.confirmingText]}>
+            Confirming... {fftStats.consecutiveWalkingFrames}/3
+          </Text>
+        )}
+        {fftStats.bufferFilled && !fftStats.isWalking && fftStats.isConfirmedWalking && (
+          <Text style={[styles.confirmingText]}>
+            Stopping... {fftStats.consecutiveStationaryFrames}/3
+          </Text>
+        )}
       </View>
 
       <View style={styles.row}>
         <View style={styles.statsCard}>
           <Text style={styles.label}>Cadence</Text>
-          <Text style={[styles.bigNumber, { color: fftStats.isWalking ? '#4CAF50' : '#999' }]}>
+          <Text style={[styles.bigNumber, { color: fftStats.isConfirmedWalking ? '#4CAF50' : '#999' }]}>
             {fftStats.stepsPerMinute}
           </Text>
           <Text style={styles.sublabel}>steps/min</Text>
@@ -141,7 +154,7 @@ export default function StepCounterScreen() {
 
         <View style={styles.statsCard}>
           <Text style={styles.label}>Frequency</Text>
-          <Text style={[styles.bigNumber, { color: fftStats.isWalking ? '#2196F3' : '#999' }]}>
+          <Text style={[styles.bigNumber, { color: fftStats.isConfirmedWalking ? '#2196F3' : '#999' }]}>
             {fftStats.dominantFrequency}
           </Text>
           <Text style={styles.sublabel}>Hz</Text>
@@ -281,6 +294,12 @@ const styles = StyleSheet.create({
   walkingStatus: {
     fontSize: 18,
     marginTop: 10,
+  },
+  confirmingText: {
+    fontSize: 14,
+    color: '#FF9800',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   row: {
     flexDirection: 'row',
