@@ -22,6 +22,7 @@ export default function StepCounterScreen() {
     isConfirmedWalking: false,
     consecutiveWalkingFrames: 0,
     consecutiveStationaryFrames: 0,
+    framesToConfirm: 3,
     cadence: 0,
     stepsPerMinute: 0,
     dominantFrequency: '0.00',
@@ -38,8 +39,10 @@ export default function StepCounterScreen() {
   const [currentThreshold, setCurrentThreshold] = useState(0.03);
   const [maWindowInput, setMAWindowInput] = useState('');
   const [currentMAWindow, setCurrentMAWindow] = useState(15);
+  const [framesToConfirmInput, setFramesToConfirmInput] = useState('');
+  const [currentFramesToConfirm, setCurrentFramesToConfirm] = useState(3);
 
-  // Initialize threshold and MA window on mount
+  // Initialize threshold, MA window, and frames to confirm on mount
   useEffect(() => {
     const threshold = StepCounterService.getThreshold();
     setCurrentThreshold(threshold);
@@ -48,6 +51,10 @@ export default function StepCounterScreen() {
     const maWindow = StepCounterService.getMAWindowSize();
     setCurrentMAWindow(maWindow);
     setMAWindowInput(maWindow.toString());
+    
+    const framesToConfirm = StepCounterService.getFramesToConfirm();
+    setCurrentFramesToConfirm(framesToConfirm);
+    setFramesToConfirmInput(framesToConfirm.toString());
   }, []);
 
   // Update stats every 100ms for responsive display
@@ -81,6 +88,18 @@ export default function StepCounterScreen() {
     } else {
       Alert.alert('Error', 'Please enter a valid window size between 5 and 60 samples');
       setMAWindowInput(currentMAWindow.toString());
+    }
+  };
+
+  const handleSaveFramesToConfirm = async () => {
+    const success = await StepCounterService.setFramesToConfirm(framesToConfirmInput);
+    if (success) {
+      const newFrames = StepCounterService.getFramesToConfirm();
+      setCurrentFramesToConfirm(newFrames);
+      Alert.alert('Success', `Confirmation frames saved: ${newFrames} frames (${newFrames * 2}s delay)`);
+    } else {
+      Alert.alert('Error', 'Please enter a valid number of frames between 1 and 10');
+      setFramesToConfirmInput(currentFramesToConfirm.toString());
     }
   };
 
@@ -133,12 +152,12 @@ export default function StepCounterScreen() {
         </Text>
         {fftStats.bufferFilled && fftStats.isWalking && !fftStats.isConfirmedWalking && (
           <Text style={[styles.confirmingText]}>
-            Confirming... {fftStats.consecutiveWalkingFrames}/3
+            Confirming... {fftStats.consecutiveWalkingFrames}/{fftStats.framesToConfirm}
           </Text>
         )}
         {fftStats.bufferFilled && !fftStats.isWalking && fftStats.isConfirmedWalking && (
           <Text style={[styles.confirmingText]}>
-            Stopping... {fftStats.consecutiveStationaryFrames}/3
+            Stopping... {fftStats.consecutiveStationaryFrames}/{fftStats.framesToConfirm}
           </Text>
         )}
       </View>
@@ -204,6 +223,32 @@ export default function StepCounterScreen() {
       <View style={[styles.diagnosisCard, { backgroundColor: diagnosis.color + '20' }]}>
         <Text style={[styles.diagnosisText, { color: diagnosis.color }]}>
           {diagnosis.text}
+        </Text>
+      </View>
+
+      <View style={styles.thresholdCard}>
+        <Text style={styles.thresholdTitle}>Confirmation Frames</Text>
+        <Text style={styles.thresholdHint}>
+          Current: {currentFramesToConfirm} frames ({currentFramesToConfirm * 2}s delay)
+        </Text>
+        <View style={styles.thresholdRow}>
+          <TextInput
+            style={styles.thresholdInput}
+            value={framesToConfirmInput}
+            onChangeText={setFramesToConfirmInput}
+            keyboardType="numeric"
+            placeholder="3"
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveFramesToConfirm}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.thresholdGuide}>
+          Range: 1-10 frames. Number of consecutive frames required before starting/stopping step counting.
+        </Text>
+        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
+          Higher = fewer phantom steps, longer startup delay
         </Text>
       </View>
 
