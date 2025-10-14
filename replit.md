@@ -87,7 +87,7 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 
 The step counting feature employs **FFT-based frequency-domain analysis** on accelerometer data for accurate walking detection and step counting:
 
--   **FFT-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of accelerometer magnitude data to detect walking patterns in the 0.5-4 Hz frequency range (30-240 steps/min). FFT runs every 2 seconds with 50% window overlap for continuous analysis.
+-   **FFT-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of accelerometer magnitude data to detect walking patterns in the 0.5-4 Hz frequency range (30-240 steps/min). FFT runs every 2 seconds with 50% window overlap for continuous analysis. Detected frequency is doubled to convert stride frequency (both legs) to step frequency (individual footfalls).
 -   **Circular Buffer System**: Maintains a 128-sample circular buffer (power-of-2 requirement for FFT.js) at 37 Hz effective sample rate of accelerometer magnitude values (√(x² + y² + z²)). Automatically handles DC removal (gravity offset) and sample wrapping.
 -   **Frequency Spectrum Analysis**: Analyzes FFT output to find dominant frequency peaks in the walking range. Peak magnitude threshold of 0.0015 (normalized, calibrated from real-world testing with 125-step walk showing 0.003 peak) determines walking vs. stationary state.
 -   **Fractional Step Accumulation**: Uses double-precision accumulator to integrate cadence (Hz) over elapsed time without rounding errors. Clamps elapsed time to FFT interval (2s) to prevent overcounting from clock jitter.

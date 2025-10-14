@@ -99,7 +99,7 @@ export class FFTStepCounter {
     this.isWalking = normalizedMagnitude > this.peakThreshold && this.dominantFrequency >= this.walkingFreqMin;
     
     if (this.isWalking) {
-      this.currentCadence = this.dominantFrequency;
+      this.currentCadence = this.dominantFrequency * 2;
       
       const now = Date.now();
       let elapsed = (now - this.lastStepTime) / 1000;
