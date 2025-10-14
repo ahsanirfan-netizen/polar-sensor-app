@@ -23,12 +23,13 @@ The **react-native-ble-plx** library handles BLE communication, implementing the
 
 The Polar PMD Service (UUID: `FB005C80-02E7-F387-1CAD-8ACD2D8DF0C8`) is used for advanced sensor data, requiring specific control and data characteristics for configuration and streaming.
 
-**CRITICAL: ACC Data Scaling in SDK Mode**
-- In SDK Mode, ACC data arrives as 16-bit ADC counts (NOT milliG as documented by Polar)
-- Based on empirical testing, the sensor uses ±2G range configuration
-- Scaling factor: **divide raw values by 16384** (32768/2) to get G-force
-- Previous incorrect factor (÷1000) caused 16x scaling error, breaking step detection
-- Variance was 44.559 instead of 0.15-0.3, magnitude was 34G instead of 1-2G
+**CRITICAL: ACC Data Scaling in SDK Mode (FIXED Oct 2025)**
+- In SDK Mode, ACC data arrives as 16-bit signed integers (int16), NOT milliG as documented by Polar
+- **Empirically determined scale factor: 1000** (sensor outputs ~1000 counts per G)
+- At rest with gravity: typical raw values x=-800, y=-300, z=-500 → magnitude ~1.0G ✅
+- Walking motion: values vary by ±200-600 counts → 0.2-0.6G acceleration changes ✅
+- **Previous incorrect factor (÷16384)**: Caused 16x under-scaling, showed 0.06G at rest instead of 1.0G, making motion undetectable
+- **Root cause**: Polar sensor uses custom ADC encoding, not standard ±2G = ±32768 mapping
 
 **CRITICAL: Delta Compression Packet Parsing (FIXED Oct 2025)**
 - Polar Verity Sense uses **delta compression** to optimize BLE bandwidth

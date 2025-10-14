@@ -1220,7 +1220,7 @@ export default function App() {
       if (data.length < 16) return;
       
       const frameType = data[9];
-      const ACC_SCALE_FACTOR = 16384; // ±2G range: 16-bit ADC / 2G
+      const ACC_SCALE_FACTOR = 1000; // Empirically determined: sensor outputs ~1000 counts per G
       
       let offset = 10; // Samples start at byte 10 (header is bytes 0-9)
       let sampleCount = 0;
