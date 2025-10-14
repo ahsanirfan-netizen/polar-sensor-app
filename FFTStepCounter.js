@@ -8,9 +8,15 @@ export class FFTStepCounter {
     this.bufferSize = Math.pow(2, Math.round(Math.log2(idealSize)));
     this.fftInterval = 2000;
     
-    this.magnitudeBuffer = new Array(this.bufferSize).fill(0);
+    this.gyroBuffer = new Array(this.bufferSize).fill(0);
     this.bufferIndex = 0;
     this.bufferFilled = false;
+    
+    // Variance tracking for dominant axis selection
+    this.gyroXBuffer = [];
+    this.gyroYBuffer = [];
+    this.gyroZBuffer = [];
+    this.varianceWindowSize = 50; // Samples for variance calculation
     
     this.lastFFTTime = 0;
     this.totalStepsFractional = 0;
@@ -18,10 +24,11 @@ export class FFTStepCounter {
     this.isWalking = false;
     this.dominantFrequency = 0;
     this.peakMagnitude = 0;
+    this.dominantAxis = 'y'; // Default to Y axis
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.03; // Recalibrated after fixing ACC scale factor (16x correction)
+    this.peakThreshold = 0.03;
     
     this.fft = new FFT(this.bufferSize);
     this.fftInput = new Array(this.bufferSize * 2);
@@ -30,10 +37,55 @@ export class FFTStepCounter {
     this.lastStepTime = Date.now();
   }
 
-  addAccSample(x, y, z) {
-    const magnitude = Math.sqrt(x * x + y * y + z * z);
+  selectDominantAxis(x, y, z) {
+    // Add to variance tracking buffers
+    this.gyroXBuffer.push(x);
+    this.gyroYBuffer.push(y);
+    this.gyroZBuffer.push(z);
     
-    this.magnitudeBuffer[this.bufferIndex] = magnitude;
+    // Keep only recent samples
+    if (this.gyroXBuffer.length > this.varianceWindowSize) {
+      this.gyroXBuffer.shift();
+      this.gyroYBuffer.shift();
+      this.gyroZBuffer.shift();
+    }
+    
+    // Calculate variance for each axis (every 50 samples)
+    if (this.gyroXBuffer.length === this.varianceWindowSize) {
+      const varianceX = this.calculateVariance(this.gyroXBuffer);
+      const varianceY = this.calculateVariance(this.gyroYBuffer);
+      const varianceZ = this.calculateVariance(this.gyroZBuffer);
+      
+      // Select axis with highest variance (most motion)
+      if (varianceX >= varianceY && varianceX >= varianceZ) {
+        this.dominantAxis = 'x';
+        return x;
+      } else if (varianceY >= varianceX && varianceY >= varianceZ) {
+        this.dominantAxis = 'y';
+        return y;
+      } else {
+        this.dominantAxis = 'z';
+        return z;
+      }
+    }
+    
+    // Default to current dominant axis value
+    if (this.dominantAxis === 'x') return x;
+    if (this.dominantAxis === 'y') return y;
+    return z;
+  }
+
+  calculateVariance(values) {
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+    return squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+  }
+
+  addGyroSample(x, y, z) {
+    // Select dominant axis based on variance
+    const dominantValue = this.selectDominantAxis(x, y, z);
+    
+    this.gyroBuffer[this.bufferIndex] = dominantValue;
     this.bufferIndex = (this.bufferIndex + 1) % this.bufferSize;
     
     if (this.bufferIndex === 0 && !this.bufferFilled) {
@@ -65,7 +117,7 @@ export class FFTStepCounter {
   getOrderedBuffer() {
     const ordered = new Array(this.bufferSize);
     for (let i = 0; i < this.bufferSize; i++) {
-      ordered[i] = this.magnitudeBuffer[(this.bufferIndex + i) % this.bufferSize];
+      ordered[i] = this.gyroBuffer[(this.bufferIndex + i) % this.bufferSize];
     }
     return ordered;
   }
@@ -126,12 +178,16 @@ export class FFTStepCounter {
       stepsPerMinute: Math.round(this.currentCadence * 60),
       dominantFrequency: this.dominantFrequency.toFixed(2),
       peakMagnitude: this.peakMagnitude.toFixed(3),
-      bufferFilled: this.bufferFilled
+      bufferFilled: this.bufferFilled,
+      dominantAxis: this.dominantAxis
     };
   }
 
   reset() {
-    this.magnitudeBuffer.fill(0);
+    this.gyroBuffer.fill(0);
+    this.gyroXBuffer = [];
+    this.gyroYBuffer = [];
+    this.gyroZBuffer = [];
     this.bufferIndex = 0;
     this.bufferFilled = false;
     this.totalStepsFractional = 0;
@@ -141,6 +197,7 @@ export class FFTStepCounter {
     this.peakMagnitude = 0;
     this.lastFFTTime = 0;
     this.lastStepTime = Date.now();
+    this.dominantAxis = 'y';
   }
 
   setThreshold(newThreshold) {
