@@ -21,7 +21,7 @@ export class FFTStepCounter {
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.0025;
+    this.peakThreshold = 0.03; // Recalibrated after fixing ACC scale factor (16x correction)
     
     this.fft = new FFT(this.bufferSize);
     this.fftInput = new Array(this.bufferSize * 2);
