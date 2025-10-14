@@ -1264,7 +1264,6 @@ export default function App() {
         }
         
         DataRateMonitor.addSample();
-        StepCounterService.detectStep(accData0);
         
         // Last full sample values for delta reconstruction
         let lastX = x0;
@@ -1350,7 +1349,6 @@ export default function App() {
           };
           
           DataRateMonitor.addSample();
-          StepCounterService.detectStep(accData);
           
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
@@ -1397,6 +1395,10 @@ export default function App() {
           });
         }
         
+        // Feed first gyro sample to step counter
+        const gyroData0 = { x: x0, y: y0, z: z0 };
+        StepCounterService.detectStep(gyroData0);
+        
         let lastX = x0;
         let lastY = y0;
         let lastZ = z0;
@@ -1430,9 +1432,13 @@ export default function App() {
             });
           }
           
+          // Feed gyro sample to step counter
+          const gyroData = { x: x, y: y, z: z };
+          StepCounterService.detectStep(gyroData);
+          
           if (offset + 3 > data.length) {
-            const gyroData = { x: x / 100, y: y / 100, z: z / 100 };
-            setGyroscope(() => gyroData);
+            const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
+            setGyroscope(() => gyroDataDisplay);
           }
         }
         
@@ -1462,9 +1468,13 @@ export default function App() {
             });
           }
           
+          // Feed gyro sample to step counter
+          const gyroData = { x: x, y: y, z: z };
+          StepCounterService.detectStep(gyroData);
+          
           if (i === sampleCount - 1) {
-            const gyroData = { x: x / 100, y: y / 100, z: z / 100 };
-            setGyroscope(() => gyroData);
+            const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
+            setGyroscope(() => gyroDataDisplay);
           }
         }
       }
