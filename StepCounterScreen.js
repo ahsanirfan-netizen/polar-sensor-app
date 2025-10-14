@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import DataRateMonitor from './DataRateMonitor';
 import StepCounterService from './StepCounterService';
 
@@ -91,7 +91,7 @@ export default function StepCounterScreen() {
   const diagnosis = getDiagnosis();
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.title}>FFT Step Counter</Text>
       
       <View style={styles.stepCard}>
@@ -172,7 +172,7 @@ export default function StepCounterScreen() {
           Typical range: 0.02-0.05. Lower = more sensitive.
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -180,7 +180,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 24,
