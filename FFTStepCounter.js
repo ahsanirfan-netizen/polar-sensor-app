@@ -21,7 +21,7 @@ export class FFTStepCounter {
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.0015;
+    this.peakThreshold = 0.0025;
     
     this.fft = new FFT(this.bufferSize);
     this.fftInput = new Array(this.bufferSize * 2);
