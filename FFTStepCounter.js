@@ -18,6 +18,10 @@ export class FFTStepCounter {
     this.gyroZBuffer = [];
     this.varianceWindowSize = 50; // Samples for variance calculation
     
+    // Gyro scale factor to normalize values to ACC-like range (0-5)
+    // Typical gyro walking values are 1000-5000, divide by 1000
+    this.gyroScaleFactor = 1000;
+    
     this.lastFFTTime = 0;
     this.totalStepsFractional = 0;
     this.currentCadence = 0;
@@ -85,7 +89,8 @@ export class FFTStepCounter {
     // Select dominant axis based on variance
     const dominantValue = this.selectDominantAxis(x, y, z);
     
-    this.gyroBuffer[this.bufferIndex] = dominantValue;
+    // Normalize gyro value to ACC-like range (0-5) for consistent FFT scaling
+    this.gyroBuffer[this.bufferIndex] = dominantValue / this.gyroScaleFactor;
     this.bufferIndex = (this.bufferIndex + 1) % this.bufferSize;
     
     if (this.bufferIndex === 0 && !this.bufferFilled) {
