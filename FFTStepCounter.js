@@ -251,6 +251,7 @@ export class FFTStepCounter {
       isConfirmedWalking: this.isConfirmedWalking,
       consecutiveWalkingFrames: this.consecutiveWalkingFrames,
       consecutiveStationaryFrames: this.consecutiveStationaryFrames,
+      framesToConfirm: this.framesToConfirm,
       cadence: this.currentCadence,
       stepsPerMinute: Math.round(this.currentCadence * 60),
       dominantFrequency: this.dominantFrequency.toFixed(2),
@@ -314,5 +315,18 @@ export class FFTStepCounter {
 
   getMAWindowSize() {
     return this.maWindowSize;
+  }
+
+  setFramesToConfirm(newFrames) {
+    const frames = parseInt(newFrames);
+    if (!isNaN(frames) && frames >= 1 && frames <= 10) {
+      this.framesToConfirm = frames;
+      return true;
+    }
+    return false;
+  }
+
+  getFramesToConfirm() {
+    return this.framesToConfirm;
   }
 }
