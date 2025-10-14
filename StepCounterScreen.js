@@ -23,7 +23,8 @@ export default function StepCounterScreen() {
     stepsPerMinute: 0,
     dominantFrequency: '0.00',
     peakMagnitude: '0.000',
-    bufferFilled: false
+    bufferFilled: false,
+    dominantAxis: 'y'
   });
 
   const [thresholdInput, setThresholdInput] = useState('');
@@ -92,7 +93,7 @@ export default function StepCounterScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.title}>FFT Step Counter</Text>
+      <Text style={styles.title}>Gyro Step Counter</Text>
       
       <View style={styles.stepCard}>
         <Text style={styles.label}>Total Steps</Text>
@@ -132,16 +133,16 @@ export default function StepCounterScreen() {
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Sample Rate</Text>
-          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.sampleRate} Hz
+          <Text style={styles.miniLabel}>Gyro Axis</Text>
+          <Text style={[styles.miniNumber, { color: '#9C27B0' }]}>
+            {fftStats.dominantAxis?.toUpperCase() || 'Y'}
           </Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Packet Rate</Text>
-          <Text style={[styles.miniNumber, { color: packetRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.packetRate} Hz
+          <Text style={styles.miniLabel}>Sample Rate</Text>
+          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
+            {stats.sampleRate} Hz
           </Text>
         </View>
       </View>
