@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const THRESHOLD_STORAGE_KEY = '@step_counter_threshold';
 const MA_WINDOW_SIZE_KEY = '@step_counter_ma_window';
+const FRAMES_TO_CONFIRM_KEY = '@step_counter_frames_to_confirm';
 
 class StepCounterService {
   constructor() {
@@ -12,6 +13,7 @@ class StepCounterService {
     this.lastLogTime = 0;
     this.loadThreshold();
     this.loadMAWindowSize();
+    this.loadFramesToConfirm();
   }
 
   async loadThreshold() {
@@ -41,6 +43,21 @@ class StepCounterService {
       }
     } catch (error) {
       console.error('Error loading MA window size:', error);
+    }
+  }
+
+  async loadFramesToConfirm() {
+    try {
+      const savedFrames = await AsyncStorage.getItem(FRAMES_TO_CONFIRM_KEY);
+      if (savedFrames !== null) {
+        const frames = parseInt(savedFrames);
+        if (!isNaN(frames) && frames >= 1 && frames <= 10) {
+          this.fftCounter.setFramesToConfirm(frames);
+          console.log(`Loaded saved frames to confirm: ${frames}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading frames to confirm:', error);
     }
   }
 
@@ -120,6 +137,23 @@ class StepCounterService {
 
   getMAWindowSize() {
     return this.fftCounter.getMAWindowSize();
+  }
+
+  async setFramesToConfirm(newFrames) {
+    const success = this.fftCounter.setFramesToConfirm(newFrames);
+    if (success) {
+      try {
+        await AsyncStorage.setItem(FRAMES_TO_CONFIRM_KEY, newFrames.toString());
+        console.log(`Saved frames to confirm to storage: ${newFrames}`);
+      } catch (error) {
+        console.error('Error saving frames to confirm:', error);
+      }
+    }
+    return success;
+  }
+
+  getFramesToConfirm() {
+    return this.fftCounter.getFramesToConfirm();
   }
 }
 
