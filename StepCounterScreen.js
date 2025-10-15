@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import DataRateMonitor from './DataRateMonitor';
 import StepCounterService from './StepCounterService';
-import RidgeVisualization from './RidgeVisualization';
 
 export default function StepCounterScreen() {
   const [stats, setStats] = useState({
@@ -225,13 +224,6 @@ export default function StepCounterScreen() {
           {diagnosis.text}
         </Text>
       </View>
-
-      <RidgeVisualization
-        scalogram={fftStats.scalogram || []}
-        frequencyLabels={fftStats.frequencyLabels || []}
-        ridgeFrequency={fftStats.ridgeFrequency}
-        ridgeThreshold={fftStats.ridgeThreshold}
-      />
 
       <View style={styles.thresholdCard}>
         <Text style={styles.thresholdTitle}>Confirmation Frames</Text>
