@@ -29,10 +29,7 @@ import * as SQLite from 'expo-sqlite';
 import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
-import StepCounterScreen from './StepCounterScreen';
 import { syncService } from './SyncService';
-import StepCounterService from './StepCounterService';
-import DataRateMonitor from './DataRateMonitor';
 import DebugConsole from './DebugConsole';
 
 const bleManager = new BleManager();
@@ -1689,14 +1686,6 @@ export default function App() {
           😴 Sleep
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'steps' && styles.tabActive]}
-        onPress={() => setActiveTab('steps')}
-      >
-        <Text style={[styles.tabText, activeTab === 'steps' && styles.tabTextActive]}>
-          🚶 Steps
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -1705,16 +1694,6 @@ export default function App() {
       <View style={styles.container}>
         {renderTabBar()}
         <SleepAnalysisScreen />
-        <DebugConsole />
-      </View>
-    );
-  }
-
-  if (activeTab === 'steps') {
-    return (
-      <View style={styles.container}>
-        {renderTabBar()}
-        <StepCounterScreen />
         <DebugConsole />
       </View>
     );

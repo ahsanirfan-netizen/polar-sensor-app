@@ -36,30 +36,16 @@ A local SQLite database (`polar_sensor.db`) stores sensor data using a batched i
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
 -   **Cloud Sync to Supabase**: Automatically syncs sensor readings and sessions with Supabase PostgreSQL, leveraging Row Level Security.
 -   **Automated Sleep Analysis**: A Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
--   **Gyro-Based Step Counting**: Uses Morlet wavelet CWT ridge detection on gyroscope data for accurate walking detection and step counting. Features include dominant axis selection, frequency integration, and configurable thresholds, along with real-time metrics and CWT scalogram visualization.
--   **Health Connect Integration**: Automatically syncs step data to Android Health Connect.
--   **Tab Navigation**: Provides views for real-time monitoring, sleep analysis, and step counting.
+-   **Tab Navigation**: Provides views for real-time monitoring and sleep analysis.
 -   **On-Device Debug Console**: A floating overlay captures and displays console logs with features like pause/resume auto-scroll and safe serialization.
-
-### Step Counting Architecture
-
-The step counting feature utilizes **Morlet Wavelet Continuous Wavelet Transform (CWT)** on gyroscope data. Key components include:
--   **Wavelet-Based Ridge Detection**: Analyzes gyroscope data within 3.46-second windows across 25 scales (0.8-3.5 Hz) to detect sustained oscillatory patterns indicative of walking.
--   **Dominant Axis Selection**: Automatically selects the gyroscope axis with the highest variance for optimal signal capture.
--   **Circular Buffer System**: Maintains a 128-sample circular buffer for efficient processing.
--   **Ridge Threshold Detection**: Walking is detected when ridge strength exceeds a configurable threshold, with consecutive frame confirmation to prevent phantom steps.
--   **Frequency Integration Step Counting**: Steps are accumulated based on the detected ridge frequency.
--   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), ridge frequency (Hz), ridge strength, and wavelet scale for debugging and calibration.
--   **CWT Scalogram Visualization**: Real-time bar chart displays all 25 wavelet scales (0.8-3.5 Hz) showing the CWT coefficients across the frequency range. Updates every 2 seconds with latest CWT analysis results, helping visualize walking patterns and ridge detection. Built with react-native-chart-kit for stable, lightweight rendering.
--   **Supabase Storage**: Daily steps and walking sessions are stored in Supabase.
 
 ### Database Schema
 
-Supabase tables required: `sessions`, `sensor_readings`, `sleep_analysis`, `sleep_analysis_hypnospy`, and `daily_steps`.
+Supabase tables required: `sessions`, `sensor_readings`, `sleep_analysis`, and `sleep_analysis_hypnospy`.
 
 ### Project Configuration
 
-Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSdkVersion 35`, and `minSdkVersion 26`. Requires `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `ACCESS_FINE_LOCATION`, and Health Connect permissions. EAS Build is used for APK generation.
+Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSdkVersion 35`, and `minSdkVersion 26`. Requires `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, and `ACCESS_FINE_LOCATION` permissions. EAS Build is used for APK generation.
 
 ## External Dependencies
 
@@ -76,7 +62,6 @@ Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSd
 -   **expo-device (^6.0.2)**
 -   **expo-keep-awake**
 -   **fft.js**
--   **discrete-wavelets**
 
 ### Data Persistence Dependencies
 
@@ -85,11 +70,6 @@ Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSd
 -   **expo-secure-store**
 -   **react-native-get-random-values**
 -   **react-native-url-polyfill**
-
-### Visualization Dependencies
-
--   **react-native-chart-kit**: Simple and stable charting library for React Native, used for real-time CWT scalogram bar chart visualization
--   **react-native-svg**: SVG rendering library required by react-native-chart-kit
 
 ### Backend Dependencies (Python Flask API)
 
