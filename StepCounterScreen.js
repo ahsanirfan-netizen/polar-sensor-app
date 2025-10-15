@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, Dimensions } from 'react-native';
+import { BarChart } from 'react-native-chart-kit';
 import DataRateMonitor from './DataRateMonitor';
 import StepCounterService from './StepCounterService';
 
@@ -277,6 +278,67 @@ export default function StepCounterScreen() {
           CWT ridge detection automatically filters non-periodic motion!
         </Text>
       </View>
+
+      {fftStats.bufferFilled && fftStats.scalogram.length > 0 && (
+        <View style={styles.chartCard}>
+          <Text style={styles.chartTitle}>CWT Scalogram (Real-Time)</Text>
+          <Text style={styles.chartSubtitle}>
+            Wavelet coefficients across frequency range (0.8-3.5 Hz)
+          </Text>
+          <BarChart
+            data={{
+              labels: fftStats.frequencyLabels.map((freq, idx) => 
+                idx % 5 === 0 ? freq.toFixed(1) : ''
+              ),
+              datasets: [{
+                data: fftStats.scalogram
+              }]
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            yAxisLabel=""
+            yAxisSuffix=""
+            chartConfig={{
+              backgroundColor: '#fff',
+              backgroundGradientFrom: '#fff',
+              backgroundGradientTo: '#f5f5f5',
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              style: {
+                borderRadius: 16
+              },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: '#e3e3e3',
+                strokeWidth: 1
+              },
+              barPercentage: 0.8,
+            }}
+            style={{
+              marginVertical: 8,
+              borderRadius: 16
+            }}
+            showValuesOnTopOfBars={false}
+          />
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#2196F3' }]} />
+              <Text style={styles.legendText}>Ridge Strength</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#4CAF50' }]} />
+              <Text style={styles.legendText}>Walking (1.0-2.5 Hz)</Text>
+            </View>
+          </View>
+          <Text style={styles.chartNote}>
+            {fftStats.isWalking ? 
+              `Ridge detected at ${fftStats.ridgeFrequency} Hz (strength: ${fftStats.ridgeStrength})` :
+              'No ridge detected - Standing still or non-periodic motion'
+            }
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -449,6 +511,55 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
     marginTop: 8,
+    fontStyle: 'italic',
+  },
+  chartCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  chartSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 12,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  chartNote: {
+    fontSize: 12,
+    color: '#2196F3',
+    textAlign: 'center',
+    marginTop: 12,
     fontStyle: 'italic',
   },
 });

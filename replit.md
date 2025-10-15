@@ -49,7 +49,8 @@ The step counting feature utilizes **Morlet Wavelet Continuous Wavelet Transform
 -   **Circular Buffer System**: Maintains a 128-sample circular buffer for efficient processing.
 -   **Ridge Threshold Detection**: Walking is detected when ridge strength exceeds a configurable threshold, with consecutive frame confirmation to prevent phantom steps.
 -   **Frequency Integration Step Counting**: Steps are accumulated based on the detected ridge frequency.
--   **Real-Time Metrics & Scalogram Visualization**: Displays walking status, cadence, frequency, strength, and a real-time CWT scalogram.
+-   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), ridge frequency (Hz), ridge strength, and wavelet scale for debugging and calibration.
+-   **CWT Scalogram Visualization**: Real-time bar chart displays all 25 wavelet scales (0.8-3.5 Hz) showing the CWT coefficients across the frequency range. Updates every 2 seconds with latest CWT analysis results, helping visualize walking patterns and ridge detection. Built with react-native-chart-kit for stable, lightweight rendering.
 -   **Supabase Storage**: Daily steps and walking sessions are stored in Supabase.
 
 ### Database Schema
@@ -84,6 +85,11 @@ Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSd
 -   **expo-secure-store**
 -   **react-native-get-random-values**
 -   **react-native-url-polyfill**
+
+### Visualization Dependencies
+
+-   **react-native-chart-kit**: Simple and stable charting library for React Native, used for real-time CWT scalogram bar chart visualization
+-   **react-native-svg**: SVG rendering library required by react-native-chart-kit
 
 ### Backend Dependencies (Python Flask API)
 
