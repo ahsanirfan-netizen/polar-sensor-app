@@ -21,7 +21,6 @@
     "expo-dev-client": "^6.0.13",
     "expo-device": "^8.0.9",
     "expo-keep-awake": "^15.0.7",
-    "expo-linear-gradient": "^15.0.7",
     "expo-linking": "^8.0.8",
     "expo-notifications": "^0.32.12",
     "expo-secure-store": "^15.0.7",
@@ -32,9 +31,7 @@
     "react-native": "0.81.4",
     "react-native-ble-plx": "^3.5.0",
     "react-native-get-random-values": "^1.11.0",
-    "react-native-gifted-charts": "^1.4.64",
     "react-native-health-connect": "^3.4.0",
-    "react-native-svg": "^15.9.0",
     "react-native-url-polyfill": "^3.0.0"
   },
   "devDependencies": {

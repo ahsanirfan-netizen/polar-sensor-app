@@ -85,12 +85,6 @@ Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSd
 -   **react-native-get-random-values**
 -   **react-native-url-polyfill**
 
-### Visualization Dependencies
-
--   **react-native-svg (15.9.0)**
--   **react-native-gifted-charts (1.4.64)**
--   **expo-linear-gradient (15.0.7)**
-
 ### Backend Dependencies (Python Flask API)
 
 -   **Flask (3.1.0)**
