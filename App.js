@@ -1213,7 +1213,6 @@ export default function App() {
   const parseACCData = (data) => {
     try {
       incrementPacketCount();
-      DataRateMonitor.addPacket();
       if (data.length < 16) return;
       
       const frameType = data[9];
@@ -1260,8 +1259,6 @@ export default function App() {
           });
         }
         
-        DataRateMonitor.addSample();
-        
         // Last full sample values for delta reconstruction
         let lastX = x0;
         let lastY = y0;
@@ -1303,9 +1300,6 @@ export default function App() {
             z: z / ACC_SCALE_FACTOR 
           };
           
-          DataRateMonitor.addSample();
-          StepCounterService.detectStep(accData);
-          
           // Update display with last sample
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
@@ -1344,8 +1338,6 @@ export default function App() {
             y: y / ACC_SCALE_FACTOR, 
             z: z / ACC_SCALE_FACTOR 
           };
-          
-          DataRateMonitor.addSample();
           
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
@@ -1392,10 +1384,6 @@ export default function App() {
           });
         }
         
-        // Feed first gyro sample to step counter
-        const gyroData0 = { x: x0, y: y0, z: z0 };
-        StepCounterService.detectStep(gyroData0);
-        
         let lastX = x0;
         let lastY = y0;
         let lastZ = z0;
@@ -1429,10 +1417,6 @@ export default function App() {
             });
           }
           
-          // Feed gyro sample to step counter
-          const gyroData = { x: x, y: y, z: z };
-          StepCounterService.detectStep(gyroData);
-          
           if (offset + 3 > data.length) {
             const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
             setGyroscope(() => gyroDataDisplay);
@@ -1464,10 +1448,6 @@ export default function App() {
               gyro_z: z
             });
           }
-          
-          // Feed gyro sample to step counter
-          const gyroData = { x: x, y: y, z: z };
-          StepCounterService.detectStep(gyroData);
           
           if (i === sampleCount - 1) {
             const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
