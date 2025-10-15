@@ -27,34 +27,25 @@ export default function StepCounterScreen() {
     stepsPerMinute: 0,
     dominantFrequency: '0.00',
     peakMagnitude: '0.000',
-    movingAverage: '0.000',
-    adaptiveThreshold: '0.000',
+    fixedThreshold: '0.030',
     autocorrelation: '0.000',
     periodicityThreshold: '0.500',
-    maWindowSize: 15,
-    maSampleCount: 0,
     bufferFilled: false,
     dominantAxis: 'y'
   });
 
   const [thresholdInput, setThresholdInput] = useState('');
   const [currentThreshold, setCurrentThreshold] = useState(0.03);
-  const [maWindowInput, setMAWindowInput] = useState('');
-  const [currentMAWindow, setCurrentMAWindow] = useState(15);
   const [framesToConfirmInput, setFramesToConfirmInput] = useState('');
   const [currentFramesToConfirm, setCurrentFramesToConfirm] = useState(3);
   const [periodicityThresholdInput, setPeriodicityThresholdInput] = useState('');
   const [currentPeriodicityThreshold, setCurrentPeriodicityThreshold] = useState(0.5);
 
-  // Initialize threshold, MA window, frames to confirm, and periodicity threshold on mount
+  // Initialize threshold, frames to confirm, and periodicity threshold on mount
   useEffect(() => {
     const threshold = StepCounterService.getThreshold();
     setCurrentThreshold(threshold);
     setThresholdInput(threshold.toString());
-    
-    const maWindow = StepCounterService.getMAWindowSize();
-    setCurrentMAWindow(maWindow);
-    setMAWindowInput(maWindow.toString());
     
     const framesToConfirm = StepCounterService.getFramesToConfirm();
     setCurrentFramesToConfirm(framesToConfirm);
@@ -98,18 +89,6 @@ export default function StepCounterScreen() {
     } else {
       Alert.alert('Error', 'Please enter a valid threshold greater than 0 (e.g., 0.03, 0.5, 1.5)');
       setThresholdInput(currentThreshold.toString());
-    }
-  };
-
-  const handleSaveMAWindow = async () => {
-    const success = await StepCounterService.setMAWindowSize(maWindowInput);
-    if (success) {
-      const newWindow = StepCounterService.getMAWindowSize();
-      setCurrentMAWindow(newWindow);
-      Alert.alert('Success', `MA window size saved: ${newWindow} samples (${newWindow * 2}s of history)`);
-    } else {
-      Alert.alert('Error', 'Please enter a valid window size between 5 and 60 samples');
-      setMAWindowInput(currentMAWindow.toString());
     }
   };
 
@@ -221,13 +200,15 @@ export default function StepCounterScreen() {
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Moving Average</Text>
-          <Text style={[styles.miniNumber, { color: '#FF9800' }]}>{fftStats.movingAverage}</Text>
+          <Text style={styles.miniLabel}>Fixed Threshold</Text>
+          <Text style={[styles.miniNumber, { color: '#E91E63' }]}>{fftStats.fixedThreshold}</Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Adaptive Threshold</Text>
-          <Text style={[styles.miniNumber, { color: '#E91E63' }]}>{fftStats.adaptiveThreshold}</Text>
+          <Text style={styles.miniLabel}>Mag {'>'} Thresh?</Text>
+          <Text style={[styles.miniNumber, { color: parseFloat(fftStats.peakMagnitude) > parseFloat(fftStats.fixedThreshold) ? '#4CAF50' : '#999' }]}>
+            {parseFloat(fftStats.peakMagnitude) > parseFloat(fftStats.fixedThreshold) ? '✓' : '✗'}
+          </Text>
         </View>
       </View>
 
@@ -261,16 +242,16 @@ export default function StepCounterScreen() {
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>MA Samples</Text>
-          <Text style={[styles.miniNumber, { color: '#00BCD4' }]}>
-            {fftStats.maSampleCount}/{fftStats.maWindowSize}
+          <Text style={styles.miniLabel}>Sample Rate</Text>
+          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
+            {stats.sampleRate} Hz
           </Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Sample Rate</Text>
-          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.sampleRate} Hz
+          <Text style={styles.miniLabel}>Buffer</Text>
+          <Text style={[styles.miniNumber, { color: fftStats.bufferFilled ? '#4CAF50' : '#FF9800' }]}>
+            {fftStats.bufferFilled ? 'Ready' : 'Filling'}
           </Text>
         </View>
       </View>
@@ -335,33 +316,7 @@ export default function StepCounterScreen() {
       </View>
 
       <View style={styles.thresholdCard}>
-        <Text style={styles.thresholdTitle}>Moving Average Window Size</Text>
-        <Text style={styles.thresholdHint}>
-          Current: {currentMAWindow} samples ({currentMAWindow * 2}s history)
-        </Text>
-        <View style={styles.thresholdRow}>
-          <TextInput
-            style={styles.thresholdInput}
-            value={maWindowInput}
-            onChangeText={setMAWindowInput}
-            keyboardType="numeric"
-            placeholder="15"
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveMAWindow}>
-            <Text style={styles.saveButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.thresholdGuide}>
-          Range: 5-60 samples. Higher = smoother, more stable detection.
-        </Text>
-        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
-          Walking detected when Peak {">"} MA × 1.15
-        </Text>
-      </View>
-
-      <View style={styles.thresholdCard}>
-        <Text style={styles.thresholdTitle}>Legacy Threshold (Fallback)</Text>
+        <Text style={styles.thresholdTitle}>Fixed Threshold</Text>
         <Text style={styles.thresholdHint}>Current: {currentThreshold.toFixed(3)}</Text>
         <View style={styles.thresholdRow}>
           <TextInput
@@ -377,7 +332,10 @@ export default function StepCounterScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.thresholdGuide}>
-          Used only during first 5 samples while MA bootstraps.
+          Peak magnitude must exceed this threshold for walking detection.
+        </Text>
+        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
+          Lower = more sensitive. Higher = less sensitive. Try 0.02-0.05 range.
         </Text>
       </View>
     </ScrollView>

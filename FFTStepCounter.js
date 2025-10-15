@@ -38,15 +38,7 @@ export class FFTStepCounter {
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.03; // Keep for legacy/fallback
-    
-    // Moving average for adaptive threshold
-    this.maWindowSize = 15; // Default: 15 samples = 30 seconds of history
-    this.peakHistory = [];
-    this.movingAverage = 0;
-    this.maBootstrapMin = 5; // Minimum samples before enabling adaptive detection
-    this.maMultiplier = 1.15; // Peak must be 15% above MA to trigger walking
-    this.maFloorClamp = 0.02; // Minimum threshold to prevent MA collapse
+    this.peakThreshold = 0.03; // Simple fixed threshold
     
     // Periodicity validation via autocorrelation
     this.periodicityThreshold = 0.5; // Autocorrelation threshold for periodic walking
@@ -131,32 +123,6 @@ export class FFTStepCounter {
     return denominator === 0 ? 0 : numerator / denominator;
   }
 
-  updateMovingAverage(newPeak) {
-    // Add new peak to history
-    this.peakHistory.push(newPeak);
-    
-    // Keep only last N samples (circular buffer)
-    if (this.peakHistory.length > this.maWindowSize) {
-      this.peakHistory.shift();
-    }
-    
-    // Calculate moving average
-    if (this.peakHistory.length > 0) {
-      const sum = this.peakHistory.reduce((acc, val) => acc + val, 0);
-      this.movingAverage = sum / this.peakHistory.length;
-    }
-  }
-
-  getAdaptiveThreshold() {
-    // Bootstrap: use fixed threshold until we have enough samples
-    if (this.peakHistory.length < this.maBootstrapMin) {
-      return this.peakThreshold;
-    }
-    
-    // Adaptive threshold: MA * multiplier, but never below floor clamp
-    return Math.max(this.movingAverage * this.maMultiplier, this.maFloorClamp);
-  }
-
   addGyroSample(x, y, z) {
     // Select dominant axis based on variance
     const dominantValue = this.selectDominantAxis(x, y, z);
@@ -236,21 +202,14 @@ export class FFTStepCounter {
     
     this.autocorrelation = autocorr;
     
-    // Use adaptive threshold instead of fixed
-    const adaptiveThreshold = this.getAdaptiveThreshold();
+    // Use simple fixed threshold
     const wasConfirmedWalking = this.isConfirmedWalking;
     
     // Dual-gate validation: magnitude threshold AND periodicity check
-    const magnitudeCheck = normalizedMagnitude > adaptiveThreshold && this.dominantFrequency >= this.walkingFreqMin;
+    const magnitudeCheck = normalizedMagnitude > this.peakThreshold && this.dominantFrequency >= this.walkingFreqMin;
     const periodicityCheck = autocorr > this.periodicityThreshold;
     
     this.isWalking = magnitudeCheck && periodicityCheck;
-    
-    // Update MA only when magnitude is below threshold (truly stationary)
-    // Do NOT update MA for high-magnitude non-periodic motion (would inflate threshold)
-    if (!magnitudeCheck) {
-      this.updateMovingAverage(normalizedMagnitude);
-    }
     
     // Update consecutive frame counters
     if (this.isWalking) {
@@ -306,12 +265,9 @@ export class FFTStepCounter {
       stepsPerMinute: Math.round(this.currentCadence * 60),
       dominantFrequency: this.dominantFrequency.toFixed(2),
       peakMagnitude: this.peakMagnitude.toFixed(3),
-      movingAverage: this.movingAverage.toFixed(3),
-      adaptiveThreshold: this.getAdaptiveThreshold().toFixed(3),
+      fixedThreshold: this.peakThreshold.toFixed(3),
       autocorrelation: this.autocorrelation.toFixed(3),
       periodicityThreshold: this.periodicityThreshold.toFixed(3),
-      maWindowSize: this.maWindowSize,
-      maSampleCount: this.peakHistory.length,
       bufferFilled: this.bufferFilled,
       dominantAxis: this.dominantAxis
     };
@@ -329,9 +285,7 @@ export class FFTStepCounter {
     this.isWalking = false;
     this.dominantFrequency = 0;
     this.peakMagnitude = 0;
-    this.peakHistory = []; // Clear MA history
-    this.movingAverage = 0;
-    this.autocorrelation = 0; // Reset autocorrelation
+    this.autocorrelation = 0;
     this.consecutiveWalkingFrames = 0;
     this.consecutiveStationaryFrames = 0;
     this.isConfirmedWalking = false;
@@ -351,23 +305,6 @@ export class FFTStepCounter {
 
   getThreshold() {
     return this.peakThreshold;
-  }
-
-  setMAWindowSize(newSize) {
-    const size = parseInt(newSize);
-    if (!isNaN(size) && size >= 5 && size <= 60) {
-      this.maWindowSize = size;
-      // Trim history if new size is smaller
-      while (this.peakHistory.length > this.maWindowSize) {
-        this.peakHistory.shift();
-      }
-      return true;
-    }
-    return false;
-  }
-
-  getMAWindowSize() {
-    return this.maWindowSize;
   }
 
   setFramesToConfirm(newFrames) {
