@@ -44,6 +44,11 @@ export class FFTStepCounter {
     this.scales = this.generateScales();
     
     this.lastStepTime = Date.now();
+    
+    this.lastScalogram = new Array(this.numScales).fill(0);
+    this.frequencyLabels = this.scales.map(scale => 
+      this.morlet.scaleToFrequency(scale, this.sampleRate)
+    );
   }
 
   generateScales() {
@@ -128,10 +133,13 @@ export class FFTStepCounter {
       this.isWalking = false;
       this.consecutiveStationaryFrames++;
       this.consecutiveWalkingFrames = 0;
+      this.lastScalogram = new Array(this.numScales).fill(0);
       return;
     }
     
     const scalogram = this.morlet.computeCWT(centeredBuffer, this.scales, this.sampleRate);
+    
+    this.lastScalogram = [...scalogram];
     
     this.detectRidge(scalogram);
   }
@@ -231,7 +239,9 @@ export class FFTStepCounter {
       ridgeScale: this.ridgeScale.toFixed(2),
       ridgeThreshold: this.ridgeThreshold.toFixed(3),
       bufferFilled: this.bufferFilled,
-      dominantAxis: this.dominantAxis
+      dominantAxis: this.dominantAxis,
+      scalogram: this.lastScalogram,
+      frequencyLabels: this.frequencyLabels
     };
   }
 
