@@ -122,7 +122,7 @@ export class FFTStepCounter {
     const centeredBuffer = orderedBuffer.map(val => val - mean);
     
     const energy = Math.sqrt(centeredBuffer.reduce((sum, val) => sum + val * val, 0) / centeredBuffer.length);
-    if (energy < 0.01) {
+    if (energy < 0.05) {
       this.ridgeStrength = 0;
       this.ridgeFrequency = 0;
       this.isWalking = false;

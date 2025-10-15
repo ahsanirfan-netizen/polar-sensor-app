@@ -269,7 +269,7 @@ export default function StepCounterScreen() {
           Wavelet ridge strength must exceed this threshold for walking detection.
         </Text>
         <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
-          Lower = more sensitive. Higher = less sensitive. Try 0.05-0.2 range.
+          Lower = more sensitive. Higher = less sensitive. Typical range: 0.1-5.0 (no hard limit).
         </Text>
         <Text style={[styles.thresholdGuide, { marginTop: 5, fontWeight: 'bold', color: '#2196F3' }]}>
           CWT ridge detection automatically filters non-periodic motion!
