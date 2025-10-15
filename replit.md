@@ -80,25 +80,30 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 -   **Local SQLite Database**: Persists sensor data for post-processing, utilizing batched inserts and robust error handling.
 -   **Cloud Sync to Supabase**: Automatic syncing of sensor readings and sessions to Supabase PostgreSQL database with Row Level Security (RLS) policies.
 -   **Automated Sleep Analysis**: Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
--   **Gyro-Based Step Counting**: FFT frequency-domain analysis on gyroscope data (0.5-4 Hz walking range) with dominant axis selection, 4-second FFT windows, automatic walking detection, fractional step accumulation, and Health Connect sync.
+-   **Gyro-Based Step Counting**: Morlet wavelet CWT ridge detection on gyroscope data (0.5-4 Hz walking range) with dominant axis selection, wavelet scalogram analysis, ridge-based walking detection, frequency integration step counting, and Health Connect sync.
 -   **Tab Navigation**: Tab-based UI allowing users to switch between real-time sensor monitoring, sleep analysis, and step counting views.
 -   **On-Device Debug Console**: Floating button overlay that captures and displays all console logs on-device using Modal component (renders above all UI). Features include pause/resume auto-scroll, safe serialization for errors/circular objects/BigInt/Symbols, and persistence across fast refresh using globalThis.
 
 ### Step Counting Architecture
 
-The step counting feature employs **FFT-based frequency-domain analysis** on gyroscope data for accurate walking detection and step counting:
+The step counting feature employs **Morlet Wavelet Continuous Wavelet Transform (CWT)** for ridge detection on gyroscope data, providing accurate walking detection and step counting:
 
--   **Gyro-Based Walking Detection**: Uses Fast Fourier Transform on 3.46-second windows of gyroscope data to detect walking patterns in the 0.5-4 Hz frequency range. FFT runs every 2 seconds with 50% window overlap for continuous analysis. Detected frequency directly represents step frequency (arm swing rate equals step rate), clamped to realistic biomechanical limits of 0.8-3.5 Hz (48-210 steps/min).
+-   **Wavelet-Based Ridge Detection**: Uses Continuous Wavelet Transform with Morlet wavelet (ω=6) on 3.46-second windows of gyroscope data. CWT analyzes the signal at 25 scales covering the 0.5-4 Hz walking frequency range. Analysis runs every 2 seconds for continuous monitoring. The dominant wavelet ridge directly indicates walking cadence, clamped to realistic biomechanical limits of 0.8-3.5 Hz (48-210 steps/min).
 -   **Dominant Axis Selection**: Automatically selects the gyroscope axis (X, Y, or Z) with the highest variance over a 50-sample window, ensuring optimal signal capture regardless of device orientation. Gyroscopes naturally filter gravity (no DC offset) and provide cleaner periodic walking signals than accelerometers.
--   **Gyro Normalization**: Raw gyroscope values (typically 1000-5000 range) are divided by 1000 to normalize to 0-5 range, matching accelerometer magnitude scale for consistent FFT analysis and threshold calibration.
--   **Circular Buffer System**: Maintains a 128-sample circular buffer (power-of-2 requirement for FFT.js) at 37 Hz effective sample rate of normalized gyroscope values. Automatically handles sample wrapping and DC removal.
--   **Fixed Threshold Detection**: Uses a simple fixed threshold (default 0.03) for magnitude-based walking detection. Peak magnitude must exceed this threshold for walking to be detected. User-configurable threshold (range 0.01-1.0) persists via AsyncStorage.
--   **Periodicity Validation via Autocorrelation**: Implements **dual-gate walking detection** requiring BOTH magnitude threshold AND periodicity confirmation. Calculates autocorrelation at the dominant frequency's lag to validate the gyro signal is truly periodic (walking) vs random motion (arm swings, gestures). Autocorrelation ranges from -1 to 1 (higher = more periodic). User-configurable periodicity threshold (default 0.5, range 0.0-1.0) persists via AsyncStorage. **This eliminates phantom steps from non-periodic movements**, addressing overcounting issues. Walking only confirmed when: `(peakMagnitude > fixedThreshold) AND (autocorrelation > periodicityThreshold)`.
+-   **Gyro Normalization**: Raw gyroscope values (typically 1000-5000 range) are divided by 1000 to normalize to 0-5 range for consistent wavelet analysis.
+-   **Circular Buffer System**: Maintains a 128-sample circular buffer (power-of-2 for efficient processing) at 37 Hz effective sample rate of normalized gyroscope values. Automatically handles sample wrapping and DC removal.
+-   **Ridge Threshold Detection**: Walking detected when wavelet ridge strength exceeds configurable threshold (default 0.1). Ridge detection inherently filters non-periodic motion by requiring sustained oscillatory patterns in the scalogram. No autocorrelation needed - the wavelet naturally identifies periodic walking patterns. User-configurable threshold (range 0.05-0.5) persists via AsyncStorage.
 -   **Consecutive Frame Confirmation**: Requires N consecutive detection frames before starting step counting, and N consecutive stationary frames before stopping (default N=3, configurable 1-10). This eliminates phantom steps from noise spikes and residual motion, ensuring accurate start/stop transitions. User-configurable via AsyncStorage persistence. Higher values reduce phantom steps but increase startup delay.
--   **Fractional Step Accumulation**: Uses double-precision accumulator to integrate cadence (Hz) over elapsed time without rounding errors. Clamps elapsed time to FFT interval (2s) to prevent overcounting from clock jitter.
--   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), dominant frequency (Hz), and peak magnitude for debugging and calibration.
+-   **Frequency Integration Step Counting**: Uses ridge frequency for continuous step integration: `steps += ridgeFrequency × Δt`. Double-precision accumulator prevents rounding errors. Elapsed time clamped to CWT interval (2s) to prevent overcounting from clock jitter.
+-   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), ridge frequency (Hz), ridge strength, and wavelet scale for debugging and calibration.
 -   **Health Connect Integration**: Automatically syncs step data to Android Health Connect, making it available to Google Fit, Samsung Health, and the entire Android health ecosystem.
 -   **Supabase Storage**: Daily steps are stored in a dedicated `daily_steps` table with walking session details, distance estimates, and calorie calculations.
+
+**CWT Advantages Over FFT:**
+- **Time-frequency localization**: Detects exact walking start/stop times, not just average frequency
+- **Adaptive to cadence changes**: Tracks natural speed variations during walking
+- **Inherent periodicity filtering**: Ridge presence indicates rhythmic motion; random movements produce no ridge
+- **Multi-scale analysis**: Simultaneously detects slow walking (0.5 Hz) and fast running (4 Hz)
 
 ### Database Schema
 

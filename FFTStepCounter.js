@@ -1,4 +1,4 @@
-import FFT from 'fft.js';
+import { MorletWavelet } from './utils/MorletWavelet';
 
 export class FFTStepCounter {
   constructor(sampleRate = 37) {
@@ -6,71 +6,75 @@ export class FFTStepCounter {
     this.windowSizeSeconds = 4;
     const idealSize = sampleRate * this.windowSizeSeconds;
     this.bufferSize = Math.pow(2, Math.round(Math.log2(idealSize)));
-    this.fftInterval = 2000;
+    this.cwtInterval = 2000;
     
     this.gyroBuffer = new Array(this.bufferSize).fill(0);
     this.bufferIndex = 0;
     this.bufferFilled = false;
     
-    // Variance tracking for dominant axis selection
     this.gyroXBuffer = [];
     this.gyroYBuffer = [];
     this.gyroZBuffer = [];
-    this.varianceWindowSize = 50; // Samples for variance calculation
+    this.varianceWindowSize = 50;
     
-    // Gyro scale factor to normalize values to ACC-like range (0-5)
-    // Typical gyro walking values are 1000-5000, divide by 1000
     this.gyroScaleFactor = 1000;
     
-    this.lastFFTTime = 0;
+    this.lastCWTTime = 0;
     this.totalStepsFractional = 0;
     this.currentCadence = 0;
     this.isWalking = false;
-    this.dominantFrequency = 0;
-    this.peakMagnitude = 0;
-    this.dominantAxis = 'y'; // Default to Y axis
+    this.ridgeFrequency = 0;
+    this.ridgeStrength = 0;
+    this.ridgeScale = 0;
+    this.dominantAxis = 'y';
     
-    // Consecutive frame tracking for confirmation
     this.consecutiveWalkingFrames = 0;
     this.consecutiveStationaryFrames = 0;
-    this.framesToConfirm = 3; // Require 3 consecutive frames (6 seconds)
+    this.framesToConfirm = 3;
     this.isConfirmedWalking = false;
     
     this.walkingFreqMin = 0.5;
     this.walkingFreqMax = 4.0;
-    this.peakThreshold = 0.03; // Simple fixed threshold
     
-    // Periodicity validation via autocorrelation
-    this.periodicityThreshold = 0.5; // Autocorrelation threshold for periodic walking
-    this.autocorrelation = 0; // Current autocorrelation value
+    this.ridgeThreshold = 0.1;
     
-    this.fft = new FFT(this.bufferSize);
-    this.fftInput = new Array(this.bufferSize * 2);
-    this.fftOutput = new Array(this.bufferSize * 2);
+    this.morlet = new MorletWavelet(6);
+    
+    this.numScales = 25;
+    this.scales = this.generateScales();
     
     this.lastStepTime = Date.now();
   }
 
+  generateScales() {
+    const scales = [];
+    const minScale = this.morlet.frequencyToScale(this.walkingFreqMax, this.sampleRate);
+    const maxScale = this.morlet.frequencyToScale(this.walkingFreqMin, this.sampleRate);
+    
+    for (let i = 0; i < this.numScales; i++) {
+      const scale = minScale + (maxScale - minScale) * (i / (this.numScales - 1));
+      scales.push(scale);
+    }
+    
+    return scales;
+  }
+
   selectDominantAxis(x, y, z) {
-    // Add to variance tracking buffers
     this.gyroXBuffer.push(x);
     this.gyroYBuffer.push(y);
     this.gyroZBuffer.push(z);
     
-    // Keep only recent samples
     if (this.gyroXBuffer.length > this.varianceWindowSize) {
       this.gyroXBuffer.shift();
       this.gyroYBuffer.shift();
       this.gyroZBuffer.shift();
     }
     
-    // Calculate variance for each axis (every 50 samples)
     if (this.gyroXBuffer.length === this.varianceWindowSize) {
       const varianceX = this.calculateVariance(this.gyroXBuffer);
       const varianceY = this.calculateVariance(this.gyroYBuffer);
       const varianceZ = this.calculateVariance(this.gyroZBuffer);
       
-      // Select axis with highest variance (most motion)
       if (varianceX >= varianceY && varianceX >= varianceZ) {
         this.dominantAxis = 'x';
         return x;
@@ -83,7 +87,6 @@ export class FFTStepCounter {
       }
     }
     
-    // Default to current dominant axis value
     if (this.dominantAxis === 'x') return x;
     if (this.dominantAxis === 'y') return y;
     return z;
@@ -95,39 +98,9 @@ export class FFTStepCounter {
     return squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
   }
 
-  calculateAutocorrelation(signal, lag) {
-    // Calculate autocorrelation at specified lag
-    // Returns value between -1 and 1 (higher = more periodic)
-    
-    const n = signal.length;
-    if (lag >= n || lag < 1) {
-      return 0; // Invalid lag
-    }
-    
-    // Calculate mean
-    const mean = signal.reduce((sum, val) => sum + val, 0) / n;
-    
-    // Calculate autocorrelation coefficient
-    let numerator = 0;
-    let denominator = 0;
-    
-    for (let i = 0; i < n - lag; i++) {
-      numerator += (signal[i] - mean) * (signal[i + lag] - mean);
-    }
-    
-    for (let i = 0; i < n; i++) {
-      denominator += Math.pow(signal[i] - mean, 2);
-    }
-    
-    // Return normalized autocorrelation (-1 to 1)
-    return denominator === 0 ? 0 : numerator / denominator;
-  }
-
   addGyroSample(x, y, z) {
-    // Select dominant axis based on variance
     const dominantValue = this.selectDominantAxis(x, y, z);
     
-    // Normalize gyro value to ACC-like range (0-5) for consistent FFT scaling
     this.gyroBuffer[this.bufferIndex] = dominantValue / this.gyroScaleFactor;
     this.bufferIndex = (this.bufferIndex + 1) % this.bufferSize;
     
@@ -136,25 +109,21 @@ export class FFTStepCounter {
     }
     
     const now = Date.now();
-    if (this.bufferFilled && now - this.lastFFTTime >= this.fftInterval) {
-      this.runFFTAnalysis();
-      this.lastFFTTime = now;
+    if (this.bufferFilled && now - this.lastCWTTime >= this.cwtInterval) {
+      this.runCWTAnalysis();
+      this.lastCWTTime = now;
     }
   }
 
-  runFFTAnalysis() {
+  runCWTAnalysis() {
     const orderedBuffer = this.getOrderedBuffer();
     
     const mean = orderedBuffer.reduce((sum, val) => sum + val, 0) / orderedBuffer.length;
+    const centeredBuffer = orderedBuffer.map(val => val - mean);
     
-    for (let i = 0; i < this.bufferSize; i++) {
-      this.fftInput[i * 2] = orderedBuffer[i] - mean;
-      this.fftInput[i * 2 + 1] = 0;
-    }
+    const scalogram = this.morlet.computeCWT(centeredBuffer, this.scales, this.sampleRate);
     
-    this.fft.transform(this.fftOutput, this.fftInput);
-    
-    this.analyzSpectrum();
+    this.detectRidge(scalogram);
   }
 
   getOrderedBuffer() {
@@ -165,53 +134,29 @@ export class FFTStepCounter {
     return ordered;
   }
 
-  analyzSpectrum() {
-    const freqResolution = this.sampleRate / this.bufferSize;
+  detectRidge(scalogram) {
+    let maxCoefficient = 0;
+    let maxScaleIndex = 0;
     
-    const minBin = Math.ceil(this.walkingFreqMin / freqResolution);
-    const maxBin = Math.floor(this.walkingFreqMax / freqResolution);
-    
-    let maxMagnitude = 0;
-    let peakBin = 0;
-    
-    for (let i = minBin; i <= maxBin && i < this.bufferSize / 2; i++) {
-      const real = this.fftOutput[i * 2];
-      const imag = this.fftOutput[i * 2 + 1];
-      const magnitude = Math.sqrt(real * real + imag * imag);
-      
-      if (magnitude > maxMagnitude) {
-        maxMagnitude = magnitude;
-        peakBin = i;
+    for (let i = 0; i < scalogram.length; i++) {
+      if (scalogram[i] > maxCoefficient) {
+        maxCoefficient = scalogram[i];
+        maxScaleIndex = i;
       }
     }
     
-    const normalizedMagnitude = maxMagnitude / this.bufferSize;
+    this.ridgeStrength = maxCoefficient;
+    this.ridgeScale = this.scales[maxScaleIndex];
+    this.ridgeFrequency = this.morlet.scaleToFrequency(this.ridgeScale, this.sampleRate);
     
-    this.peakMagnitude = normalizedMagnitude;
-    this.dominantFrequency = peakBin * freqResolution;
-    
-    // Calculate autocorrelation to validate periodicity
-    // Expected lag = samples per cycle = sampleRate / frequency
-    const orderedBuffer = this.getOrderedBuffer();
-    let autocorr = 0;
-    
-    if (this.dominantFrequency > 0) {
-      const expectedLag = Math.round(this.sampleRate / this.dominantFrequency);
-      autocorr = this.calculateAutocorrelation(orderedBuffer, expectedLag);
-    }
-    
-    this.autocorrelation = autocorr;
-    
-    // Use simple fixed threshold
     const wasConfirmedWalking = this.isConfirmedWalking;
     
-    // Dual-gate validation: magnitude threshold AND periodicity check
-    const magnitudeCheck = normalizedMagnitude > this.peakThreshold && this.dominantFrequency >= this.walkingFreqMin;
-    const periodicityCheck = autocorr > this.periodicityThreshold;
+    const ridgeDetected = this.ridgeStrength > this.ridgeThreshold && 
+                         this.ridgeFrequency >= this.walkingFreqMin && 
+                         this.ridgeFrequency <= this.walkingFreqMax;
     
-    this.isWalking = magnitudeCheck && periodicityCheck;
+    this.isWalking = ridgeDetected;
     
-    // Update consecutive frame counters
     if (this.isWalking) {
       this.consecutiveWalkingFrames++;
       this.consecutiveStationaryFrames = 0;
@@ -220,26 +165,21 @@ export class FFTStepCounter {
       this.consecutiveWalkingFrames = 0;
     }
     
-    // Confirm walking only after N consecutive frames
     if (this.consecutiveWalkingFrames >= this.framesToConfirm) {
       this.isConfirmedWalking = true;
     } else if (this.consecutiveStationaryFrames >= this.framesToConfirm) {
       this.isConfirmedWalking = false;
     }
     
-    // Only count steps when BOTH confirmed walking AND currently detected
-    // This prevents counting during the stop-confirmation window
     if (this.isConfirmedWalking && this.isWalking) {
-      // Gyro measures arm swing frequency, which equals step frequency (no doubling needed)
-      // Cap at realistic walking/running cadence: 0.8-3.5 Hz = 48-210 steps/min
-      const minCadence = 0.8; // 48 steps/min (very slow walking)
-      const maxCadence = 3.5; // 210 steps/min (fast running)
-      this.currentCadence = Math.max(minCadence, Math.min(this.dominantFrequency, maxCadence));
+      const minCadence = 0.8;
+      const maxCadence = 3.5;
+      this.currentCadence = Math.max(minCadence, Math.min(this.ridgeFrequency, maxCadence));
       
       const now = Date.now();
       let elapsed = (now - this.lastStepTime) / 1000;
       
-      elapsed = Math.min(elapsed, this.fftInterval / 1000);
+      elapsed = Math.min(elapsed, this.cwtInterval / 1000);
       
       const stepsInInterval = this.currentCadence * elapsed;
       this.totalStepsFractional += stepsInInterval;
@@ -263,11 +203,10 @@ export class FFTStepCounter {
       framesToConfirm: this.framesToConfirm,
       cadence: this.currentCadence,
       stepsPerMinute: Math.round(this.currentCadence * 60),
-      dominantFrequency: this.dominantFrequency.toFixed(2),
-      peakMagnitude: this.peakMagnitude.toFixed(3),
-      fixedThreshold: this.peakThreshold.toFixed(3),
-      autocorrelation: this.autocorrelation.toFixed(3),
-      periodicityThreshold: this.periodicityThreshold.toFixed(3),
+      ridgeFrequency: this.ridgeFrequency.toFixed(2),
+      ridgeStrength: this.ridgeStrength.toFixed(3),
+      ridgeScale: this.ridgeScale.toFixed(2),
+      ridgeThreshold: this.ridgeThreshold.toFixed(3),
       bufferFilled: this.bufferFilled,
       dominantAxis: this.dominantAxis
     };
@@ -283,28 +222,28 @@ export class FFTStepCounter {
     this.totalStepsFractional = 0;
     this.currentCadence = 0;
     this.isWalking = false;
-    this.dominantFrequency = 0;
-    this.peakMagnitude = 0;
-    this.autocorrelation = 0;
+    this.ridgeFrequency = 0;
+    this.ridgeStrength = 0;
+    this.ridgeScale = 0;
     this.consecutiveWalkingFrames = 0;
     this.consecutiveStationaryFrames = 0;
     this.isConfirmedWalking = false;
-    this.lastFFTTime = 0;
+    this.lastCWTTime = 0;
     this.lastStepTime = Date.now();
     this.dominantAxis = 'y';
   }
 
-  setThreshold(newThreshold) {
+  setRidgeThreshold(newThreshold) {
     const threshold = parseFloat(newThreshold);
     if (!isNaN(threshold) && threshold > 0) {
-      this.peakThreshold = threshold;
+      this.ridgeThreshold = threshold;
       return true;
     }
     return false;
   }
 
-  getThreshold() {
-    return this.peakThreshold;
+  getRidgeThreshold() {
+    return this.ridgeThreshold;
   }
 
   setFramesToConfirm(newFrames) {
@@ -318,18 +257,5 @@ export class FFTStepCounter {
 
   getFramesToConfirm() {
     return this.framesToConfirm;
-  }
-
-  setPeriodicityThreshold(newThreshold) {
-    const threshold = parseFloat(newThreshold);
-    if (!isNaN(threshold) && threshold >= 0 && threshold <= 1) {
-      this.periodicityThreshold = threshold;
-      return true;
-    }
-    return false;
-  }
-
-  getPeriodicityThreshold() {
-    return this.periodicityThreshold;
   }
 }

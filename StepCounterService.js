@@ -1,9 +1,8 @@
 import { FFTStepCounter } from './FFTStepCounter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const THRESHOLD_STORAGE_KEY = '@step_counter_threshold';
+const RIDGE_THRESHOLD_STORAGE_KEY = '@step_counter_ridge_threshold';
 const FRAMES_TO_CONFIRM_KEY = '@step_counter_frames_to_confirm';
-const PERIODICITY_THRESHOLD_KEY = '@step_counter_periodicity_threshold';
 
 class StepCounterService {
   constructor() {
@@ -11,23 +10,22 @@ class StepCounterService {
     this.debugLogs = [];
     this.maxLogs = 20;
     this.lastLogTime = 0;
-    this.loadThreshold();
+    this.loadRidgeThreshold();
     this.loadFramesToConfirm();
-    this.loadPeriodicityThreshold();
   }
 
-  async loadThreshold() {
+  async loadRidgeThreshold() {
     try {
-      const savedThreshold = await AsyncStorage.getItem(THRESHOLD_STORAGE_KEY);
+      const savedThreshold = await AsyncStorage.getItem(RIDGE_THRESHOLD_STORAGE_KEY);
       if (savedThreshold !== null) {
         const threshold = parseFloat(savedThreshold);
         if (!isNaN(threshold) && threshold > 0) {
-          this.fftCounter.setThreshold(threshold);
-          console.log(`Loaded saved threshold: ${threshold}`);
+          this.fftCounter.setRidgeThreshold(threshold);
+          console.log(`Loaded saved ridge threshold: ${threshold}`);
         }
       }
     } catch (error) {
-      console.error('Error loading threshold:', error);
+      console.error('Error loading ridge threshold:', error);
     }
   }
 
@@ -46,20 +44,6 @@ class StepCounterService {
     }
   }
 
-  async loadPeriodicityThreshold() {
-    try {
-      const savedThreshold = await AsyncStorage.getItem(PERIODICITY_THRESHOLD_KEY);
-      if (savedThreshold !== null) {
-        const threshold = parseFloat(savedThreshold);
-        if (!isNaN(threshold) && threshold >= 0 && threshold <= 1) {
-          this.fftCounter.setPeriodicityThreshold(threshold);
-          console.log(`Loaded saved periodicity threshold: ${threshold}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading periodicity threshold:', error);
-    }
-  }
 
   log(message) {
     const timestamp = new Date().toLocaleTimeString();
@@ -79,7 +63,7 @@ class StepCounterService {
     
     if (stats.bufferFilled && currentTime - this.lastLogTime > 5000) {
       const walkingStatus = stats.isWalking ? 'WALKING' : 'still';
-      this.log(`${walkingStatus} | ${stats.stepsPerMinute} spm | Axis: ${stats.dominantAxis} | Freq: ${stats.dominantFrequency} Hz | Peak: ${stats.peakMagnitude}`);
+      this.log(`${walkingStatus} | ${stats.stepsPerMinute} spm | Axis: ${stats.dominantAxis} | Ridge: ${stats.ridgeFrequency} Hz | Strength: ${stats.ridgeStrength}`);
       this.lastLogTime = currentTime;
     }
     
@@ -105,21 +89,21 @@ class StepCounterService {
     this.log('FFT Step Counter reset');
   }
 
-  async setThreshold(newThreshold) {
-    const success = this.fftCounter.setThreshold(newThreshold);
+  async setRidgeThreshold(newThreshold) {
+    const success = this.fftCounter.setRidgeThreshold(newThreshold);
     if (success) {
       try {
-        await AsyncStorage.setItem(THRESHOLD_STORAGE_KEY, newThreshold.toString());
-        console.log(`Saved threshold to storage: ${newThreshold}`);
+        await AsyncStorage.setItem(RIDGE_THRESHOLD_STORAGE_KEY, newThreshold.toString());
+        console.log(`Saved ridge threshold to storage: ${newThreshold}`);
       } catch (error) {
-        console.error('Error saving threshold:', error);
+        console.error('Error saving ridge threshold:', error);
       }
     }
     return success;
   }
 
-  getThreshold() {
-    return this.fftCounter.getThreshold();
+  getRidgeThreshold() {
+    return this.fftCounter.getRidgeThreshold();
   }
 
   async setFramesToConfirm(newFrames) {
@@ -139,22 +123,6 @@ class StepCounterService {
     return this.fftCounter.getFramesToConfirm();
   }
 
-  async setPeriodicityThreshold(newThreshold) {
-    const success = this.fftCounter.setPeriodicityThreshold(newThreshold);
-    if (success) {
-      try {
-        await AsyncStorage.setItem(PERIODICITY_THRESHOLD_KEY, newThreshold.toString());
-        console.log(`Saved periodicity threshold to storage: ${newThreshold}`);
-      } catch (error) {
-        console.error('Error saving periodicity threshold:', error);
-      }
-    }
-    return success;
-  }
-
-  getPeriodicityThreshold() {
-    return this.fftCounter.getPeriodicityThreshold();
-  }
 }
 
 export default new StepCounterService();

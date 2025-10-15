@@ -25,35 +25,28 @@ export default function StepCounterScreen() {
     framesToConfirm: 3,
     cadence: 0,
     stepsPerMinute: 0,
-    dominantFrequency: '0.00',
-    peakMagnitude: '0.000',
-    fixedThreshold: '0.030',
-    autocorrelation: '0.000',
-    periodicityThreshold: '0.500',
+    ridgeFrequency: '0.00',
+    ridgeStrength: '0.000',
+    ridgeScale: '0.00',
+    ridgeThreshold: '0.100',
     bufferFilled: false,
     dominantAxis: 'y'
   });
 
-  const [thresholdInput, setThresholdInput] = useState('');
-  const [currentThreshold, setCurrentThreshold] = useState(0.03);
+  const [ridgeThresholdInput, setRidgeThresholdInput] = useState('');
+  const [currentRidgeThreshold, setCurrentRidgeThreshold] = useState(0.1);
   const [framesToConfirmInput, setFramesToConfirmInput] = useState('');
   const [currentFramesToConfirm, setCurrentFramesToConfirm] = useState(3);
-  const [periodicityThresholdInput, setPeriodicityThresholdInput] = useState('');
-  const [currentPeriodicityThreshold, setCurrentPeriodicityThreshold] = useState(0.5);
 
-  // Initialize threshold, frames to confirm, and periodicity threshold on mount
+  // Initialize ridge threshold and frames to confirm on mount
   useEffect(() => {
-    const threshold = StepCounterService.getThreshold();
-    setCurrentThreshold(threshold);
-    setThresholdInput(threshold.toString());
+    const ridgeThreshold = StepCounterService.getRidgeThreshold();
+    setCurrentRidgeThreshold(ridgeThreshold);
+    setRidgeThresholdInput(ridgeThreshold.toString());
     
     const framesToConfirm = StepCounterService.getFramesToConfirm();
     setCurrentFramesToConfirm(framesToConfirm);
     setFramesToConfirmInput(framesToConfirm.toString());
-    
-    const periodicityThreshold = StepCounterService.getPeriodicityThreshold();
-    setCurrentPeriodicityThreshold(periodicityThreshold);
-    setPeriodicityThresholdInput(periodicityThreshold.toString());
   }, []);
 
   // Update stats every 100ms for responsive display
@@ -70,25 +63,25 @@ export default function StepCounterScreen() {
         setFramesToConfirmInput(actualFrames.toString());
       }
       
-      const actualPeriodicityThreshold = StepCounterService.getPeriodicityThreshold();
-      if (actualPeriodicityThreshold !== currentPeriodicityThreshold) {
-        setCurrentPeriodicityThreshold(actualPeriodicityThreshold);
-        setPeriodicityThresholdInput(actualPeriodicityThreshold.toString());
+      const actualRidgeThreshold = StepCounterService.getRidgeThreshold();
+      if (actualRidgeThreshold !== currentRidgeThreshold) {
+        setCurrentRidgeThreshold(actualRidgeThreshold);
+        setRidgeThresholdInput(actualRidgeThreshold.toString());
       }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [currentFramesToConfirm, currentPeriodicityThreshold]);
+  }, [currentFramesToConfirm, currentRidgeThreshold]);
 
-  const handleSaveThreshold = async () => {
-    const success = await StepCounterService.setThreshold(thresholdInput);
+  const handleSaveRidgeThreshold = async () => {
+    const success = await StepCounterService.setRidgeThreshold(ridgeThresholdInput);
     if (success) {
-      const newThreshold = StepCounterService.getThreshold();
-      setCurrentThreshold(newThreshold);
-      Alert.alert('Success', `Threshold saved permanently: ${newThreshold.toFixed(3)}`);
+      const newThreshold = StepCounterService.getRidgeThreshold();
+      setCurrentRidgeThreshold(newThreshold);
+      Alert.alert('Success', `Ridge threshold saved: ${newThreshold.toFixed(3)}`);
     } else {
-      Alert.alert('Error', 'Please enter a valid threshold greater than 0 (e.g., 0.03, 0.5, 1.5)');
-      setThresholdInput(currentThreshold.toString());
+      Alert.alert('Error', 'Please enter a valid threshold greater than 0 (e.g., 0.05, 0.1, 0.2)');
+      setRidgeThresholdInput(currentRidgeThreshold.toString());
     }
   };
 
@@ -104,17 +97,6 @@ export default function StepCounterScreen() {
     }
   };
 
-  const handleSavePeriodicityThreshold = async () => {
-    const success = await StepCounterService.setPeriodicityThreshold(periodicityThresholdInput);
-    if (success) {
-      const newThreshold = StepCounterService.getPeriodicityThreshold();
-      setCurrentPeriodicityThreshold(newThreshold);
-      Alert.alert('Success', `Periodicity threshold saved: ${newThreshold.toFixed(2)}\n\nHigher = stricter periodic requirement`);
-    } else {
-      Alert.alert('Error', 'Please enter a valid threshold between 0 and 1 (e.g., 0.3, 0.5, 0.7)');
-      setPeriodicityThresholdInput(currentPeriodicityThreshold.toString());
-    }
-  };
 
   const sampleRateOk = parseFloat(stats.sampleRate) >= 30;
   const packetRateOk = parseFloat(stats.packetRate) >= 0.4;
@@ -185,9 +167,9 @@ export default function StepCounterScreen() {
         </View>
 
         <View style={styles.statsCard}>
-          <Text style={styles.label}>Frequency</Text>
+          <Text style={styles.label}>Ridge Frequency</Text>
           <Text style={[styles.bigNumber, { color: fftStats.isConfirmedWalking ? '#2196F3' : '#999' }]}>
-            {fftStats.dominantFrequency}
+            {fftStats.ridgeFrequency}
           </Text>
           <Text style={styles.sublabel}>Hz</Text>
         </View>
@@ -195,56 +177,35 @@ export default function StepCounterScreen() {
 
       <View style={styles.row}>
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Peak Magnitude</Text>
-          <Text style={styles.miniNumber}>{fftStats.peakMagnitude}</Text>
+          <Text style={styles.miniLabel}>Ridge Strength</Text>
+          <Text style={[styles.miniNumber, { color: '#E91E63' }]}>{fftStats.ridgeStrength}</Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Fixed Threshold</Text>
-          <Text style={[styles.miniNumber, { color: '#E91E63' }]}>{fftStats.fixedThreshold}</Text>
+          <Text style={styles.miniLabel}>Ridge Threshold</Text>
+          <Text style={[styles.miniNumber, { color: '#9C27B0' }]}>{fftStats.ridgeThreshold}</Text>
         </View>
 
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Mag {'>'} Thresh?</Text>
-          <Text style={[styles.miniNumber, { color: parseFloat(fftStats.peakMagnitude) > parseFloat(fftStats.fixedThreshold) ? '#4CAF50' : '#999' }]}>
-            {parseFloat(fftStats.peakMagnitude) > parseFloat(fftStats.fixedThreshold) ? '✓' : '✗'}
+          <Text style={styles.miniLabel}>Ridge Detected?</Text>
+          <Text style={[styles.miniNumber, { color: parseFloat(fftStats.ridgeStrength) > parseFloat(fftStats.ridgeThreshold) ? '#4CAF50' : '#999' }]}>
+            {parseFloat(fftStats.ridgeStrength) > parseFloat(fftStats.ridgeThreshold) ? '✓' : '✗'}
           </Text>
         </View>
       </View>
 
       <View style={styles.row}>
         <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Autocorrelation</Text>
-          <Text style={[styles.miniNumber, { color: fftStats.autocorrelation > fftStats.periodicityThreshold ? '#4CAF50' : '#f44336' }]}>
-            {fftStats.autocorrelation}
+          <Text style={styles.miniLabel}>Ridge Scale</Text>
+          <Text style={[styles.miniNumber, { color: '#00BCD4' }]}>
+            {fftStats.ridgeScale}
           </Text>
         </View>
 
-        <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Periodicity Threshold</Text>
-          <Text style={[styles.miniNumber, { color: '#3F51B5' }]}>{fftStats.periodicityThreshold}</Text>
-        </View>
-
-        <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Periodic?</Text>
-          <Text style={[styles.miniNumber, { color: fftStats.autocorrelation > fftStats.periodicityThreshold ? '#4CAF50' : '#999' }]}>
-            {fftStats.autocorrelation > fftStats.periodicityThreshold ? '✓' : '✗'}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.row}>
         <View style={styles.miniCard}>
           <Text style={styles.miniLabel}>Gyro Axis</Text>
           <Text style={[styles.miniNumber, { color: '#9C27B0' }]}>
             {fftStats.dominantAxis?.toUpperCase() || 'Y'}
-          </Text>
-        </View>
-
-        <View style={styles.miniCard}>
-          <Text style={styles.miniLabel}>Sample Rate</Text>
-          <Text style={[styles.miniNumber, { color: sampleRateOk ? '#4CAF50' : '#f44336' }]}>
-            {stats.sampleRate} Hz
           </Text>
         </View>
 
@@ -289,53 +250,29 @@ export default function StepCounterScreen() {
       </View>
 
       <View style={styles.thresholdCard}>
-        <Text style={styles.thresholdTitle}>Periodicity Threshold (NEW!)</Text>
-        <Text style={styles.thresholdHint}>Current: {currentPeriodicityThreshold.toFixed(2)}</Text>
+        <Text style={styles.thresholdTitle}>Ridge Threshold</Text>
+        <Text style={styles.thresholdHint}>Current: {currentRidgeThreshold.toFixed(3)}</Text>
         <View style={styles.thresholdRow}>
           <TextInput
             style={styles.thresholdInput}
-            value={periodicityThresholdInput}
-            onChangeText={setPeriodicityThresholdInput}
+            value={ridgeThresholdInput}
+            onChangeText={setRidgeThresholdInput}
             keyboardType="numeric"
-            placeholder="0.5"
+            placeholder="0.1"
             placeholderTextColor="#999"
           />
-          <TouchableOpacity style={styles.saveButton} onPress={handleSavePeriodicityThreshold}>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveRidgeThreshold}>
             <Text style={styles.saveButtonText}>Save</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.thresholdGuide}>
-          Range: 0.0-1.0. Validates gyro signal is truly periodic (walking) vs random motion.
+          Wavelet ridge strength must exceed this threshold for walking detection.
         </Text>
         <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
-          Higher = stricter (fewer false positives). Try 0.3-0.7 range.
+          Lower = more sensitive. Higher = less sensitive. Try 0.05-0.2 range.
         </Text>
         <Text style={[styles.thresholdGuide, { marginTop: 5, fontWeight: 'bold', color: '#2196F3' }]}>
-          This filters phantom steps from non-periodic arm movements!
-        </Text>
-      </View>
-
-      <View style={styles.thresholdCard}>
-        <Text style={styles.thresholdTitle}>Fixed Threshold</Text>
-        <Text style={styles.thresholdHint}>Current: {currentThreshold.toFixed(3)}</Text>
-        <View style={styles.thresholdRow}>
-          <TextInput
-            style={styles.thresholdInput}
-            value={thresholdInput}
-            onChangeText={setThresholdInput}
-            keyboardType="numeric"
-            placeholder="0.03"
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveThreshold}>
-            <Text style={styles.saveButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.thresholdGuide}>
-          Peak magnitude must exceed this threshold for walking detection.
-        </Text>
-        <Text style={[styles.thresholdGuide, { marginTop: 5, fontStyle: 'italic', color: '#666' }]}>
-          Lower = more sensitive. Higher = less sensitive. Try 0.02-0.05 range.
+          CWT ridge detection automatically filters non-periodic motion!
         </Text>
       </View>
     </ScrollView>
