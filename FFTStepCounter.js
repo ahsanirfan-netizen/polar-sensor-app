@@ -33,8 +33,8 @@ export class FFTStepCounter {
     this.framesToConfirm = 3;
     this.isConfirmedWalking = false;
     
-    this.walkingFreqMin = 0.5;
-    this.walkingFreqMax = 4.0;
+    this.walkingFreqMin = 0.8;
+    this.walkingFreqMax = 3.5;
     
     this.ridgeThreshold = 0.1;
     
@@ -121,6 +121,16 @@ export class FFTStepCounter {
     const mean = orderedBuffer.reduce((sum, val) => sum + val, 0) / orderedBuffer.length;
     const centeredBuffer = orderedBuffer.map(val => val - mean);
     
+    const energy = Math.sqrt(centeredBuffer.reduce((sum, val) => sum + val * val, 0) / centeredBuffer.length);
+    if (energy < 0.01) {
+      this.ridgeStrength = 0;
+      this.ridgeFrequency = 0;
+      this.isWalking = false;
+      this.consecutiveStationaryFrames++;
+      this.consecutiveWalkingFrames = 0;
+      return;
+    }
+    
     const scalogram = this.morlet.computeCWT(centeredBuffer, this.scales, this.sampleRate);
     
     this.detectRidge(scalogram);
@@ -135,17 +145,30 @@ export class FFTStepCounter {
   }
 
   detectRidge(scalogram) {
-    let maxCoefficient = 0;
+    let maxWeightedCoefficient = 0;
     let maxScaleIndex = 0;
     
     for (let i = 0; i < scalogram.length; i++) {
-      if (scalogram[i] > maxCoefficient) {
-        maxCoefficient = scalogram[i];
+      const freq = this.morlet.scaleToFrequency(this.scales[i], this.sampleRate);
+      
+      let weight = 1.0;
+      if (freq >= 1.0 && freq <= 2.5) {
+        weight = 1.5;
+      } else if (freq > 2.5 && freq <= 3.0) {
+        weight = 1.2;
+      } else if (freq > 3.0) {
+        weight = 0.5;
+      }
+      
+      const weightedCoefficient = scalogram[i] * weight;
+      
+      if (weightedCoefficient > maxWeightedCoefficient) {
+        maxWeightedCoefficient = weightedCoefficient;
         maxScaleIndex = i;
       }
     }
     
-    this.ridgeStrength = maxCoefficient;
+    this.ridgeStrength = scalogram[maxScaleIndex];
     this.ridgeScale = this.scales[maxScaleIndex];
     this.ridgeFrequency = this.morlet.scaleToFrequency(this.ridgeScale, this.sampleRate);
     
