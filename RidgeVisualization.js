@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { BarChart } from 'react-native-svg-charts';
+import { View, Text, StyleSheet } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 
 const RidgeVisualization = ({ scalogram, frequencyLabels, ridgeFrequency, ridgeThreshold }) => {
   if (!scalogram || scalogram.length === 0) {
@@ -32,17 +32,10 @@ const RidgeVisualization = ({ scalogram, frequencyLabels, ridgeFrequency, ridgeT
     
     return {
       value: value,
-      svg: {
-        fill: barColor,
-      },
+      frontColor: barColor,
+      label: index % 5 === 0 ? freq.toFixed(1) : '',
     };
   });
-
-  const yAccessor = ({ item }) => item.value;
-
-  const selectedFreqIndex = frequencyLabels.findIndex(
-    f => Math.abs(f - parseFloat(ridgeFrequency)) < 0.15
-  );
 
   return (
     <View style={styles.container}>
@@ -53,14 +46,21 @@ const RidgeVisualization = ({ scalogram, frequencyLabels, ridgeFrequency, ridgeT
       
       <View style={styles.chartContainer}>
         <BarChart
-          style={styles.chart}
           data={chartData}
-          yAccessor={yAccessor}
-          svg={{ fill: '#2196F3' }}
-          contentInset={{ top: 10, bottom: 10 }}
-          spacing={0.2}
-          gridMin={0}
-          gridMax={maxCoefficient * 1.1}
+          height={180}
+          barWidth={8}
+          spacing={2}
+          noOfSections={4}
+          maxValue={maxCoefficient * 1.1}
+          yAxisThickness={1}
+          xAxisThickness={1}
+          yAxisColor="#999"
+          xAxisColor="#999"
+          yAxisTextStyle={{ fontSize: 10, color: '#666' }}
+          xAxisLabelTextStyle={{ fontSize: 9, color: '#666', width: 30, textAlign: 'center' }}
+          hideRules
+          showGradient={false}
+          disableScroll={true}
         />
       </View>
 
@@ -128,11 +128,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   chartContainer: {
-    height: 200,
     marginBottom: 10,
-  },
-  chart: {
-    flex: 1,
+    paddingLeft: 5,
   },
   frequencyAxis: {
     flexDirection: 'row',
