@@ -76,7 +76,7 @@ A local SQLite database (`polar_sensor.db`) is used for storing sensor data. It 
 
 -   **PPI Toggle in Standard Mode**: Users can switch between HR-only and HR+PPI, affecting PMD service subscription and HR calculation.
 -   **Overnight BLE Connection Persistence**: Includes a screen wake lock (`expo-keep-awake`) and an auto-reconnect mechanism with exponential backoff to maintain continuous data streaming.
--   **Dual HR Calculation in SDK Mode**: Integrates the `fft.js` library and employs a circular PPG buffer to perform Peak Detection and FFT-Based HR calculations every 2 seconds from raw PPG data.
+-   **Dual HR Calculation in SDK Mode**: Employs Peak Detection and FFT-Based algorithms to calculate heart rate every 2 seconds from raw PPG data in a circular buffer.
 -   **Local SQLite Database**: Persists sensor data for post-processing, utilizing batched inserts and robust error handling.
 -   **Cloud Sync to Supabase**: Automatic syncing of sensor readings and sessions to Supabase PostgreSQL database with Row Level Security (RLS) policies.
 -   **Automated Sleep Analysis**: Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
@@ -136,7 +136,8 @@ The project uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35
 -   **buffer (^6.0.3)**
 -   **expo-device (^6.0.2)**
 -   **expo-keep-awake**: For screen wake lock functionality.
--   **fft.js**: For efficient FFT calculations in HR algorithms.
+-   **fft.js**: For FFT-based heart rate calculations from PPG data (SDK mode only).
+-   **discrete-wavelets**: Custom Morlet wavelet implementation for CWT-based step counting.
 
 ### Data Persistence Dependencies
 
