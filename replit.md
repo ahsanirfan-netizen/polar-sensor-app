@@ -96,6 +96,7 @@ The step counting feature employs **Morlet Wavelet Continuous Wavelet Transform 
 -   **Consecutive Frame Confirmation**: Requires N consecutive detection frames before starting step counting, and N consecutive stationary frames before stopping (default N=3, configurable 1-10). This eliminates phantom steps from noise spikes and residual motion, ensuring accurate start/stop transitions. User-configurable via AsyncStorage persistence. Higher values reduce phantom steps but increase startup delay.
 -   **Frequency Integration Step Counting**: Uses ridge frequency for continuous step integration: `steps += ridgeFrequency × Δt`. Double-precision accumulator prevents rounding errors. Elapsed time clamped to CWT interval (2s) to prevent overcounting from clock jitter.
 -   **Real-Time Metrics**: Displays total steps, walking status (🚶 WALKING / Standing Still), cadence (steps/min), ridge frequency (Hz), ridge strength, and wavelet scale for debugging and calibration.
+-   **CWT Scalogram Visualization**: Real-time bar chart displays all 25 wavelet scales (0.8-3.5 Hz) with color-coded ridge indicators. Green bars indicate ridge detection above threshold (walking detected), blue shows above-threshold coefficients, orange shows ridge below threshold, and light blue shows below-threshold values. Updates every 2 seconds with CWT analysis results. Built with react-native-svg-charts for on-device visualization.
 -   **Health Connect Integration**: Automatically syncs step data to Android Health Connect, making it available to Google Fit, Samsung Health, and the entire Android health ecosystem.
 -   **Supabase Storage**: Daily steps are stored in a dedicated `daily_steps` table with walking session details, distance estimates, and calorie calculations.
 
@@ -146,6 +147,11 @@ The project uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35
 -   **expo-secure-store**: For secure token storage.
 -   **react-native-get-random-values**: Required polyfill for Supabase.
 -   **react-native-url-polyfill**: Required polyfill for Supabase.
+
+### Visualization Dependencies
+
+-   **react-native-svg**: SVG rendering for React Native.
+-   **react-native-svg-charts**: Chart library for real-time CWT scalogram visualization.
 
 ### Backend Dependencies (Python Flask API)
 
