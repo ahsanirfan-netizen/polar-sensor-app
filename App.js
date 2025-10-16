@@ -1423,12 +1423,11 @@ export default function App() {
           }
           
           if (offset + 3 > data.length) {
-            const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
+            const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
             setGyroscope(() => gyroDataDisplay);
             
-            const div100 = { x: (x / 100).toFixed(2), y: (y / 100).toFixed(2), z: (z / 100).toFixed(2) };
-            const mult0061 = { x: (x * 0.061035).toFixed(2), y: (y * 0.061035).toFixed(2), z: (z * 0.061035).toFixed(2) };
-            const debugMsg = `RAW: [${x}, ${y}, ${z}] | /100: [${div100.x}, ${div100.y}, ${div100.z}] | ×0.061: [${mult0061.x}, ${mult0061.y}, ${mult0061.z}]`;
+            const div1000 = { x: (x / 1000).toFixed(3), y: (y / 1000).toFixed(3), z: (z / 1000).toFixed(3) };
+            const debugMsg = `RAW: [${x}, ${y}, ${z}] mdps | /1000: [${div1000.x}, ${div1000.y}, ${div1000.z}] deg/s`;
             
             setGyroDebugLogs(prev => {
               const newLogs = [...prev, debugMsg];
@@ -1464,12 +1463,11 @@ export default function App() {
           }
           
           if (i === sampleCount - 1) {
-            const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
+            const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
             setGyroscope(() => gyroDataDisplay);
             
-            const div100 = { x: (x / 100).toFixed(2), y: (y / 100).toFixed(2), z: (z / 100).toFixed(2) };
-            const mult0061 = { x: (x * 0.061035).toFixed(2), y: (y * 0.061035).toFixed(2), z: (z * 0.061035).toFixed(2) };
-            const debugMsg = `RAW: [${x}, ${y}, ${z}] | /100: [${div100.x}, ${div100.y}, ${div100.z}] | ×0.061: [${mult0061.x}, ${mult0061.y}, ${mult0061.z}]`;
+            const div1000 = { x: (x / 1000).toFixed(3), y: (y / 1000).toFixed(3), z: (z / 1000).toFixed(3) };
+            const debugMsg = `RAW: [${x}, ${y}, ${z}] mdps | /1000: [${div1000.x}, ${div1000.y}, ${div1000.z}] deg/s`;
             
             setGyroDebugLogs(prev => {
               const newLogs = [...prev, debugMsg];
@@ -1946,13 +1944,13 @@ export default function App() {
               <View style={styles.sensorCard}>
                 <Text style={styles.sensorTitle}>Gyroscope (deg/s)</Text>
                 <Text style={styles.sensorValue}>
-                  X: {gyroscope.x.toFixed(2)} | Y: {gyroscope.y.toFixed(2)} | Z: {gyroscope.z.toFixed(2)}
+                  X: {gyroscope.x.toFixed(3)} | Y: {gyroscope.y.toFixed(3)} | Z: {gyroscope.z.toFixed(3)}
                 </Text>
               </View>
               
               <View style={styles.debugConsole}>
                 <Text style={styles.debugTitle}>🔍 Gyro Debug Console</Text>
-                <Text style={styles.debugSubtitle}>Compare conversion methods:</Text>
+                <Text style={styles.debugSubtitle}>RAW data in mdps (millidegrees/sec), converted to deg/s:</Text>
                 <ScrollView style={styles.debugLogContainer} nestedScrollEnabled={true}>
                   {gyroDebugLogs.length === 0 ? (
                     <Text style={styles.debugLog}>Waiting for gyroscope data...</Text>

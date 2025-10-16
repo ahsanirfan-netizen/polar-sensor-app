@@ -19,7 +19,8 @@ The **react-native-ble-plx** library handles BLE communication, implementing the
 -   **SDK Mode**: Enables raw PPG, ACC, and Gyro data streaming, including two independent HR calculation algorithms (Peak Detection and FFT-Based) from raw PPG data.
 
 Critical BLE configurations for reliable data streaming include:
--   **ACC Data Scaling**: ACC data in SDK Mode is scaled by a factor of 1000 (1000 counts per G) for accurate gravitational force representation.
+-   **ACC Data Scaling**: ACC data in SDK Mode is in milliG (mG) units per official Polar documentation. Raw int16 values are divided by 1000 to convert to G-force.
+-   **Gyro Data Scaling**: Gyro data in SDK Mode is in millidegrees per second (mdps) units. Raw int16 values are divided by 1000 to convert to degrees per second (deg/s).
 -   **Delta Compression Packet Parsing**: The application correctly parses delta-compressed packets from the Polar sensor, which contain multiple samples per packet, ensuring full data rate (52 Hz) by handling different frame types (uncompressed vs. delta-compressed).
 -   **MTU Configuration**: Requests an MTU of 247 bytes on Android to prevent packet truncation for large delta-compressed packets.
 -   **BLE Connection Priority**: Sets connection priority to `High` on Android for optimal performance and data delivery intervals.
