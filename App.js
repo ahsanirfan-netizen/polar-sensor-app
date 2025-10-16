@@ -1368,6 +1368,7 @@ export default function App() {
         const x0 = data.readInt16LE(offset);
         const y0 = data.readInt16LE(offset + 2);
         const z0 = data.readInt16LE(offset + 4);
+        console.log(`🔍 GYRO RAW: x=${x0}, y=${y0}, z=${z0} | Current /100: x=${(x0/100).toFixed(3)}, y=${(y0/100).toFixed(3)}, z=${(z0/100).toFixed(3)} | Correct ×0.061: x=${(x0*0.061035).toFixed(3)}, y=${(y0*0.061035).toFixed(3)}, z=${(z0*0.061035).toFixed(3)}`);
         offset += 6;
         sampleCount = 1;
         
