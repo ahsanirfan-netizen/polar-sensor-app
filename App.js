@@ -2000,6 +2000,56 @@ export default function App() {
                   )}
                 </ScrollView>
               </View>
+
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>📊 Accelerometer Magnitude (G)</Text>
+                <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
+                {accChartData.length > 0 ? (
+                  <LineChart
+                    data={accChartData}
+                    width={320}
+                    height={180}
+                    curved
+                    thickness={2}
+                    color="#4CAF50"
+                    hideDataPoints
+                    hideRules
+                    hideYAxisText
+                    xAxisColor="#e0e0e0"
+                    yAxisColor="#e0e0e0"
+                    backgroundColor="#fff"
+                    animateOnDataChange
+                    animationDuration={100}
+                  />
+                ) : (
+                  <Text style={styles.chartPlaceholder}>Waiting for accelerometer data...</Text>
+                )}
+              </View>
+
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>📈 Gyroscope Magnitude (deg/s)</Text>
+                <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
+                {gyroChartData.length > 0 ? (
+                  <LineChart
+                    data={gyroChartData}
+                    width={320}
+                    height={180}
+                    curved
+                    thickness={2}
+                    color="#2196F3"
+                    hideDataPoints
+                    hideRules
+                    hideYAxisText
+                    xAxisColor="#e0e0e0"
+                    yAxisColor="#e0e0e0"
+                    backgroundColor="#fff"
+                    animateOnDataChange
+                    animationDuration={100}
+                  />
+                ) : (
+                  <Text style={styles.chartPlaceholder}>Waiting for gyroscope data...</Text>
+                )}
+              </View>
             </>
           ) : (
             <>
@@ -2565,5 +2615,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#333',
     marginBottom: 4,
+  },
+  chartCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  chartSubtitle: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 12,
+  },
+  chartPlaceholder: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 60,
   },
 });
