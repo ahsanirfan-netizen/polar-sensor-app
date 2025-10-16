@@ -95,6 +95,7 @@ export default function App() {
   const gyroChartUpdateCounter = useRef(0);
 
   // Helper function to downsample chart data for mobile display
+  // Samples evenly across the ENTIRE time range to show full session history
   const downsampleChartData = (data, targetPoints = 150) => {
     if (data.length <= targetPoints) {
       return data;
@@ -109,7 +110,7 @@ export default function App() {
       downsampled.push(lastSample);
     }
     
-    return downsampled.slice(-targetPoints); // Final safety cap
+    return downsampled; // Return all downsampled points spanning full session
   };
 
   const ppiEnabledRef = useRef(ppiEnabled);
