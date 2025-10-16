@@ -1249,7 +1249,7 @@ export default function App() {
 
   // Timer for elapsed time since sensor started
   useEffect(() => {
-    if (!connectedDevice || !sdkModeEnabled) {
+    if (!connectedDevice) {
       setSensorElapsedTime('00:00:00');
       sensorStartTimeRef.current = null;
       return;
@@ -1273,7 +1273,7 @@ export default function App() {
     }, 1000);
     
     return () => clearInterval(timerInterval);
-  }, [connectedDevice, sdkModeEnabled]);
+  }, [connectedDevice]);
 
   const parseACCData = (data) => {
     try {
