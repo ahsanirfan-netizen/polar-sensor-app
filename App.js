@@ -1425,6 +1425,15 @@ export default function App() {
           if (offset + 3 > data.length) {
             const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
             setGyroscope(() => gyroDataDisplay);
+            
+            const div100 = { x: (x / 100).toFixed(2), y: (y / 100).toFixed(2), z: (z / 100).toFixed(2) };
+            const mult0061 = { x: (x * 0.061035).toFixed(2), y: (y * 0.061035).toFixed(2), z: (z * 0.061035).toFixed(2) };
+            const debugMsg = `RAW: [${x}, ${y}, ${z}] | /100: [${div100.x}, ${div100.y}, ${div100.z}] | ×0.061: [${mult0061.x}, ${mult0061.y}, ${mult0061.z}]`;
+            
+            setGyroDebugLogs(prev => {
+              const newLogs = [...prev, debugMsg];
+              return newLogs.slice(-10);
+            });
           }
         }
         
@@ -1457,6 +1466,15 @@ export default function App() {
           if (i === sampleCount - 1) {
             const gyroDataDisplay = { x: x / 100, y: y / 100, z: z / 100 };
             setGyroscope(() => gyroDataDisplay);
+            
+            const div100 = { x: (x / 100).toFixed(2), y: (y / 100).toFixed(2), z: (z / 100).toFixed(2) };
+            const mult0061 = { x: (x * 0.061035).toFixed(2), y: (y * 0.061035).toFixed(2), z: (z * 0.061035).toFixed(2) };
+            const debugMsg = `RAW: [${x}, ${y}, ${z}] | /100: [${div100.x}, ${div100.y}, ${div100.z}] | ×0.061: [${mult0061.x}, ${mult0061.y}, ${mult0061.z}]`;
+            
+            setGyroDebugLogs(prev => {
+              const newLogs = [...prev, debugMsg];
+              return newLogs.slice(-10);
+            });
           }
         }
       }
