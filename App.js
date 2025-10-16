@@ -2118,6 +2118,15 @@ export default function App() {
                 </ScrollView>
               </View>
 
+              <View style={styles.positionIndicator}>
+                <Text style={styles.positionTitle}>📍 Sensor Position</Text>
+                <View style={[styles.positionStatus, isSensorFlat ? styles.positionFlat : styles.positionNotFlat]}>
+                  <Text style={styles.positionStatusText}>
+                    {isSensorFlat ? '✓ Flat on Table' : '✗ Not Flat / Being Worn'}
+                  </Text>
+                </View>
+              </View>
+
               <View style={styles.chartCard}>
                 <Text style={styles.chartTitle}>📊 Accelerometer Magnitude (G)</Text>
                 <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
