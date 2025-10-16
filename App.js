@@ -19,7 +19,8 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Switch
+  Switch,
+  Dimensions
 } from 'react-native';
 import { BleManager, ConnectionPriority } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
@@ -45,6 +46,10 @@ const PMD_DATA = 'fb005c82-02e7-f387-1cad-8acd2d8df0c8';
 export default function App() {
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('sensor');
+  
+  // Calculate chart width based on screen size (with padding)
+  const screenWidth = Dimensions.get('window').width;
+  const chartWidth = screenWidth - 64; // Account for card padding and margins
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -2058,7 +2063,7 @@ export default function App() {
                   <View>
                     <LineChart
                       data={accChartData}
-                      width={320}
+                      width={chartWidth}
                       height={180}
                       curved
                       thickness={2}
@@ -2091,7 +2096,7 @@ export default function App() {
                   <View>
                     <LineChart
                       data={gyroChartData}
-                      width={320}
+                      width={chartWidth}
                       height={180}
                       curved
                       thickness={2}
