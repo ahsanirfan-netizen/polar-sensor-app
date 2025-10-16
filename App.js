@@ -1335,25 +1335,25 @@ export default function App() {
             z: z / ACC_SCALE_FACTOR 
           };
           
-          // Update display with last sample
+          // Add to chart data for EVERY sample (store in ref, update state periodically)
+          const now = Date.now();
+          const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
+          accChartDataRaw.current.push({
+            value: magnitude,
+            timestamp: now,
+            label: ''
+          });
+          
+          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+          accChartUpdateCounter.current++;
+          if (accChartUpdateCounter.current >= 20) {
+            accChartUpdateCounter.current = 0;
+            setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
+          }
+          
+          // Update display with last sample in packet
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
-            
-            // Add to chart data (store in ref, update state periodically)
-            const now = Date.now();
-            const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-            accChartDataRaw.current.push({
-              value: magnitude,
-              timestamp: now,
-              label: ''
-            });
-            
-            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-            accChartUpdateCounter.current++;
-            if (accChartUpdateCounter.current >= 20) {
-              accChartUpdateCounter.current = 0;
-              setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
-            }
           }
         }
         
