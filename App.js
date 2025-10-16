@@ -82,6 +82,24 @@ export default function App() {
   const [accChartData, setAccChartData] = useState([]);
   const [gyroChartData, setGyroChartData] = useState([]);
 
+  // Helper function to downsample chart data for mobile display
+  const downsampleChartData = (data, targetPoints = 150) => {
+    if (data.length <= targetPoints) {
+      return data;
+    }
+    const step = Math.ceil(data.length / targetPoints);
+    const downsampled = data.filter((_, index) => index % step === 0);
+    
+    // Always include the most recent sample to keep chart live
+    const lastSample = data[data.length - 1];
+    const lastDownsampled = downsampled[downsampled.length - 1];
+    if (lastSample.timestamp !== lastDownsampled.timestamp) {
+      downsampled.push(lastSample);
+    }
+    
+    return downsampled.slice(-targetPoints); // Final safety cap
+  };
+
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
   const reconnectTimeoutRef = useRef(null);
@@ -1308,7 +1326,7 @@ export default function App() {
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (keep last 1 minute)
+            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
             setAccChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
@@ -1319,7 +1337,10 @@ export default function App() {
               }];
               // Filter to keep only last 60 seconds
               const oneMinuteAgo = now - 60000;
-              return newData.filter(point => point.timestamp > oneMinuteAgo);
+              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
+              
+              // Downsample to ~150 points for smooth display on phone
+              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1360,7 +1381,7 @@ export default function App() {
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (keep last 1 minute)
+            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
             setAccChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
@@ -1371,7 +1392,10 @@ export default function App() {
               }];
               // Filter to keep only last 60 seconds
               const oneMinuteAgo = now - 60000;
-              return newData.filter(point => point.timestamp > oneMinuteAgo);
+              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
+              
+              // Downsample to ~150 points for smooth display on phone
+              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1465,7 +1489,7 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (keep last 1 minute)
+            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
             setGyroChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
@@ -1476,7 +1500,10 @@ export default function App() {
               }];
               // Filter to keep only last 60 seconds
               const oneMinuteAgo = now - 60000;
-              return newData.filter(point => point.timestamp > oneMinuteAgo);
+              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
+              
+              // Downsample to ~150 points for smooth display on phone
+              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1519,7 +1546,7 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (keep last 1 minute)
+            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
             setGyroChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
@@ -1530,7 +1557,10 @@ export default function App() {
               }];
               // Filter to keep only last 60 seconds
               const oneMinuteAgo = now - 60000;
-              return newData.filter(point => point.timestamp > oneMinuteAgo);
+              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
+              
+              // Downsample to ~150 points for smooth display on phone
+              return downsampleChartData(filtered, 150);
             });
           }
         }
