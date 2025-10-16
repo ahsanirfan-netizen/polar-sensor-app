@@ -37,6 +37,8 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 -   **Intelligent Downsampling**: Display state contains ~150 downsampled points for smooth rendering while preserving full session history in refs.
 -   **Responsive Design**: Chart widths dynamically calculated (screenWidth - 120px) to prevent overflow on different devices.
 -   **Magnitude Calculation**: Charts display √(x² + y² + z²) for overall movement/rotation intensity with proper axis labels (G for ACC, deg/s for GYRO).
+-   **ACC Y-Axis Limit**: ACC chart Y-axis is capped at 3G (since actual ACC values never exceed 2G in practice) for better visualization.
+-   **Elapsed Time Timer**: Real-time timer displays elapsed time (HH:MM:SS format) below both charts, starting when sensor connects and resetting on disconnect.
 
 ### Core Features
 

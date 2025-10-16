@@ -2124,6 +2124,7 @@ export default function App() {
                       yAxisTextStyle={{color: '#666', fontSize: 10}}
                       xAxisLabelTextStyle={{color: '#666', fontSize: 10}}
                       noOfSections={4}
+                      maxValue={3}
                       yAxisLabelPrefix=""
                       yAxisLabelSuffix=" G"
                     />
