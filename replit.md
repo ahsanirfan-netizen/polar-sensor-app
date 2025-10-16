@@ -29,11 +29,21 @@ Critical BLE configurations for reliable data streaming include:
 
 A local SQLite database (`polar_sensor.db`) stores sensor data using a batched insert system, flushing buffered readings every second via transactions. Recording is user-controlled and stops on disconnect.
 
+### Chart Visualization Architecture
+
+Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-charts** with a performance-optimized architecture:
+-   **Ref-based Data Accumulation**: Full-resolution sensor data (52 Hz) is stored in mutable refs (`accChartDataRaw`, `gyroChartDataRaw`) to avoid O(N) array copies on every state update.
+-   **Batched State Updates**: Chart display state is updated every 20 samples (~2.6 Hz) instead of 52 Hz, reducing React re-renders by 20x.
+-   **Intelligent Downsampling**: Display state contains ~150 downsampled points for smooth rendering while preserving full session history in refs.
+-   **Responsive Design**: Chart widths dynamically calculated (screenWidth - 120px) to prevent overflow on different devices.
+-   **Magnitude Calculation**: Charts display √(x² + y² + z²) for overall movement/rotation intensity with proper axis labels (G for ACC, deg/s for GYRO).
+
 ### Core Features
 
 -   **PPI Toggle in Standard Mode**: Allows switching between HR-only and HR+PPI.
 -   **Overnight BLE Connection Persistence**: Maintains continuous data streaming with screen wake lock and an auto-reconnect mechanism with exponential backoff.
 -   **Dual HR Calculation in SDK Mode**: Uses Peak Detection and FFT-Based algorithms on PPG data.
+-   **Real-Time Chart Visualization**: Displays magnitude charts for ACC (√(x² + y² + z²) in G) and GYRO (√(x² + y² + z²) in deg/s) showing all accumulated data from session start with intelligent downsampling for performance.
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
 -   **Cloud Sync to Supabase**: Automatically syncs sensor readings and sessions with Supabase PostgreSQL, leveraging Row Level Security.
 -   **Automated Sleep Analysis**: A Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
