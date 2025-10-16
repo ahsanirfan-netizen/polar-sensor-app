@@ -87,12 +87,14 @@ export default function App() {
   const [gyroDebugLogs, setGyroDebugLogs] = useState([]);
   const [accChartData, setAccChartData] = useState([]);
   const [gyroChartData, setGyroChartData] = useState([]);
+  const [sensorElapsedTime, setSensorElapsedTime] = useState('00:00:00');
   
   // Refs to store full raw chart data (avoids O(N) array copies in state)
   const accChartDataRaw = useRef([]);
   const gyroChartDataRaw = useRef([]);
   const accChartUpdateCounter = useRef(0);
   const gyroChartUpdateCounter = useRef(0);
+  const sensorStartTimeRef = useRef(null);
 
   // Helper function to downsample chart data for mobile display
   // Samples evenly across the ENTIRE time range to show full session history
