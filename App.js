@@ -87,6 +87,12 @@ export default function App() {
   const [gyroDebugLogs, setGyroDebugLogs] = useState([]);
   const [accChartData, setAccChartData] = useState([]);
   const [gyroChartData, setGyroChartData] = useState([]);
+  
+  // Refs to store full raw chart data (avoids O(N) array copies in state)
+  const accChartDataRaw = useRef([]);
+  const gyroChartDataRaw = useRef([]);
+  const accChartUpdateCounter = useRef(0);
+  const gyroChartUpdateCounter = useRef(0);
 
   // Helper function to downsample chart data for mobile display
   const downsampleChartData = (data, targetPoints = 150) => {
@@ -1332,16 +1338,21 @@ export default function App() {
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (accumulate all data)
-            setAccChartData(prev => {
-              const now = Date.now();
-              const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-              return [...prev, {
-                value: magnitude,
-                timestamp: now,
-                label: ''
-              }];
+            // Add to chart data (store in ref, update state periodically)
+            const now = Date.now();
+            const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
+            accChartDataRaw.current.push({
+              value: magnitude,
+              timestamp: now,
+              label: ''
             });
+            
+            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+            accChartUpdateCounter.current++;
+            if (accChartUpdateCounter.current >= 20) {
+              accChartUpdateCounter.current = 0;
+              setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
+            }
           }
         }
         
@@ -1381,16 +1392,21 @@ export default function App() {
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (accumulate all data)
-            setAccChartData(prev => {
-              const now = Date.now();
-              const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-              return [...prev, {
-                value: magnitude,
-                timestamp: now,
-                label: ''
-              }];
+            // Add to chart data (store in ref, update state periodically)
+            const now = Date.now();
+            const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
+            accChartDataRaw.current.push({
+              value: magnitude,
+              timestamp: now,
+              label: ''
             });
+            
+            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+            accChartUpdateCounter.current++;
+            if (accChartUpdateCounter.current >= 20) {
+              accChartUpdateCounter.current = 0;
+              setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
+            }
           }
         }
       }
@@ -1483,16 +1499,21 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (accumulate all data)
-            setGyroChartData(prev => {
-              const now = Date.now();
-              const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-              return [...prev, {
-                value: magnitude,
-                timestamp: now,
-                label: ''
-              }];
+            // Add to chart data (store in ref, update state periodically)
+            const now = Date.now();
+            const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
+            gyroChartDataRaw.current.push({
+              value: magnitude,
+              timestamp: now,
+              label: ''
             });
+            
+            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+            gyroChartUpdateCounter.current++;
+            if (gyroChartUpdateCounter.current >= 20) {
+              gyroChartUpdateCounter.current = 0;
+              setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
+            }
           }
         }
         
@@ -1534,16 +1555,21 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (accumulate all data)
-            setGyroChartData(prev => {
-              const now = Date.now();
-              const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-              return [...prev, {
-                value: magnitude,
-                timestamp: now,
-                label: ''
-              }];
+            // Add to chart data (store in ref, update state periodically)
+            const now = Date.now();
+            const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
+            gyroChartDataRaw.current.push({
+              value: magnitude,
+              timestamp: now,
+              label: ''
             });
+            
+            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+            gyroChartUpdateCounter.current++;
+            if (gyroChartUpdateCounter.current >= 20) {
+              gyroChartUpdateCounter.current = 0;
+              setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
+            }
           }
         }
       }
@@ -1642,6 +1668,14 @@ export default function App() {
       ppgTimestampsRef.current = [];
       setHrPeakDetection(null);
       setHrFFT(null);
+      
+      // Clear chart data
+      accChartDataRaw.current = [];
+      gyroChartDataRaw.current = [];
+      accChartUpdateCounter.current = 0;
+      gyroChartUpdateCounter.current = 0;
+      setAccChartData([]);
+      setGyroChartData([]);
       
       setIsRecording(false);
       if (dbBufferRef.current.length > 0) {
@@ -2039,7 +2073,7 @@ export default function App() {
                 {accChartData.length > 0 ? (
                   <View>
                     <LineChart
-                      data={downsampleChartData(accChartData, 150)}
+                      data={accChartData}
                       width={chartWidth}
                       height={180}
                       curved
@@ -2072,7 +2106,7 @@ export default function App() {
                 {gyroChartData.length > 0 ? (
                   <View>
                     <LineChart
-                      data={downsampleChartData(gyroChartData, 150)}
+                      data={gyroChartData}
                       width={chartWidth}
                       height={180}
                       curved
