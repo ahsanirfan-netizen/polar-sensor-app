@@ -2130,6 +2130,10 @@ export default function App() {
                     <View style={styles.axisLabelContainer}>
                       <Text style={styles.xAxisLabel}>Time (since start)</Text>
                     </View>
+                    <View style={styles.timerContainer}>
+                      <Text style={styles.timerLabel}>Elapsed Time: </Text>
+                      <Text style={styles.timerValue}>{sensorElapsedTime}</Text>
+                    </View>
                   </View>
                 ) : (
                   <Text style={styles.chartPlaceholder}>Waiting for accelerometer data...</Text>
@@ -2162,6 +2166,10 @@ export default function App() {
                     />
                     <View style={styles.axisLabelContainer}>
                       <Text style={styles.xAxisLabel}>Time (since start)</Text>
+                    </View>
+                    <View style={styles.timerContainer}>
+                      <Text style={styles.timerLabel}>Elapsed Time: </Text>
+                      <Text style={styles.timerValue}>{sensorElapsedTime}</Text>
                     </View>
                   </View>
                 ) : (
