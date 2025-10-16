@@ -77,6 +77,7 @@ export default function App() {
   const [syncProgress, setSyncProgress] = useState(null);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [lastSyncError, setLastSyncError] = useState(null);
+  const [gyroDebugLogs, setGyroDebugLogs] = useState([]);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
@@ -1368,7 +1369,10 @@ export default function App() {
         const x0 = data.readInt16LE(offset);
         const y0 = data.readInt16LE(offset + 2);
         const z0 = data.readInt16LE(offset + 4);
-        console.log(`🔍 GYRO RAW: x=${x0}, y=${y0}, z=${z0} | Current /100: x=${(x0/100).toFixed(3)}, y=${(y0/100).toFixed(3)}, z=${(z0/100).toFixed(3)} | Correct ×0.061: x=${(x0*0.061035).toFixed(3)}, y=${(y0*0.061035).toFixed(3)}, z=${(z0*0.061035).toFixed(3)}`);
+        
+        const debugMsg = `RAW: [${x0}, ${y0}, ${z0}] | /100: [${(x0/100).toFixed(2)}, ${(y0/100).toFixed(2)}, ${(z0/100).toFixed(2)}] | ×0.061: [${(x0*0.061035).toFixed(2)}, ${(y0*0.061035).toFixed(2)}, ${(z0*0.061035).toFixed(2)}]`;
+        setGyroDebugLogs(prev => [...prev.slice(-9), debugMsg]); // Keep last 10 logs
+        
         offset += 6;
         sampleCount = 1;
         
@@ -1927,6 +1931,20 @@ export default function App() {
                   X: {gyroscope.x.toFixed(2)} | Y: {gyroscope.y.toFixed(2)} | Z: {gyroscope.z.toFixed(2)}
                 </Text>
               </View>
+              
+              <View style={styles.debugConsole}>
+                <Text style={styles.debugTitle}>🔍 Gyro Debug Console</Text>
+                <Text style={styles.debugSubtitle}>Compare conversion methods:</Text>
+                <ScrollView style={styles.debugLogContainer} nestedScrollEnabled={true}>
+                  {gyroDebugLogs.length === 0 ? (
+                    <Text style={styles.debugLog}>Waiting for gyroscope data...</Text>
+                  ) : (
+                    gyroDebugLogs.map((log, index) => (
+                      <Text key={index} style={styles.debugLog}>{log}</Text>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
             </>
           ) : (
             <>
@@ -2461,5 +2479,36 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#007AFF',
     fontWeight: '600',
+  },
+  debugConsole: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  debugSubtitle: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 8,
+  },
+  debugLogContainer: {
+    maxHeight: 150,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    padding: 8,
+  },
+  debugLog: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 10,
+    color: '#333',
+    marginBottom: 4,
   },
 });
