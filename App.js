@@ -1332,21 +1332,15 @@ export default function App() {
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
+            // Add to chart data with timestamp (accumulate all data)
             setAccChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-              const newData = [...prev, {
+              return [...prev, {
                 value: magnitude,
                 timestamp: now,
                 label: ''
               }];
-              // Filter to keep only last 60 seconds
-              const oneMinuteAgo = now - 60000;
-              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
-              
-              // Downsample to ~150 points for smooth display on phone
-              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1387,21 +1381,15 @@ export default function App() {
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
             
-            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
+            // Add to chart data with timestamp (accumulate all data)
             setAccChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-              const newData = [...prev, {
+              return [...prev, {
                 value: magnitude,
                 timestamp: now,
                 label: ''
               }];
-              // Filter to keep only last 60 seconds
-              const oneMinuteAgo = now - 60000;
-              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
-              
-              // Downsample to ~150 points for smooth display on phone
-              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1495,21 +1483,15 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
+            // Add to chart data with timestamp (accumulate all data)
             setGyroChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-              const newData = [...prev, {
+              return [...prev, {
                 value: magnitude,
                 timestamp: now,
                 label: ''
               }];
-              // Filter to keep only last 60 seconds
-              const oneMinuteAgo = now - 60000;
-              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
-              
-              // Downsample to ~150 points for smooth display on phone
-              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -1552,21 +1534,15 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data with timestamp (keep last 1 minute, downsample for display)
+            // Add to chart data with timestamp (accumulate all data)
             setGyroChartData(prev => {
               const now = Date.now();
               const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-              const newData = [...prev, {
+              return [...prev, {
                 value: magnitude,
                 timestamp: now,
                 label: ''
               }];
-              // Filter to keep only last 60 seconds
-              const oneMinuteAgo = now - 60000;
-              const filtered = newData.filter(point => point.timestamp > oneMinuteAgo);
-              
-              // Downsample to ~150 points for smooth display on phone
-              return downsampleChartData(filtered, 150);
             });
           }
         }
@@ -2063,7 +2039,7 @@ export default function App() {
                 {accChartData.length > 0 ? (
                   <View>
                     <LineChart
-                      data={accChartData}
+                      data={downsampleChartData(accChartData, 150)}
                       width={chartWidth}
                       height={180}
                       curved
@@ -2082,7 +2058,7 @@ export default function App() {
                       yAxisLabelSuffix=" G"
                     />
                     <View style={styles.axisLabelContainer}>
-                      <Text style={styles.xAxisLabel}>Time (last 60 seconds)</Text>
+                      <Text style={styles.xAxisLabel}>Time (since start)</Text>
                     </View>
                   </View>
                 ) : (
@@ -2096,7 +2072,7 @@ export default function App() {
                 {gyroChartData.length > 0 ? (
                   <View>
                     <LineChart
-                      data={gyroChartData}
+                      data={downsampleChartData(gyroChartData, 150)}
                       width={chartWidth}
                       height={180}
                       curved
@@ -2115,7 +2091,7 @@ export default function App() {
                       yAxisLabelSuffix=" °/s"
                     />
                     <View style={styles.axisLabelContainer}>
-                      <Text style={styles.xAxisLabel}>Time (last 60 seconds)</Text>
+                      <Text style={styles.xAxisLabel}>Time (since start)</Text>
                     </View>
                   </View>
                 ) : (
