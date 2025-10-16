@@ -31,6 +31,7 @@ import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
 import DebugConsole from './DebugConsole';
+import { LineChart } from 'react-native-gifted-charts';
 
 const bleManager = new BleManager();
 
@@ -78,6 +79,8 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [lastSyncError, setLastSyncError] = useState(null);
   const [gyroDebugLogs, setGyroDebugLogs] = useState([]);
+  const [accChartData, setAccChartData] = useState([]);
+  const [gyroChartData, setGyroChartData] = useState([]);
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
