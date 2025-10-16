@@ -2827,4 +2827,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
+  positionIndicator: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  positionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  positionStatus: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  positionFlat: {
+    backgroundColor: '#4CAF50',
+  },
+  positionNotFlat: {
+    backgroundColor: '#FF9800',
+  },
+  positionStatusText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });
