@@ -2111,6 +2111,7 @@ export default function App() {
                     <LineChart
                       data={accChartData}
                       width={chartWidth}
+                      spacing={accChartData.length > 1 ? Math.max(chartWidth / (accChartData.length - 1), 1) : chartWidth}
                       height={180}
                       curved
                       thickness={2}
@@ -2149,6 +2150,7 @@ export default function App() {
                     <LineChart
                       data={gyroChartData}
                       width={chartWidth}
+                      spacing={gyroChartData.length > 1 ? Math.max(chartWidth / (gyroChartData.length - 1), 1) : chartWidth}
                       height={180}
                       curved
                       thickness={2}
