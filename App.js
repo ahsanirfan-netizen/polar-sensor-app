@@ -47,9 +47,10 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('sensor');
   
-  // Calculate chart width based on screen size (with padding)
+  // Calculate chart width based on screen size (with all padding/margins)
   const screenWidth = Dimensions.get('window').width;
-  const chartWidth = screenWidth - 64; // Account for card padding and margins
+  // Account for: dataContainer horizontal padding (40) + chartCard padding (32) + Y-axis labels (~40) + buffer (10)
+  const chartWidth = Math.max(screenWidth - 120, 250); // Minimum 250px for readability
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
