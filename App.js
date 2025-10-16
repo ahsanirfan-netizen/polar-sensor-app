@@ -2779,4 +2779,25 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
   },
+  timerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  timerLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  timerValue: {
+    fontSize: 16,
+    color: '#2196F3',
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
 });
