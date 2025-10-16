@@ -1547,8 +1547,26 @@ export default function App() {
             });
           }
           
+          const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
+          
+          // Add to chart data for EVERY sample (store in ref, update state periodically)
+          const now = Date.now();
+          const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
+          gyroChartDataRaw.current.push({
+            value: magnitude,
+            timestamp: now,
+            label: ''
+          });
+          
+          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
+          gyroChartUpdateCounter.current++;
+          if (gyroChartUpdateCounter.current >= 20) {
+            gyroChartUpdateCounter.current = 0;
+            setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
+          }
+          
+          // Update display and debug logs with last sample in packet
           if (i === sampleCount - 1) {
-            const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
             setGyroscope(() => gyroDataDisplay);
             
             const div1000 = { x: (x / 1000).toFixed(3), y: (y / 1000).toFixed(3), z: (z / 1000).toFixed(3) };
@@ -1558,22 +1576,6 @@ export default function App() {
               const newLogs = [...prev, debugMsg];
               return newLogs.slice(-10);
             });
-            
-            // Add to chart data (store in ref, update state periodically)
-            const now = Date.now();
-            const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-            gyroChartDataRaw.current.push({
-              value: magnitude,
-              timestamp: now,
-              label: ''
-            });
-            
-            // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-            gyroChartUpdateCounter.current++;
-            if (gyroChartUpdateCounter.current >= 20) {
-              gyroChartUpdateCounter.current = 0;
-              setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
-            }
           }
         }
       }
