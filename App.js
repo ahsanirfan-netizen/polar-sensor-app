@@ -1308,13 +1308,18 @@ export default function App() {
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
             
-            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            // Add to chart data with timestamp (keep last 1 minute)
             setAccChartData(prev => {
+              const now = Date.now();
+              const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
               const newData = [...prev, {
-                value: Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2),
+                value: magnitude,
+                timestamp: now,
                 label: ''
               }];
-              return newData.slice(-100);
+              // Filter to keep only last 60 seconds
+              const oneMinuteAgo = now - 60000;
+              return newData.filter(point => point.timestamp > oneMinuteAgo);
             });
           }
         }
@@ -1355,13 +1360,18 @@ export default function App() {
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
             
-            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            // Add to chart data with timestamp (keep last 1 minute)
             setAccChartData(prev => {
+              const now = Date.now();
+              const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
               const newData = [...prev, {
-                value: Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2),
+                value: magnitude,
+                timestamp: now,
                 label: ''
               }];
-              return newData.slice(-100);
+              // Filter to keep only last 60 seconds
+              const oneMinuteAgo = now - 60000;
+              return newData.filter(point => point.timestamp > oneMinuteAgo);
             });
           }
         }
@@ -1455,13 +1465,18 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            // Add to chart data with timestamp (keep last 1 minute)
             setGyroChartData(prev => {
+              const now = Date.now();
+              const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
               const newData = [...prev, {
-                value: Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2),
+                value: magnitude,
+                timestamp: now,
                 label: ''
               }];
-              return newData.slice(-100);
+              // Filter to keep only last 60 seconds
+              const oneMinuteAgo = now - 60000;
+              return newData.filter(point => point.timestamp > oneMinuteAgo);
             });
           }
         }
@@ -1504,13 +1519,18 @@ export default function App() {
               return newLogs.slice(-10);
             });
             
-            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            // Add to chart data with timestamp (keep last 1 minute)
             setGyroChartData(prev => {
+              const now = Date.now();
+              const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
               const newData = [...prev, {
-                value: Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2),
+                value: magnitude,
+                timestamp: now,
                 label: ''
               }];
-              return newData.slice(-100);
+              // Filter to keep only last 60 seconds
+              const oneMinuteAgo = now - 60000;
+              return newData.filter(point => point.timestamp > oneMinuteAgo);
             });
           }
         }
@@ -2005,22 +2025,30 @@ export default function App() {
                 <Text style={styles.chartTitle}>📊 Accelerometer Magnitude (G)</Text>
                 <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
                 {accChartData.length > 0 ? (
-                  <LineChart
-                    data={accChartData}
-                    width={320}
-                    height={180}
-                    curved
-                    thickness={2}
-                    color="#4CAF50"
-                    hideDataPoints
-                    hideRules
-                    hideYAxisText
-                    xAxisColor="#e0e0e0"
-                    yAxisColor="#e0e0e0"
-                    backgroundColor="#fff"
-                    animateOnDataChange
-                    animationDuration={100}
-                  />
+                  <View>
+                    <LineChart
+                      data={accChartData}
+                      width={320}
+                      height={180}
+                      curved
+                      thickness={2}
+                      color="#4CAF50"
+                      hideDataPoints
+                      xAxisColor="#e0e0e0"
+                      yAxisColor="#e0e0e0"
+                      backgroundColor="#fff"
+                      animateOnDataChange
+                      animationDuration={100}
+                      yAxisTextStyle={{color: '#666', fontSize: 10}}
+                      xAxisLabelTextStyle={{color: '#666', fontSize: 10}}
+                      noOfSections={4}
+                      yAxisLabelPrefix=""
+                      yAxisLabelSuffix=" G"
+                    />
+                    <View style={styles.axisLabelContainer}>
+                      <Text style={styles.xAxisLabel}>Time (last 60 seconds)</Text>
+                    </View>
+                  </View>
                 ) : (
                   <Text style={styles.chartPlaceholder}>Waiting for accelerometer data...</Text>
                 )}
@@ -2030,22 +2058,30 @@ export default function App() {
                 <Text style={styles.chartTitle}>📈 Gyroscope Magnitude (deg/s)</Text>
                 <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
                 {gyroChartData.length > 0 ? (
-                  <LineChart
-                    data={gyroChartData}
-                    width={320}
-                    height={180}
-                    curved
-                    thickness={2}
-                    color="#2196F3"
-                    hideDataPoints
-                    hideRules
-                    hideYAxisText
-                    xAxisColor="#e0e0e0"
-                    yAxisColor="#e0e0e0"
-                    backgroundColor="#fff"
-                    animateOnDataChange
-                    animationDuration={100}
-                  />
+                  <View>
+                    <LineChart
+                      data={gyroChartData}
+                      width={320}
+                      height={180}
+                      curved
+                      thickness={2}
+                      color="#2196F3"
+                      hideDataPoints
+                      xAxisColor="#e0e0e0"
+                      yAxisColor="#e0e0e0"
+                      backgroundColor="#fff"
+                      animateOnDataChange
+                      animationDuration={100}
+                      yAxisTextStyle={{color: '#666', fontSize: 10}}
+                      xAxisLabelTextStyle={{color: '#666', fontSize: 10}}
+                      noOfSections={4}
+                      yAxisLabelPrefix=""
+                      yAxisLabelSuffix=" °/s"
+                    />
+                    <View style={styles.axisLabelContainer}>
+                      <Text style={styles.xAxisLabel}>Time (last 60 seconds)</Text>
+                    </View>
+                  </View>
                 ) : (
                   <Text style={styles.chartPlaceholder}>Waiting for gyroscope data...</Text>
                 )}
@@ -2643,5 +2679,14 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingVertical: 60,
+  },
+  axisLabelContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  xAxisLabel: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
   },
 });
