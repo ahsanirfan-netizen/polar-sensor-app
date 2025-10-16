@@ -1247,6 +1247,34 @@ export default function App() {
     return () => clearInterval(interval);
   }, [sdkModeEnabled, connectedDevice]);
 
+  // Timer for elapsed time since sensor started
+  useEffect(() => {
+    if (!connectedDevice || !sdkModeEnabled) {
+      setSensorElapsedTime('00:00:00');
+      sensorStartTimeRef.current = null;
+      return;
+    }
+    
+    // Set start time when sensor begins streaming
+    if (!sensorStartTimeRef.current) {
+      sensorStartTimeRef.current = Date.now();
+    }
+    
+    const timerInterval = setInterval(() => {
+      if (sensorStartTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - sensorStartTimeRef.current) / 1000);
+        const hours = Math.floor(elapsed / 3600);
+        const minutes = Math.floor((elapsed % 3600) / 60);
+        const seconds = elapsed % 60;
+        
+        const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        setSensorElapsedTime(formatted);
+      }
+    }, 1000);
+    
+    return () => clearInterval(timerInterval);
+  }, [connectedDevice, sdkModeEnabled]);
+
   const parseACCData = (data) => {
     try {
       incrementPacketCount();
