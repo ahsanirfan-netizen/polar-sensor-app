@@ -88,6 +88,7 @@ export default function App() {
   const [accChartData, setAccChartData] = useState([]);
   const [gyroChartData, setGyroChartData] = useState([]);
   const [sensorElapsedTime, setSensorElapsedTime] = useState('00:00:00');
+  const [isSensorFlat, setIsSensorFlat] = useState(false);
   
   // Refs to store full raw chart data (avoids O(N) array copies in state)
   const accChartDataRaw = useRef([]);
