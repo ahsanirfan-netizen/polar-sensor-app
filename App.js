@@ -1385,6 +1385,13 @@ export default function App() {
           // Update display with last sample in packet
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
+            
+            // Check if sensor is flat on table (one axis ~1G, others ~0G)
+            const isFlat = 
+              (Math.abs(accData.z) > 0.9 && Math.abs(accData.x) < 0.2 && Math.abs(accData.y) < 0.2) ||
+              (Math.abs(accData.x) > 0.9 && Math.abs(accData.y) < 0.2 && Math.abs(accData.z) < 0.2) ||
+              (Math.abs(accData.y) > 0.9 && Math.abs(accData.x) < 0.2 && Math.abs(accData.z) < 0.2);
+            setIsSensorFlat(isFlat);
           }
         }
         
@@ -1440,6 +1447,13 @@ export default function App() {
           // Update display with last sample in packet
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
+            
+            // Check if sensor is flat on table (one axis ~1G, others ~0G)
+            const isFlat = 
+              (Math.abs(accData.z) > 0.9 && Math.abs(accData.x) < 0.2 && Math.abs(accData.y) < 0.2) ||
+              (Math.abs(accData.x) > 0.9 && Math.abs(accData.y) < 0.2 && Math.abs(accData.z) < 0.2) ||
+              (Math.abs(accData.y) > 0.9 && Math.abs(accData.x) < 0.2 && Math.abs(accData.z) < 0.2);
+            setIsSensorFlat(isFlat);
           }
         }
       }
