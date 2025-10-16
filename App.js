@@ -1307,6 +1307,15 @@ export default function App() {
           // Update display with last sample
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
+            
+            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            setAccChartData(prev => {
+              const newData = [...prev, {
+                value: Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2),
+                label: ''
+              }];
+              return newData.slice(-100);
+            });
           }
         }
         
@@ -1345,6 +1354,15 @@ export default function App() {
           
           if (i === sampleCount - 1) {
             setAccelerometer(() => accData);
+            
+            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            setAccChartData(prev => {
+              const newData = [...prev, {
+                value: Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2),
+                label: ''
+              }];
+              return newData.slice(-100);
+            });
           }
         }
       }
@@ -1436,6 +1454,15 @@ export default function App() {
               const newLogs = [...prev, debugMsg];
               return newLogs.slice(-10);
             });
+            
+            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            setGyroChartData(prev => {
+              const newData = [...prev, {
+                value: Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2),
+                label: ''
+              }];
+              return newData.slice(-100);
+            });
           }
         }
         
@@ -1475,6 +1502,15 @@ export default function App() {
             setGyroDebugLogs(prev => {
               const newLogs = [...prev, debugMsg];
               return newLogs.slice(-10);
+            });
+            
+            // Add to chart data (keep last 100 points for ~2 sec at 52Hz)
+            setGyroChartData(prev => {
+              const newData = [...prev, {
+                value: Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2),
+                label: ''
+              }];
+              return newData.slice(-100);
             });
           }
         }
