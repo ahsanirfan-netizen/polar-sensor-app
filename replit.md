@@ -48,13 +48,45 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 -   **Real-Time Chart Visualization**: Displays magnitude charts for ACC (√(x² + y² + z²) in G) and GYRO (√(x² + y² + z²) in deg/s) showing all accumulated data from session start with intelligent downsampling for performance.
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
 -   **Cloud Sync to Supabase**: Automatically syncs sensor readings and sessions with Supabase PostgreSQL, leveraging Row Level Security.
--   **Automated Sleep Analysis**: A Python Flask backend processes PPG and accelerometer data to calculate sleep metrics (onset, wake time, efficiency, awakenings, WASO) and stores results in Supabase.
+-   **Automated Sleep Analysis**: A Python Flask backend processes PPG and accelerometer data using multiple algorithms:
+    -   **Native Algorithm**: Basic sleep detection using activity and heart rate thresholds
+    -   **Cole-Kripke Algorithm**: Research-validated actigraphy-based sleep analysis
+    -   **HAVOK Analysis**: Advanced ultradian rhythm detection using Hankel Alternative View of Koopman decomposition
 -   **Tab Navigation**: Provides views for real-time monitoring and sleep analysis.
 -   **On-Device Debug Console**: A floating overlay captures and displays console logs with features like pause/resume auto-scroll and safe serialization.
 
+### Sleep Analysis Algorithms
+
+#### HAVOK (Hankel Alternative View of Koopman) Analysis
+HAVOK is a cutting-edge dynamical systems approach for detecting ultradian rhythms and state transitions in overnight sensor data:
+
+**Algorithm Parameters:**
+-   **stackmax (100)**: Time-delay embedding dimension for physiological data
+-   **svd_rank (15)**: Number of singular value decomposition modes retained
+-   **Ultradian range**: Detects cycles from 30 minutes to 3 hours (sleep cycles, rest-activity patterns)
+
+**Data Requirements:**
+-   Minimum 6-8 hours of overnight ACC + PPG data
+-   Downsampled to 1-minute epochs for analysis
+-   Uses same data collected for Cole-Kripke analysis
+
+**Output Metrics:**
+-   **Ultradian Cycles Detected**: Number of sleep cycles identified
+-   **Average Cycle Duration**: Mean cycle length in minutes
+-   **Rhythm Stability Score**: First SVD mode dominance (0-1, higher = more stable)
+-   **State Transitions Count**: Number of significant physiological state changes
+-   **Dominant Period**: Primary ultradian rhythm period in minutes
+-   **Chaos Indicator**: Mean forcing magnitude (higher = more chaotic/fragmented sleep)
+
+**Implementation:**
+-   Uses SVD decomposition on Hankel matrix of sensor data
+-   Autocorrelation-based cycle detection
+-   Forcing signal analysis for state transition detection
+-   Located in `backend/havok_analysis.py`
+
 ### Database Schema
 
-Supabase tables required: `sessions`, `sensor_readings`, `sleep_analysis`, and `sleep_analysis_hypnospy`.
+Supabase tables required: `sessions`, `sensor_readings`, `sleep_analysis`, `sleep_analysis_hypnospy`, and `sleep_analysis_havok`.
 
 ### Project Configuration
 
