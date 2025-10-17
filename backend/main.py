@@ -1073,6 +1073,175 @@ def analyze_sleep_hypnospy():
         
         return jsonify({'error': error_msg}), 500
 
+@app.route('/analyze-sleep-havok', methods=['POST'])
+def analyze_sleep_havok():
+    start_time = time.time()
+    
+    if not supabase:
+        return jsonify({
+            'error': 'Database not initialized. Server environment variables missing.',
+            'hint': 'Check /logs endpoint for details'
+        }), 503
+    
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        auth_header = request.headers.get('Authorization')
+        
+        if not session_id:
+            return jsonify({'error': 'session_id is required'}), 400
+        
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Authorization header required'}), 401
+        
+        token = auth_header.split('Bearer ')[1]
+        
+        user_response = supabase.auth.get_user(token)
+        user_id = user_response.user.id
+        
+        session_response = supabase.table('sessions').select('*').eq('id', session_id).eq('user_id', user_id).single().execute()
+        
+        if not session_response.data:
+            return jsonify({'error': 'Session not found or access denied'}), 404
+        
+        try:
+            supabase.table('sleep_analysis_havok').insert({
+                'user_id': user_id,
+                'session_id': session_id,
+                'processing_status': 'processing'
+            }).execute()
+            is_owner = True
+        except Exception as insert_error:
+            if 'duplicate key' in str(insert_error).lower() or 'unique' in str(insert_error).lower():
+                is_owner = False
+                existing = supabase.table('sleep_analysis_havok').select('*').eq('session_id', session_id).single().execute()
+                
+                if existing.data:
+                    if existing.data['processing_status'] == 'completed':
+                        return jsonify({
+                            'status': 'completed',
+                            'cached': True,
+                            'analysis': existing.data
+                        }), 200
+                    elif existing.data['processing_status'] == 'processing':
+                        return jsonify({
+                            'status': 'processing',
+                            'message': 'HAVOK analysis already in progress'
+                        }), 202
+                    elif existing.data['processing_status'] == 'error':
+                        supabase.table('sleep_analysis_havok').update({
+                            'processing_status': 'processing',
+                            'processing_error': None
+                        }).eq('session_id', session_id).execute()
+                        is_owner = True
+            else:
+                raise
+        
+        # Fetch all records using pagination
+        all_readings = []
+        page_size = 1000
+        page = 0
+        
+        logger.info(f"[HAVOK] Fetching sensor readings for session {session_id}...")
+        while True:
+            start = page * page_size
+            end = start + page_size - 1
+            
+            batch_response = supabase.table('sensor_readings') \
+                .select('timestamp, ppg, acc_x, acc_y, acc_z') \
+                .eq('session_id', session_id) \
+                .order('timestamp') \
+                .range(start, end) \
+                .execute()
+            
+            if not batch_response.data:
+                break
+            
+            all_readings.extend(batch_response.data)
+            logger.info(f"[HAVOK] Fetched page {page + 1}: {len(batch_response.data)} records (total: {len(all_readings)})")
+            
+            if len(batch_response.data) < page_size:
+                break
+            
+            page += 1
+        
+        logger.info(f"[HAVOK] Total records fetched: {len(all_readings)}")
+        
+        if not all_readings or len(all_readings) < 100:
+            raise ValueError('Insufficient data for HAVOK analysis (minimum 100 samples required)')
+        
+        processing_stats = {'raw_records': len(all_readings)}
+        
+        df = pd.DataFrame(all_readings)
+        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+        
+        processing_stats['ppg_records'] = df['ppg'].notna().sum()
+        processing_stats['acc_records'] = (df['acc_x'].notna() & df['acc_y'].notna() & df['acc_z'].notna()).sum()
+        
+        # Calculate HR and activity metrics (same as other endpoints)
+        hr_data = calculate_heart_rate_from_ppg(df)
+        processing_stats['hr_calculated'] = len(hr_data)
+        
+        activity_data = calculate_activity_metrics(df)
+        processing_stats['activity_calculated'] = len(activity_data)
+        
+        # Merge data
+        if len(hr_data) == 0 and len(activity_data) == 0:
+            raise ValueError('Insufficient sensor data for HAVOK analysis')
+        elif len(activity_data) == 0:
+            merged_data = hr_data.copy()
+            merged_data['activity_magnitude'] = 0
+        elif len(hr_data) == 0:
+            merged_data = activity_data.copy()
+            merged_data['heart_rate'] = None
+        else:
+            merged_data = pd.merge_asof(
+                activity_data.sort_values('timestamp'),
+                hr_data.sort_values('timestamp'),
+                on='timestamp',
+                direction='nearest',
+                tolerance=pd.Timedelta('30s')
+            )
+        
+        logger.info(f"[HAVOK] Applying HAVOK analysis to {len(merged_data)} records...")
+        
+        # Import and apply HAVOK
+        from havok_analysis import extract_havok_metrics
+        havok_metrics = extract_havok_metrics(merged_data)
+        
+        havok_metrics['user_id'] = user_id
+        havok_metrics['session_id'] = session_id
+        havok_metrics['processing_status'] = 'completed'
+        havok_metrics['processed_at'] = datetime.now(timezone.utc).isoformat()
+        havok_metrics['processing_duration_seconds'] = time.time() - start_time
+        
+        supabase.table('sleep_analysis_havok').update(havok_metrics).eq('session_id', session_id).execute()
+        
+        logger.info(f"[HAVOK] Analysis complete: {havok_metrics.get('ultradian_cycles_detected', 0)} cycles detected")
+        
+        return jsonify({
+            'status': 'completed',
+            'cached': False,
+            'analysis': havok_metrics
+        }), 200
+        
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f'[HAVOK] Error: {error_msg}')
+        
+        if session_id and locals().get('is_owner', False):
+            try:
+                supabase.table('sleep_analysis_havok').update({
+                    'processing_status': 'error',
+                    'processing_error': error_msg,
+                    'processed_at': datetime.now(timezone.utc).isoformat(),
+                    'processing_duration_seconds': time.time() - start_time
+                }).eq('session_id', session_id).execute()
+            except:
+                pass
+        
+        return jsonify({'error': error_msg}), 500
+
 if __name__ == '__main__':
     # Replit deployment sets PORT automatically, fallback to 8081 for local dev
     port = int(os.getenv('PORT', 8081))
