@@ -23,6 +23,7 @@ export default function SleepAnalysisScreen() {
   const [sessions, setSessions] = useState([]);
   const [nativeAnalyses, setNativeAnalyses] = useState({});
   const [hypnospyAnalyses, setHypnospyAnalyses] = useState({});
+  const [havokAnalyses, setHavokAnalyses] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingSessionId, setProcessingSessionId] = useState(null);
@@ -61,6 +62,12 @@ export default function SleepAnalysisScreen() {
 
       if (hypnospyError) throw hypnospyError;
 
+      const { data: havokAnalysesData, error: havokError } = await supabase
+        .from('sleep_analysis_havok')
+        .select('*');
+
+      if (havokError) throw havokError;
+
       const nativeMap = {};
       (nativeAnalysesData || []).forEach(analysis => {
         nativeMap[analysis.session_id] = analysis;
@@ -72,6 +79,12 @@ export default function SleepAnalysisScreen() {
         hypnospyMap[analysis.session_id] = analysis;
       });
       setHypnospyAnalyses(hypnospyMap);
+
+      const havokMap = {};
+      (havokAnalysesData || []).forEach(analysis => {
+        havokMap[analysis.session_id] = analysis;
+      });
+      setHavokAnalyses(havokMap);
 
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -113,7 +126,12 @@ export default function SleepAnalysisScreen() {
         return;
       }
 
-      const endpoint = algorithm === 'hypnospy' ? '/analyze-sleep-hypnospy' : '/analyze-sleep';
+      let endpoint = '/analyze-sleep';
+      if (algorithm === 'hypnospy') {
+        endpoint = '/analyze-sleep-hypnospy';
+      } else if (algorithm === 'havok') {
+        endpoint = '/analyze-sleep-havok';
+      }
 
       const response = await fetch(`${SLEEP_API_URL}${endpoint}`, {
         method: 'POST',
@@ -148,11 +166,12 @@ export default function SleepAnalysisScreen() {
 
       if (response.ok) {
         if (result.status === 'completed') {
+          const algorithmName = algorithm === 'hypnospy' ? 'HypnosPy' : algorithm === 'havok' ? 'HAVOK' : 'Native';
           Alert.alert(
             'Analysis Complete!',
             result.cached 
-              ? `Loaded existing ${algorithm === 'hypnospy' ? 'HypnosPy' : 'native'} analysis.` 
-              : `${algorithm === 'hypnospy' ? 'HypnosPy' : 'Native'} sleep analysis completed successfully!`
+              ? `Loaded existing ${algorithmName} analysis.` 
+              : `${algorithmName} sleep analysis completed successfully!`
           );
           loadSessions();
         } else if (result.status === 'processing') {
@@ -180,6 +199,63 @@ export default function SleepAnalysisScreen() {
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);
     return `${hours}h ${mins}m`;
+  };
+
+  const renderHavokResults = (analysis) => {
+    if (!analysis || analysis.processing_status !== 'completed') return null;
+
+    return (
+      <View style={styles.analysisSection}>
+        <Text style={[styles.sectionTitle, styles.havokTitle]}>
+          🌊 HAVOK Ultradian Rhythm Analysis
+        </Text>
+        
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Sleep Cycles</Text>
+            <Text style={styles.metricValue}>
+              {analysis.ultradian_cycles_detected || 0}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Avg Cycle</Text>
+            <Text style={styles.metricValue}>
+              {analysis.average_cycle_duration_minutes ? `${analysis.average_cycle_duration_minutes}m` : 'N/A'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Rhythm Stability</Text>
+            <Text style={styles.metricValue}>
+              {analysis.rhythm_stability_score?.toFixed(2) || 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>State Changes</Text>
+            <Text style={styles.metricValue}>
+              {analysis.state_transitions_count || 0}
+            </Text>
+          </View>
+        </View>
+
+        {analysis.dominant_period_minutes && (
+          <View style={styles.hrSection}>
+            <Text style={styles.hrLabel}>
+              Dominant Period: {analysis.dominant_period_minutes} minutes
+            </Text>
+            <Text style={styles.hrLabel}>
+              Session: {analysis.session_duration_hours?.toFixed(1)}h
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.algorithmNote}>
+          HAVOK Analysis • SVD Rank: {analysis.svd_rank} • Stackmax: {analysis.stackmax}
+        </Text>
+      </View>
+    );
   };
 
   const renderAnalysisResults = (analysis, title, algorithmType) => {
@@ -255,13 +331,16 @@ export default function SleepAnalysisScreen() {
   const renderSessionCard = (session) => {
     const nativeAnalysis = nativeAnalyses[session.id];
     const hypnospyAnalysis = hypnospyAnalyses[session.id];
+    const havokAnalysis = havokAnalyses[session.id];
     const selectedAlgorithm = selectedAlgorithms[session.id] || 'native';
     const isProcessing = processingSessionId === session.id;
 
     const hasNativeAnalysis = nativeAnalysis && nativeAnalysis.processing_status === 'completed';
     const hasHypnospyAnalysis = hypnospyAnalysis && hypnospyAnalysis.processing_status === 'completed';
+    const hasHavokAnalysis = havokAnalysis && havokAnalysis.processing_status === 'completed';
     const hasNativeError = nativeAnalysis?.processing_status === 'error';
     const hasHypnospyError = hypnospyAnalysis?.processing_status === 'error';
+    const hasHavokError = havokAnalysis?.processing_status === 'error';
 
     return (
       <View key={session.id} style={styles.card}>
@@ -288,6 +367,7 @@ export default function SleepAnalysisScreen() {
 
         {hasNativeAnalysis && renderAnalysisResults(nativeAnalysis, '📊 Native Algorithm Results', 'native')}
         {hasHypnospyAnalysis && renderAnalysisResults(hypnospyAnalysis, '🧪 HypnosPy Algorithm Results', 'hypnospy')}
+        {hasHavokAnalysis && renderHavokResults(havokAnalysis)}
 
         {hasNativeError && (
           <View style={styles.errorSection}>
@@ -303,6 +383,13 @@ export default function SleepAnalysisScreen() {
           </View>
         )}
 
+        {hasHavokError && (
+          <View style={styles.errorSection}>
+            <Text style={styles.errorText}>⚠️ HAVOK Analysis Error</Text>
+            <Text style={styles.errorDetail}>{havokAnalysis.processing_error}</Text>
+          </View>
+        )}
+
         <View style={styles.algorithmSelector}>
           <Text style={styles.selectorLabel}>Select Algorithm:</Text>
           <View style={styles.radioGroup}>
@@ -313,7 +400,7 @@ export default function SleepAnalysisScreen() {
               <View style={[styles.radio, selectedAlgorithm === 'native' && styles.radioSelected]}>
                 {selectedAlgorithm === 'native' && <View style={styles.radioDot} />}
               </View>
-              <Text style={styles.radioLabel}>Native Algorithm</Text>
+              <Text style={styles.radioLabel}>Native</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -323,7 +410,17 @@ export default function SleepAnalysisScreen() {
               <View style={[styles.radio, selectedAlgorithm === 'hypnospy' && styles.radioSelected]}>
                 {selectedAlgorithm === 'hypnospy' && <View style={styles.radioDot} />}
               </View>
-              <Text style={styles.radioLabel}>HypnosPy</Text>
+              <Text style={styles.radioLabel}>Cole-Kripke</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.radioOption}
+              onPress={() => setSelectedAlgorithm(session.id, 'havok')}
+            >
+              <View style={[styles.radio, selectedAlgorithm === 'havok' && styles.radioSelected]}>
+                {selectedAlgorithm === 'havok' && <View style={styles.radioDot} />}
+              </View>
+              <Text style={styles.radioLabel}>HAVOK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -343,7 +440,7 @@ export default function SleepAnalysisScreen() {
             </View>
           ) : (
             <Text style={styles.buttonText}>
-              Analyze with {selectedAlgorithm === 'hypnospy' ? 'HypnosPy' : 'Native Algorithm'}
+              Analyze with {selectedAlgorithm === 'hypnospy' ? 'Cole-Kripke' : selectedAlgorithm === 'havok' ? 'HAVOK' : 'Native'}
             </Text>
           )}
         </TouchableOpacity>
@@ -388,7 +485,7 @@ export default function SleepAnalysisScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Sleep Analysis</Text>
         <Text style={styles.subtitle}>
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''} • Dual Algorithm Comparison
+          {sessions.length} session{sessions.length !== 1 ? 's' : ''} • Triple Algorithm Comparison
         </Text>
       </View>
 
@@ -396,7 +493,7 @@ export default function SleepAnalysisScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Pull to refresh • Native vs HypnosPy Algorithm Comparison
+          Pull to refresh • Native vs Cole-Kripke vs HAVOK Algorithm Comparison
         </Text>
       </View>
     </ScrollView>
@@ -487,6 +584,9 @@ const styles = StyleSheet.create({
   },
   hypnospyTitle: {
     color: '#34C759',
+  },
+  havokTitle: {
+    color: '#FF9500',
   },
   metricRow: {
     flexDirection: 'row',
