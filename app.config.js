@@ -27,11 +27,15 @@ export default {
         }
       ],
       "expo-sqlite",
-      "react-native-health-connect"
+      "react-native-health-connect",
+      "@notifee/react-native"
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.polarsensor.app"
+      bundleIdentifier: "com.polarsensor.app",
+      infoPlist: {
+        UIBackgroundModes: ["bluetooth-central", "processing"]
+      }
     },
     android: {
       package: "com.polarsensor.app",
@@ -42,6 +46,9 @@ export default {
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE",
+        "android.permission.WAKE_LOCK",
         "android.permission.health.READ_STEPS",
         "android.permission.health.WRITE_STEPS",
         "android.permission.health.READ_DISTANCE",

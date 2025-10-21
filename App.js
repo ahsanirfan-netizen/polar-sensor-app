@@ -33,6 +33,12 @@ import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
 import DebugConsole from './DebugConsole';
 import { LineChart } from 'react-native-gifted-charts';
+import { 
+  startForegroundService, 
+  stopForegroundService, 
+  updateNotification,
+  setupNotificationHandlers 
+} from './ForegroundService';
 
 const bleManager = new BleManager();
 
@@ -869,6 +875,11 @@ export default function App() {
           ? 'Standard Mode - Streaming HR + PPI. Note: PPI takes ~25 seconds to initialize.'
           : 'Standard Mode - Streaming HR only.';
       
+      if (Platform.OS === 'android') {
+        await startForegroundService(device.name);
+        console.log('Foreground service started for background data collection');
+      }
+      
       Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Use recording button to start saving data.`);
     } catch (error) {
       console.error('Connection error:', error);
@@ -1261,7 +1272,7 @@ export default function App() {
       sensorStartTimeRef.current = Date.now();
     }
     
-    const timerInterval = setInterval(() => {
+    const timerInterval = setInterval(async () => {
       if (sensorStartTimeRef.current) {
         const elapsed = Math.floor((Date.now() - sensorStartTimeRef.current) / 1000);
         const hours = Math.floor(elapsed / 3600);
@@ -1270,6 +1281,14 @@ export default function App() {
         
         const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         setSensorElapsedTime(formatted);
+        
+        if (Platform.OS === 'android' && connectedDevice) {
+          await updateNotification({
+            heartRate: heartRate,
+            recordingTime: formatted,
+            deviceName: connectedDevice.name
+          });
+        }
       }
     }, 1000);
     
@@ -1701,6 +1720,11 @@ export default function App() {
       } catch (error) {
         console.error('Error during disconnect:', error);
         await connectedDevice.cancelConnection();
+      }
+      
+      if (Platform.OS === 'android') {
+        await stopForegroundService();
+        console.log('Foreground service stopped');
       }
       
       setConnectedDevice(null);
