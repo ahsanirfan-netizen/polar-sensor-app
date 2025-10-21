@@ -133,6 +133,7 @@ export default function App() {
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
+  const connectedDeviceRef = useRef(connectedDevice);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const lastDeviceRef = useRef(null);
@@ -160,6 +161,10 @@ export default function App() {
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
+  
+  useEffect(() => {
+    connectedDeviceRef.current = connectedDevice;
+  }, [connectedDevice]);
 
   useEffect(() => {
     if (!supabase) {
@@ -244,6 +249,25 @@ export default function App() {
     };
     
     initDatabase();
+  }, []);
+  
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const handleNotificationStop = async () => {
+        console.log('Stop button pressed from notification');
+        try {
+          await stopForegroundService();
+          if (connectedDeviceRef.current) {
+            await disconnect();
+          }
+        } catch (error) {
+          console.error('Error handling notification stop:', error);
+        }
+      };
+      
+      setupNotificationHandlers(handleNotificationStop);
+      console.log('Notification handlers registered for Android');
+    }
   }, []);
 
   const addToDbBuffer = (reading) => {
