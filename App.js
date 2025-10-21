@@ -40,7 +40,16 @@ import {
   setupNotificationHandlers 
 } from './ForegroundService';
 
-const bleManager = new BleManager();
+const bleManager = new BleManager({
+  restoreStateIdentifier: 'polar-sensor-ble-state',
+  restoreStateFunction: (restoredState) => {
+    if (restoredState == null) {
+      console.log('[BLE State] First time initialization');
+    } else {
+      console.log('[BLE State] iOS background state restored - resuming BLE operations');
+    }
+  }
+});
 
 // Polar BLE UUIDs
 const HEART_RATE_SERVICE = '0000180d-0000-1000-8000-00805f9b34fb';

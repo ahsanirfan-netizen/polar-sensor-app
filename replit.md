@@ -44,6 +44,11 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 
 -   **PPI Toggle in Standard Mode**: Allows switching between HR-only and HR+PPI.
 -   **Overnight BLE Connection Persistence**: Maintains continuous data streaming with screen wake lock and an auto-reconnect mechanism with exponential backoff.
+-   **Background Data Collection**: 
+    -   **Android**: Uses foreground service with persistent notification to keep BLE connection alive when screen is off or app is in background
+    -   **iOS**: Implements BLE state restoration to resume data collection when iOS wakes the app for BLE events
+    -   **Notification Updates**: Live notification shows heart rate, recording time, and connection status
+    -   **Battery Optimization Bypass**: Foreground service prevents Android from killing the app during overnight recordings
 -   **Dual HR Calculation in SDK Mode**: Uses Peak Detection and FFT-Based algorithms on PPG data.
 -   **Real-Time Chart Visualization**: Displays magnitude charts for ACC (√(x² + y² + z²) in G) and GYRO (√(x² + y² + z²) in deg/s) showing all accumulated data from session start with intelligent downsampling for performance.
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
