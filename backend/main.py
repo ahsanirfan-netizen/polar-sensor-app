@@ -1209,8 +1209,6 @@ def analyze_sleep_havok():
         from havok_analysis import extract_havok_metrics
         havok_metrics = extract_havok_metrics(merged_data)
         
-        havok_metrics['user_id'] = user_id
-        havok_metrics['session_id'] = session_id
         havok_metrics['processing_status'] = 'completed'
         havok_metrics['processed_at'] = datetime.now(timezone.utc).isoformat()
         havok_metrics['processing_duration_seconds'] = time.time() - start_time
