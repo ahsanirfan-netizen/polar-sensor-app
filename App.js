@@ -105,6 +105,7 @@ export default function App() {
   const [gyroChartData, setGyroChartData] = useState([]);
   const [sensorElapsedTime, setSensorElapsedTime] = useState('00:00:00');
   const [isSensorFlat, setIsSensorFlat] = useState(false);
+  const [foregroundServiceActive, setForegroundServiceActive] = useState(false);
   
   // Refs to store full raw chart data (avoids O(N) array copies in state)
   const accChartDataRaw = useRef([]);
@@ -258,6 +259,7 @@ export default function App() {
         console.log('Stop button pressed from notification');
         try {
           await stopForegroundService();
+          setForegroundServiceActive(false);
           if (connectedDeviceRef.current) {
             await disconnect();
           }
@@ -912,8 +914,10 @@ export default function App() {
       if (Platform.OS === 'android') {
         try {
           await startForegroundService(device.name);
+          setForegroundServiceActive(true);
           console.log('Foreground service started for background data collection');
         } catch (fgError) {
+          setForegroundServiceActive(false);
           console.error('Failed to start foreground service:', fgError);
           Alert.alert(
             'Notification Permission Required',
@@ -1777,6 +1781,7 @@ export default function App() {
       
       if (Platform.OS === 'android') {
         await stopForegroundService();
+        setForegroundServiceActive(false);
         console.log('Foreground service stopped');
       }
       
@@ -1955,7 +1960,7 @@ export default function App() {
           {connectedDevice && !reconnecting && (
             <View style={styles.connectionStatusBanner}>
               <Text style={styles.connectionStatusText}>
-                ✅ Connected | 📱 Screen On | 🔄 Auto-reconnect enabled
+                ✅ Connected | 📱 Screen On | 🔄 Auto-reconnect{Platform.OS === 'android' && foregroundServiceActive ? ' | 🔔 Background Service Active' : ''}
               </Text>
             </View>
           )}
