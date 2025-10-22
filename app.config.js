@@ -7,6 +7,7 @@ export default {
     userInterfaceStyle: "light",
     scheme: "polarsensor",
     plugins: [
+      "./plugins/withBackgroundActions.js",
       [
         "react-native-ble-plx",
         {
@@ -27,7 +28,8 @@ export default {
         }
       ],
       "expo-sqlite",
-      "react-native-health-connect"
+      "react-native-health-connect",
+      "@notifee/react-native"
     ],
     ios: {
       supportsTablet: true,
