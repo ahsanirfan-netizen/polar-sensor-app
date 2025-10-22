@@ -45,10 +45,11 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 -   **PPI Toggle in Standard Mode**: Allows switching between HR-only and HR+PPI.
 -   **Overnight BLE Connection Persistence**: Maintains continuous data streaming with screen wake lock and an auto-reconnect mechanism with exponential backoff.
 -   **Background Data Collection**: 
-    -   **Android**: Uses foreground service with persistent notification to keep BLE connection alive when screen is off or app is in background
+    -   **Android**: Uses react-native-background-actions to create true foreground service that keeps app alive indefinitely with screen off
     -   **iOS**: Implements BLE state restoration to resume data collection when iOS wakes the app for BLE events
-    -   **Notification Updates**: Live notification shows heart rate, recording time, and connection status
-    -   **Battery Optimization Bypass**: Foreground service prevents Android from killing the app during overnight recordings
+    -   **Persistent Notification**: Shows heart rate, recording time, and connection status updated every second
+    -   **Overnight Survival**: True foreground service prevents Android from killing the app after 10+ minutes of screen-off time
+    -   **Battery Optimization Independent**: Works reliably even with unrestricted battery settings on Google Pixel and other aggressive power management devices
 -   **Dual HR Calculation in SDK Mode**: Uses Peak Detection and FFT-Based algorithms on PPG data.
 -   **Real-Time Chart Visualization**: Displays magnitude charts for ACC (√(x² + y² + z²) in G) and GYRO (√(x² + y² + z²) in deg/s) showing all accumulated data from session start with intelligent downsampling for performance.
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
@@ -129,6 +130,8 @@ EAS Build is used for APK generation via GitHub Actions.
 ### BLE and Sensor Dependencies
 
 -   **react-native-ble-plx (3.2.1)**
+-   **react-native-background-actions** (Android foreground service)
+-   **@notifee/react-native** (Notification permission handling)
 -   **buffer (^6.0.3)**
 -   **expo-device (^6.0.2)**
 -   **expo-keep-awake**
