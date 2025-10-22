@@ -34,14 +34,16 @@ import { syncService } from './SyncService';
 import DebugConsole from './DebugConsole';
 import { LineChart } from 'react-native-gifted-charts';
 import { 
-  startForegroundService, 
-  stopForegroundService, 
-  updateNotification,
   setupNotificationHandlers,
   openAppSettings,
   requestNotificationPermission,
   openBatterySettings
 } from './ForegroundService';
+import {
+  startBackgroundService,
+  stopBackgroundService,
+  updateBackgroundNotification
+} from './BackgroundService';
 
 const bleManager = new BleManager({
   restoreStateIdentifier: 'polar-sensor-ble-state',
@@ -260,7 +262,7 @@ export default function App() {
       const handleNotificationStop = async () => {
         console.log('Stop button pressed from notification');
         try {
-          await stopForegroundService();
+          await stopBackgroundService();
           setForegroundServiceActive(false);
           if (connectedDeviceRef.current) {
             await disconnect();
@@ -920,21 +922,21 @@ export default function App() {
       
       if (Platform.OS === 'android') {
         try {
-          await startForegroundService(device.name);
-          setForegroundServiceActive(true);
-          console.log('Foreground service started for background data collection');
-        } catch (fgError) {
+          const started = await startBackgroundService(device.name);
+          if (started) {
+            setForegroundServiceActive(true);
+            console.log('Background service started for overnight data collection');
+          } else {
+            throw new Error('Background service failed to start');
+          }
+        } catch (bgError) {
           setForegroundServiceActive(false);
-          console.error('Failed to start foreground service:', fgError);
+          console.error('Failed to start background service:', bgError);
           Alert.alert(
-            'Notification Permission Required',
-            'Background data collection needs notification permission to work overnight.\n\nTap "Open Settings" below to enable notifications for this app, then reconnect to the sensor.',
+            'Background Service Warning',
+            'Could not start background service. The app may stop collecting data when the screen is off for more than a few minutes.\n\nFor overnight recordings, make sure battery optimization is disabled and notification permission is granted.',
             [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Open Settings', 
-                onPress: () => openAppSettings()
-              }
+              { text: 'OK' }
             ]
           );
         }
@@ -1344,13 +1346,13 @@ export default function App() {
         
         if (Platform.OS === 'android' && connectedDevice) {
           try {
-            await updateNotification({
+            await updateBackgroundNotification({
               heartRate: heartRate,
               recordingTime: formatted,
               deviceName: connectedDevice.name
             });
           } catch (notifError) {
-            console.error('Failed to update notification:', notifError);
+            console.error('Failed to update background notification:', notifError);
           }
         }
       }
@@ -1787,9 +1789,9 @@ export default function App() {
       }
       
       if (Platform.OS === 'android') {
-        await stopForegroundService();
+        await stopBackgroundService();
         setForegroundServiceActive(false);
-        console.log('Foreground service stopped');
+        console.log('Background service stopped');
       }
       
       setConnectedDevice(null);
