@@ -38,7 +38,8 @@ import {
   stopForegroundService, 
   updateNotification,
   setupNotificationHandlers,
-  openAppSettings
+  openAppSettings,
+  requestNotificationPermission
 } from './ForegroundService';
 
 const bleManager = new BleManager({
@@ -501,6 +502,11 @@ export default function App() {
             'Please grant location permission to scan for Bluetooth devices.'
           );
         }
+      }
+      
+      const notifGranted = await requestNotificationPermission();
+      if (!notifGranted) {
+        console.log('Notification permission denied - background service will fail');
       }
     }
   };
