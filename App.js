@@ -37,7 +37,8 @@ import {
   startForegroundService, 
   stopForegroundService, 
   updateNotification,
-  setupNotificationHandlers 
+  setupNotificationHandlers,
+  openAppSettings
 } from './ForegroundService';
 
 const bleManager = new BleManager({
@@ -915,9 +916,15 @@ export default function App() {
         } catch (fgError) {
           console.error('Failed to start foreground service:', fgError);
           Alert.alert(
-            'Background Service Warning',
-            'Could not start background notification service. The app may stop collecting data when the screen is off.\n\nPlease grant notification permission and restart the app for overnight data collection.',
-            [{ text: 'OK' }]
+            'Notification Permission Required',
+            'Background data collection needs notification permission to work overnight.\n\nTap "Open Settings" below to enable notifications for this app, then reconnect to the sensor.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => openAppSettings()
+              }
+            ]
           );
         }
       }
