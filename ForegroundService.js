@@ -1,5 +1,5 @@
 import notifee, { AndroidImportance, AuthorizationStatus } from '@notifee/react-native';
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform, Linking } from 'react-native';
 
 let notificationId = null;
 
@@ -9,30 +9,29 @@ export async function requestNotificationPermission() {
   }
 
   try {
-    if (Platform.Version >= 33) {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-        {
-          title: 'Notification Permission',
-          message: 'This app needs notification permission to show sensor data collection status while running in the background.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('Notification permission granted');
-        return true;
-      } else {
-        console.log('Notification permission denied');
-        return false;
-      }
+    const settings = await notifee.requestPermission();
+    
+    if (settings.authorizationStatus === AuthorizationStatus.AUTHORIZED) {
+      console.log('Notification permission granted via Notifee');
+      return true;
+    } else if (settings.authorizationStatus === AuthorizationStatus.DENIED) {
+      console.log('Notification permission denied');
+      return false;
+    } else {
+      console.log('Notification permission not determined');
+      return false;
     }
-    return true;
   } catch (error) {
     console.error('Error requesting notification permission:', error);
     return false;
+  }
+}
+
+export async function openAppSettings() {
+  try {
+    await Linking.openSettings();
+  } catch (error) {
+    console.error('Error opening app settings:', error);
   }
 }
 
