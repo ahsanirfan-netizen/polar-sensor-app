@@ -13,6 +13,7 @@ const backgroundTask = async (taskDataArguments) => {
     while (BackgroundService.isRunning()) {
       await sleep(delay);
     }
+    resolve();
   });
 };
 
