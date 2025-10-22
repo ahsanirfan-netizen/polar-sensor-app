@@ -909,8 +909,17 @@ export default function App() {
           : 'Standard Mode - Streaming HR only.';
       
       if (Platform.OS === 'android') {
-        await startForegroundService(device.name);
-        console.log('Foreground service started for background data collection');
+        try {
+          await startForegroundService(device.name);
+          console.log('Foreground service started for background data collection');
+        } catch (fgError) {
+          console.error('Failed to start foreground service:', fgError);
+          Alert.alert(
+            'Background Service Warning',
+            'Could not start background notification service. The app may stop collecting data when the screen is off.\n\nPlease grant notification permission and restart the app for overnight data collection.',
+            [{ text: 'OK' }]
+          );
+        }
       }
       
       Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Use recording button to start saving data.`);
@@ -1316,11 +1325,15 @@ export default function App() {
         setSensorElapsedTime(formatted);
         
         if (Platform.OS === 'android' && connectedDevice) {
-          await updateNotification({
-            heartRate: heartRate,
-            recordingTime: formatted,
-            deviceName: connectedDevice.name
-          });
+          try {
+            await updateNotification({
+              heartRate: heartRate,
+              recordingTime: formatted,
+              deviceName: connectedDevice.name
+            });
+          } catch (notifError) {
+            console.error('Failed to update notification:', notifError);
+          }
         }
       }
     }, 1000);

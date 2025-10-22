@@ -95,7 +95,28 @@ Supabase tables required: `sessions`, `sensor_readings`, `sleep_analysis`, `slee
 
 ### Project Configuration
 
-Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSdkVersion 35`, and `minSdkVersion 26`. Requires `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, and `ACCESS_FINE_LOCATION` permissions. EAS Build is used for APK generation.
+Uses **Expo SDK 54** with Android SDK versions `compileSdkVersion 35`, `targetSdkVersion 35`, and `minSdkVersion 26`. 
+
+**Required Android Permissions:**
+-   **Bluetooth**: `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`
+-   **Location**: `ACCESS_FINE_LOCATION` (required for BLE scanning on Android)
+-   **Foreground Service**: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE`
+-   **Notifications**: `POST_NOTIFICATIONS` (Android 13+, required for foreground service)
+-   **Wake Lock**: `WAKE_LOCK` (prevents screen from sleeping during data collection)
+
+**Notification Permission Handling:**
+-   The app requests notification permission at runtime before starting the foreground service
+-   On Android 13+ (API 33+), this permission is required for the persistent notification to appear
+-   If permission is denied, the app displays a warning and may stop collecting data when the screen turns off
+-   Foreground service initialization includes comprehensive error handling to prevent app crashes
+
+**Error Handling Architecture:**
+-   All foreground service calls are wrapped in try-catch blocks with graceful fallbacks
+-   Notification permission is checked and requested before starting foreground service
+-   Failed foreground service startup displays a user-friendly warning instead of crashing
+-   Notification updates have silent error handling to prevent timer interruptions
+
+EAS Build is used for APK generation via GitHub Actions.
 
 ## External Dependencies
 
