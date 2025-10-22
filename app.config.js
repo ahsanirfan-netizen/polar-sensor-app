@@ -28,8 +28,7 @@ export default {
         }
       ],
       "expo-sqlite",
-      "react-native-health-connect",
-      "@notifee/react-native"
+      "react-native-health-connect"
     ],
     ios: {
       supportsTablet: true,
