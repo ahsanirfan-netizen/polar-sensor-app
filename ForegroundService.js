@@ -35,6 +35,23 @@ export async function openAppSettings() {
   }
 }
 
+export async function openBatterySettings() {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  
+  try {
+    await Linking.sendIntent('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS');
+  } catch (error) {
+    console.error('Error opening battery settings:', error);
+    try {
+      await Linking.openSettings();
+    } catch (fallbackError) {
+      console.error('Fallback to app settings failed:', fallbackError);
+    }
+  }
+}
+
 export async function checkNotificationPermission() {
   try {
     const settings = await notifee.getNotificationSettings();

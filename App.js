@@ -39,7 +39,8 @@ import {
   updateNotification,
   setupNotificationHandlers,
   openAppSettings,
-  requestNotificationPermission
+  requestNotificationPermission,
+  openBatterySettings
 } from './ForegroundService';
 
 const bleManager = new BleManager({
