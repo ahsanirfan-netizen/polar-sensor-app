@@ -20,8 +20,10 @@ import {
   ScrollView,
   Alert,
   Switch,
-  Dimensions
+  Dimensions,
+  AppState
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BleManager, ConnectionPriority } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -256,6 +258,106 @@ export default function App() {
     };
     
     initDatabase();
+    checkForUnexpectedRestart();
+  }, []);
+  
+  const saveSessionState = async (deviceInfo, mode) => {
+    try {
+      const sessionState = {
+        deviceId: deviceInfo.id,
+        deviceName: deviceInfo.name,
+        sdkMode: mode,
+        timestamp: new Date().toISOString(),
+        recording: isRecording
+      };
+      await AsyncStorage.setItem('SESSION_STATE', JSON.stringify(sessionState));
+      await AsyncStorage.setItem('LAST_APP_CLOSE', new Date().toISOString());
+      console.log('✅ Session state saved:', sessionState);
+    } catch (error) {
+      console.error('❌ Error saving session state:', error);
+    }
+  };
+  
+  const clearSessionState = async () => {
+    try {
+      await AsyncStorage.removeItem('SESSION_STATE');
+      await AsyncStorage.setItem('LAST_APP_CLOSE', new Date().toISOString());
+      console.log('✅ Session state cleared');
+    } catch (error) {
+      console.error('❌ Error clearing session state:', error);
+    }
+  };
+  
+  const checkForUnexpectedRestart = async () => {
+    try {
+      const sessionState = await AsyncStorage.getItem('SESSION_STATE');
+      const lastAppClose = await AsyncStorage.getItem('LAST_APP_CLOSE');
+      const appStartCount = await AsyncStorage.getItem('APP_START_COUNT') || '0';
+      const newStartCount = (parseInt(appStartCount) + 1).toString();
+      await AsyncStorage.setItem('APP_START_COUNT', newStartCount);
+      
+      console.log(`🚀 App start #${newStartCount}`);
+      
+      if (sessionState) {
+        const state = JSON.parse(sessionState);
+        const sessionTime = new Date(state.timestamp);
+        const now = new Date();
+        const sessionAge = (now - sessionTime) / 1000 / 60;
+        
+        console.log('⚠️ FOUND PREVIOUS SESSION STATE:');
+        console.log(`  Device: ${state.deviceName}`);
+        console.log(`  Mode: ${state.sdkMode ? 'SDK' : 'Standard'}`);
+        console.log(`  Recording: ${state.recording}`);
+        console.log(`  Session age: ${sessionAge.toFixed(1)} minutes`);
+        
+        if (lastAppClose) {
+          const closeTime = new Date(lastAppClose);
+          const timeSinceClose = (now - closeTime) / 1000 / 60;
+          console.log(`  Last close: ${timeSinceClose.toFixed(1)} minutes ago`);
+        }
+        
+        Alert.alert(
+          'App Was Restarted',
+          `The app was running an overnight session but was restarted.\n\nPrevious session:\n• Device: ${state.deviceName}\n• Mode: ${state.sdkMode ? 'SDK' : 'Standard'}\n• Recording: ${state.recording ? 'Yes' : 'No'}\n• Session age: ${sessionAge.toFixed(0)} minutes\n\nThis may indicate the app was killed by Android. Check battery optimization settings.`,
+          [
+            {
+              text: 'Check Settings',
+              onPress: () => openBatterySettings()
+            },
+            {
+              text: 'OK'
+            }
+          ]
+        );
+        
+        await clearSessionState();
+      }
+    } catch (error) {
+      console.error('❌ Error checking for unexpected restart:', error);
+    }
+  };
+  
+  useEffect(() => {
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      console.log(`📱 App state changed to: ${nextAppState}`);
+      
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString());
+      } else if (nextAppState === 'active') {
+        AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
+          if (lastBackground) {
+            const bgTime = new Date(lastBackground);
+            const now = new Date();
+            const minutesInBackground = (now - bgTime) / 1000 / 60;
+            console.log(`📱 App was in background for ${minutesInBackground.toFixed(1)} minutes`);
+          }
+        });
+      }
+    });
+    
+    return () => {
+      appStateSubscription?.remove();
+    };
   }, []);
   
   useEffect(() => {
@@ -956,6 +1058,8 @@ export default function App() {
           );
         }
       }
+      
+      await saveSessionState(deviceInfo, sdkModeEnabled);
       
       Alert.alert('Connected', `Connected to ${device.name}. ${modeText}\n\n📱 Screen will stay on while connected.\n🔄 Auto-reconnect enabled.\n💾 Use recording button to start saving data.`);
     } catch (error) {
@@ -1808,6 +1912,8 @@ export default function App() {
         setForegroundServiceActive(false);
         console.log('Background service stopped');
       }
+      
+      await clearSessionState();
       
       setConnectedDevice(null);
       setHeartRate(null);
