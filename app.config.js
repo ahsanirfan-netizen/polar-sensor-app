@@ -7,7 +7,7 @@ export default {
     userInterfaceStyle: "light",
     scheme: "polarsensor",
     plugins: [
-      "./plugins/withBackgroundActions.js",
+      "./plugins/withNativeForegroundService.js",
       [
         "react-native-ble-plx",
         {
