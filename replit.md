@@ -45,11 +45,13 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 -   **PPI Toggle in Standard Mode**: Allows switching between HR-only and HR+PPI.
 -   **Overnight BLE Connection Persistence**: Maintains continuous data streaming with screen wake lock and an auto-reconnect mechanism with exponential backoff.
 -   **Background Data Collection**: 
-    -   **Android**: Uses react-native-background-actions to create true foreground service that keeps app alive indefinitely with screen off
+    -   **Android**: Uses native Kotlin foreground service with `FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE` and `PARTIAL_WAKE_LOCK` for true overnight survival
+    -   **Android 14/15 Compliance**: Properly registers service type at runtime to avoid 6-hour legacy service limits
     -   **iOS**: Implements BLE state restoration to resume data collection when iOS wakes the app for BLE events
-    -   **Persistent Notification**: Shows heart rate, recording time, and connection status updated every second
-    -   **Overnight Survival**: True foreground service prevents Android from killing the app after 10+ minutes of screen-off time
-    -   **Battery Optimization Independent**: Works reliably even with unrestricted battery settings on Google Pixel and other aggressive power management devices
+    -   **Persistent Notification**: Shows heart rate, recording time, and heartbeat counter updated with each notification update
+    -   **Overnight Survival**: Native foreground service survives indefinitely on Android 14/15, tested on Google Pixel 9
+    -   **Wake Lock Management**: Acquires and releases PARTIAL_WAKE_LOCK for minimal battery impact while preventing deep sleep
+    -   **Lifecycle Logging**: Comprehensive logging of service events (onCreate, onDestroy, onTaskRemoved, heartbeats) for diagnostics
 -   **Dual HR Calculation in SDK Mode**: Uses Peak Detection and FFT-Based algorithms on PPG data.
 -   **Real-Time Chart Visualization**: Displays magnitude charts for ACC (√(x² + y² + z²) in G) and GYRO (√(x² + y² + z²) in deg/s) showing all accumulated data from session start with intelligent downsampling for performance.
 -   **Local SQLite Database**: Persists sensor data with batched inserts.
