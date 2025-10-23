@@ -1,8 +1,9 @@
 import BackgroundService from 'react-native-background-actions';
 import { Platform } from 'react-native';
-import { updateNotification } from './ForegroundService';
+import notifee, { AuthorizationStatus } from '@notifee/react-native';
 
 let isBackgroundServiceRunning = false;
+let taskIterations = 0;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -10,12 +11,54 @@ const backgroundTask = async (taskDataArguments) => {
   const { delay } = taskDataArguments;
   
   await new Promise(async (resolve) => {
+    console.log('🚀 Background service task started - keeping app alive');
+    
     while (BackgroundService.isRunning()) {
+      taskIterations++;
+      
+      const currentTime = new Date().toLocaleTimeString();
+      console.log(`⏰ Background service heartbeat #${taskIterations} at ${currentTime}`);
+      
+      await BackgroundService.updateNotification({
+        taskDesc: `Active - Heartbeat #${taskIterations}`,
+      });
+      
       await sleep(delay);
     }
+    
+    console.log('🛑 Background service task ending');
     resolve();
   });
 };
+
+async function checkNotificationPermission() {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  try {
+    const settings = await notifee.getNotificationSettings();
+    
+    if (settings.authorizationStatus === AuthorizationStatus.AUTHORIZED) {
+      console.log('✅ Notification permission already granted');
+      return true;
+    }
+    
+    console.log('⚠️ Notification permission not granted - requesting...');
+    const requestResult = await notifee.requestPermission();
+    
+    if (requestResult.authorizationStatus === AuthorizationStatus.AUTHORIZED) {
+      console.log('✅ Notification permission granted');
+      return true;
+    } else {
+      console.error('❌ Notification permission denied');
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error checking notification permission:', error);
+    return false;
+  }
+}
 
 export async function startBackgroundService(deviceName = 'Polar Sensor') {
   if (Platform.OS !== 'android') {
@@ -27,7 +70,15 @@ export async function startBackgroundService(deviceName = 'Polar Sensor') {
     return true;
   }
 
+  const hasPermission = await checkNotificationPermission();
+  if (!hasPermission) {
+    console.error('Cannot start background service - notification permission not granted');
+    throw new Error('Notification permission required for background service');
+  }
+
   try {
+    taskIterations = 0;
+    
     const options = {
       taskName: 'BLE Sensor Data Collection',
       taskTitle: `Connected to ${deviceName}`,
@@ -39,7 +90,7 @@ export async function startBackgroundService(deviceName = 'Polar Sensor') {
       color: '#FF6B6B',
       linkingURI: 'polarsensor://',
       parameters: {
-        delay: 5000,
+        delay: 30000,
       },
       progressBar: {
         max: 100,
@@ -50,12 +101,12 @@ export async function startBackgroundService(deviceName = 'Polar Sensor') {
 
     await BackgroundService.start(backgroundTask, options);
     isBackgroundServiceRunning = true;
-    console.log('Background service started successfully');
+    console.log('✅ Background service started successfully with notification permission');
     return true;
   } catch (error) {
-    console.error('Error starting background service:', error);
+    console.error('❌ Error starting background service:', error);
     isBackgroundServiceRunning = false;
-    return false;
+    throw error;
   }
 }
 
