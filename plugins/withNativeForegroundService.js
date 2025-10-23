@@ -8,6 +8,7 @@ const FOREGROUND_SERVICE_KOTLIN = `package com.polarsensor.app
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -333,22 +334,59 @@ function withNativeForegroundService(config) {
   config = withMainApplication(config, async (config) => {
     const { modResults } = config;
     const packageImport = 'import com.polarsensor.app.ForegroundServicePackage';
-    const packageAdd = 'packages.add(ForegroundServicePackage())';
+    const packageAdd = 'add(ForegroundServicePackage())';
+    let importAdded = false;
+    let packageAdded = false;
 
     // Add import if not present
     if (!modResults.contents.includes(packageImport)) {
-      modResults.contents = modResults.contents.replace(
-        /import com\.facebook\.react\.defaults\.DefaultReactNativeHost/,
-        `import com.facebook.react.defaults.DefaultReactNativeHost\n${packageImport}`
-      );
+      // Try multiple import insertion points for different Expo versions
+      if (modResults.contents.includes('import com.facebook.react.defaults.DefaultReactNativeHost')) {
+        modResults.contents = modResults.contents.replace(
+          /import com\.facebook\.react\.defaults\.DefaultReactNativeHost/,
+          `import com.facebook.react.defaults.DefaultReactNativeHost\n${packageImport}`
+        );
+        importAdded = true;
+      } else if (modResults.contents.includes('package com.polarsensor.app')) {
+        modResults.contents = modResults.contents.replace(
+          /(package com\.polarsensor\.app\s+)/,
+          `$1\n${packageImport}\n`
+        );
+        importAdded = true;
+      } else {
+        console.warn('⚠️ Could not find insertion point for ForegroundServicePackage import in MainApplication');
+      }
+    } else {
+      importAdded = true;
     }
 
     // Add package registration if not present
-    if (!modResults.contents.includes(packageAdd)) {
-      modResults.contents = modResults.contents.replace(
-        /(override fun getPackages.*?\{[^}]*packages\.add[^}]*)/s,
-        `$1\n        ${packageAdd}`
-      );
+    // Expo's MainApplication uses: PackageList(...).packages.apply { add(...) }
+    if (!modResults.contents.includes('ForegroundServicePackage')) {
+      // Look for the packages.apply block
+      if (modResults.contents.includes('packages.apply')) {
+        modResults.contents = modResults.contents.replace(
+          /(packages\.apply\s*\{[^}]*)/,
+          `$1\n          ${packageAdd}`
+        );
+        packageAdded = true;
+      } 
+      // Fallback for older Expo versions with direct packages list
+      else if (modResults.contents.includes('override fun getPackages')) {
+        modResults.contents = modResults.contents.replace(
+          /(override fun getPackages.*?return.*?\[)/s,
+          `$1\n          ForegroundServicePackage(),`
+        );
+        packageAdded = true;
+      } else {
+        console.warn('⚠️ Could not find insertion point for ForegroundServicePackage registration in MainApplication');
+      }
+    } else {
+      packageAdded = true;
+    }
+
+    if (importAdded && packageAdded) {
+      console.log('✅ ForegroundServicePackage registered in MainApplication');
     }
 
     return config;
