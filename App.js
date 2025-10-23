@@ -159,6 +159,7 @@ export default function App() {
   const dbBufferRef = useRef([]);
   const dbRef = useRef(null);
   const dbErrorAlertShownRef = useRef(false);
+  const flushPromiseRef = useRef(null);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -315,44 +316,58 @@ export default function App() {
   };
 
   const flushDbBuffer = async () => {
+    if (flushPromiseRef.current) {
+      await flushPromiseRef.current;
+      if (dbBufferRef.current.length > 0) {
+        return flushDbBuffer();
+      }
+      return;
+    }
+    
     if (dbBufferRef.current.length === 0 || !dbRef.current) return;
     
-    const bufferToFlush = dbBufferRef.current;
-    dbBufferRef.current = [];
-    
-    try {
+    const doFlush = async () => {
+      const bufferToFlush = dbBufferRef.current;
+      dbBufferRef.current = [];
       
-      await dbRef.current.withTransactionAsync(async () => {
-        for (const reading of bufferToFlush) {
-          await dbRef.current.runAsync(
-            'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z, 0]
+      try {
+        
+        await dbRef.current.withTransactionAsync(async () => {
+          for (const reading of bufferToFlush) {
+            await dbRef.current.runAsync(
+              'INSERT INTO sensor_readings (timestamp, ppg, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [reading.timestamp, reading.ppg, reading.acc_x, reading.acc_y, reading.acc_z, reading.gyro_x, reading.gyro_y, reading.gyro_z, 0]
+            );
+          }
+        });
+        
+        const result = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
+        setDbRecordCount(result.count);
+        setLastWriteTime(new Date().toLocaleTimeString());
+        setLastDbError(null);
+        setDbBufferLength(dbBufferRef.current.length);
+        
+        dbErrorAlertShownRef.current = false;
+      } catch (error) {
+        console.error('Database insert error:', error);
+        setLastDbError(`Write failed: ${error.message}`);
+        setDbBufferLength(dbBufferRef.current.length + bufferToFlush.length);
+        
+        if (!dbErrorAlertShownRef.current) {
+          dbErrorAlertShownRef.current = true;
+          Alert.alert(
+            'Database Write Failed',
+            `Failed to save ${bufferToFlush.length} sensor readings: ${error.message}\n\nData has been preserved in buffer and will retry on next flush. This alert will only show once - check the debug status for ongoing errors.`
           );
         }
-      });
-      
-      const result = await dbRef.current.getFirstAsync('SELECT COUNT(*) as count FROM sensor_readings');
-      setDbRecordCount(result.count);
-      setLastWriteTime(new Date().toLocaleTimeString());
-      setLastDbError(null);
-      setDbBufferLength(dbBufferRef.current.length);
-      
-      dbErrorAlertShownRef.current = false;
-    } catch (error) {
-      console.error('Database insert error:', error);
-      setLastDbError(`Write failed: ${error.message}`);
-      setDbBufferLength(dbBufferRef.current.length + bufferToFlush.length);
-      
-      if (!dbErrorAlertShownRef.current) {
-        dbErrorAlertShownRef.current = true;
-        Alert.alert(
-          'Database Write Failed',
-          `Failed to save ${bufferToFlush.length} sensor readings: ${error.message}\n\nData has been preserved in buffer and will retry on next flush. This alert will only show once - check the debug status for ongoing errors.`
-        );
+        
+        dbBufferRef.current = [...bufferToFlush, ...dbBufferRef.current];
       }
-      
-      dbBufferRef.current = [...bufferToFlush, ...dbBufferRef.current];
-    }
+    };
+    
+    flushPromiseRef.current = doFlush();
+    await flushPromiseRef.current;
+    flushPromiseRef.current = null;
   };
 
   useEffect(() => {
