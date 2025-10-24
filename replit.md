@@ -44,6 +44,11 @@ Real-time magnitude charts for ACC and GYRO data use **react-native-gifted-chart
 
 -   **PPI Toggle in Standard Mode**: Allows switching between HR-only and HR+PPI.
 -   **Overnight BLE Connection Persistence**: Maintains continuous data streaming with screen wake lock and an auto-reconnect mechanism with exponential backoff.
+-   **Battery Optimization Guidance**: Proactive user guidance to prevent Android 14/15 from killing the app during overnight recordings:
+    -   One-time dialog on first connection explains battery optimization settings
+    -   Persistent reminder until user opens settings
+    -   Pixel-specific instructions for Battery Manager and unrestricted usage
+    -   Restart alert directs users to check battery settings if app was killed
 -   **Background Data Collection**: 
     -   **Android**: Uses native Kotlin foreground service with `FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE` and `PARTIAL_WAKE_LOCK` for true overnight survival
     -   **Android 14/15 Compliance**: Properly registers service type at runtime to avoid 6-hour legacy service limits
