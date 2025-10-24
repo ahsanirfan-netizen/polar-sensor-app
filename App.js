@@ -1483,12 +1483,14 @@ export default function App() {
         const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         setSensorElapsedTime(formatted);
         
-        if (Platform.OS === 'android' && connectedDevice) {
+        // Use ref to avoid crash if device disconnects during timer execution
+        const currentDevice = connectedDeviceRef.current;
+        if (Platform.OS === 'android' && currentDevice) {
           try {
             await updateBackgroundNotification({
               heartRate: heartRate,
               recordingTime: formatted,
-              deviceName: connectedDevice.name
+              deviceName: currentDevice.name || 'Polar Sensor'
             });
           } catch (notifError) {
             console.error('Failed to update background notification:', notifError);
@@ -1500,27 +1502,36 @@ export default function App() {
     // BLE Keep-Alive: Perform periodic connection check to prevent BLE stack suspension
     // This is critical for overnight recording on Android
     const keepAliveInterval = setInterval(async () => {
-      if (!connectedDevice) return;
+      // Use ref to get CURRENT device, not captured closure value
+      const currentDevice = connectedDeviceRef.current;
+      
+      if (!currentDevice) {
+        console.log('🔋 Keep-alive: No device connected (skipping)');
+        return;
+      }
       
       try {
         keepAliveCounter++;
-        // Read device name every 30 seconds to keep BLE stack active
-        const isConnected = await connectedDevice.isConnected();
+        
+        // Check if device is still connected
+        const isConnected = await currentDevice.isConnected();
         console.log(`🔋 BLE Keep-Alive #${keepAliveCounter}: Connection=${isConnected}`);
         
-        if (isConnected) {
-          // Perform a lightweight read operation to keep BLE radio active
-          try {
-            await connectedDevice.readRSSI();
-            console.log(`🔋 RSSI read successful - BLE stack active`);
-          } catch (rssiError) {
-            console.warn('⚠️ RSSI read failed (non-critical):', rssiError.message);
-          }
-        } else {
-          console.error('🔋 Keep-alive detected disconnection!');
+        if (!isConnected) {
+          console.warn('🔋 Keep-alive: Device shows disconnected');
+          return;
+        }
+        
+        // Perform a lightweight read operation to keep BLE radio active
+        try {
+          const rssi = await currentDevice.readRSSI();
+          console.log(`🔋 RSSI read successful: ${rssi} dBm - BLE stack active`);
+        } catch (rssiError) {
+          console.warn('⚠️ RSSI read failed (non-critical):', rssiError.message);
         }
       } catch (error) {
         console.error('🔋 BLE Keep-Alive error:', error.message);
+        // Don't throw - let the interval continue
       }
     }, 30000); // Every 30 seconds
     
