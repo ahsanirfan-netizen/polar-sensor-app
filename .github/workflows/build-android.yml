@@ -98,13 +98,15 @@ jobs:
           echo "🔍 Checking MainApplication.kt for package registration..."
           MAIN_APP="android/app/src/main/java/com/polarsensor/app/MainApplication.kt"
           
-          if ! grep -q "ForegroundServicePackage" "$MAIN_APP"; then
-            echo "❌ ForegroundServicePackage NOT registered in MainApplication.kt"
+          if ! grep -q "ForegroundServicePackage()" "$MAIN_APP"; then
+            echo "❌ ForegroundServicePackage() NOT called in MainApplication.kt"
             echo "MainApplication.kt contents:"
             cat "$MAIN_APP"
             exit 1
           else
-            echo "✅ ForegroundServicePackage is registered in MainApplication.kt"
+            echo "✅ ForegroundServicePackage() is properly registered in MainApplication.kt"
+            echo "📄 Showing registration context:"
+            grep -A 5 -B 5 "ForegroundServicePackage()" "$MAIN_APP" || true
           fi
           
           echo "✅ All native service files verified successfully"

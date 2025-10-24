@@ -362,7 +362,8 @@ function withNativeForegroundService(config) {
 
     // Add package registration if not present
     // Handle different Expo SDK versions and MainApplication.kt patterns
-    if (!modResults.contents.includes('ForegroundServicePackage')) {
+    // Check for the actual add() call, not just the import!
+    if (!modResults.contents.includes('ForegroundServicePackage()')) {
       let matched = false;
       
       // Pattern 1: PackageList(this).packages.apply { ... } (SDK 50-54)
