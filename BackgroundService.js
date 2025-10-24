@@ -3,6 +3,10 @@ import notifee, { AuthorizationStatus } from '@notifee/react-native';
 
 const { NativeForegroundService } = NativeModules;
 
+// Diagnostic logging
+console.log('🔍 Available Native Modules:', Object.keys(NativeModules));
+console.log('🔍 NativeForegroundService status:', NativeForegroundService ? 'FOUND ✅' : 'NOT FOUND ❌');
+
 let isBackgroundServiceRunning = false;
 
 async function checkNotificationPermission() {

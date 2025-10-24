@@ -361,25 +361,49 @@ function withNativeForegroundService(config) {
     }
 
     // Add package registration if not present
-    // Expo's MainApplication uses: PackageList(...).packages.apply { add(...) }
+    // Handle different Expo SDK versions and MainApplication.kt patterns
     if (!modResults.contents.includes('ForegroundServicePackage')) {
-      // Look for the packages.apply block
-      if (modResults.contents.includes('packages.apply')) {
+      let matched = false;
+      
+      // Pattern 1: PackageList(this).packages.apply { ... } (SDK 50-54)
+      // This is the most common pattern, match more flexibly
+      const applyPattern = /PackageList\(this\)\.packages\.apply\s*\{/;
+      if (applyPattern.test(modResults.contents)) {
         modResults.contents = modResults.contents.replace(
-          /(packages\.apply\s*\{[^}]*)/,
-          `$1\n          ${packageAdd}`
+          applyPattern,
+          (match) => `${match}\n          ${packageAdd}`
         );
-        packageAdded = true;
-      } 
-      // Fallback for older Expo versions with direct packages list
-      else if (modResults.contents.includes('override fun getPackages')) {
+        matched = true;
+        console.log('✅ Using packages.apply pattern (SDK 50-54)');
+      }
+      
+      // Pattern 2: val packages = PackageList(this).packages (alternative SDK 54)
+      if (!matched && modResults.contents.includes('val packages = PackageList(this).packages')) {
         modResults.contents = modResults.contents.replace(
-          /(override fun getPackages.*?return.*?\[)/s,
-          `$1\n          ForegroundServicePackage(),`
+          /(val packages = PackageList\(this\)\.packages\s*\n)/,
+          `$1          packages.${packageAdd}\n`
         );
+        matched = true;
+        console.log('✅ Using val packages pattern (SDK 54 alternative)');
+      }
+      
+      // Pattern 3: return PackageList(this).packages (older versions)
+      if (!matched && /return\s+PackageList\(this\)\.packages/i.test(modResults.contents)) {
+        // Insert before the return statement
+        modResults.contents = modResults.contents.replace(
+          /(override fun getPackages[^}]*)(return\s+PackageList\(this\)\.packages)/,
+          `$1val packages = PackageList(this).packages\n          packages.${packageAdd}\n          $2`
+        );
+        matched = true;
+        console.log('✅ Using return packages pattern (older SDKs)');
+      }
+      
+      if (matched) {
         packageAdded = true;
       } else {
-        console.warn('⚠️ Could not find insertion point for ForegroundServicePackage registration in MainApplication');
+        console.error('❌ Could not find any known MainApplication.kt pattern!');
+        console.error('❌ Please check the generated MainApplication.kt manually');
+        console.error('File preview:', modResults.contents.substring(0, 800));
       }
     } else {
       packageAdded = true;
