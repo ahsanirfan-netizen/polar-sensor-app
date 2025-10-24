@@ -388,14 +388,14 @@ function withNativeForegroundService(config) {
       }
       
       // Pattern 3: return PackageList(this).packages (older versions)
+      // Rewrite to use val packages so the add() doesn't get dropped
       if (!matched && /return\s+PackageList\(this\)\.packages/i.test(modResults.contents)) {
-        // Insert before the return statement
         modResults.contents = modResults.contents.replace(
-          /(override fun getPackages[^}]*)(return\s+PackageList\(this\)\.packages)/,
-          `$1val packages = PackageList(this).packages\n          packages.${packageAdd}\n          $2`
+          /(override fun getPackages[^}]*)(return\s+)PackageList\(this\)\.packages/,
+          `$1val packages = PackageList(this).packages\n          packages.${packageAdd}\n          ${2}packages`
         );
         matched = true;
-        console.log('✅ Using return packages pattern (older SDKs)');
+        console.log('✅ Using return packages pattern (older SDKs) - rewrote to use val packages');
       }
       
       if (matched) {
