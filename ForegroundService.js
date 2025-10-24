@@ -1,5 +1,7 @@
 import notifee, { AndroidImportance, AuthorizationStatus } from '@notifee/react-native';
-import { Platform, Linking } from 'react-native';
+import { Platform, Linking, Alert, NativeModules } from 'react-native';
+
+const { PowerManagerModule } = NativeModules;
 
 let notificationId = null;
 
@@ -50,6 +52,66 @@ export async function openBatterySettings() {
       console.error('Fallback to app settings failed:', fallbackError);
     }
   }
+}
+
+export async function requestBatteryOptimizationExemption() {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+  
+  try {
+    // Get actual package name dynamically from native module
+    const packageName = NativeModules.PlatformConstants?.getConstants?.()?.appId || 'com.polarsensor.app';
+    
+    // Request battery optimization exemption
+    const intent = 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS';
+    await Linking.sendIntent(intent, [{ key: 'data', value: `package:${packageName}` }]);
+    return true;
+  } catch (error) {
+    console.error('Error requesting battery optimization exemption:', error);
+    // Fallback: Open battery optimization settings
+    try {
+      await openBatterySettings();
+    } catch (fallbackError) {
+      console.error('Fallback to battery settings failed:', fallbackError);
+    }
+    return false;
+  }
+}
+
+export async function showBatteryOptimizationGuidance(onComplete) {
+  if (Platform.OS !== 'android') {
+    if (onComplete) onComplete(false);
+    return;
+  }
+  
+  Alert.alert(
+    '⚠️ Battery Optimization Required',
+    'To prevent Android from killing the app during overnight recordings, you need to disable battery optimization:\n\n' +
+    '1. Tap "Open Settings" below\n' +
+    '2. Find this app in the list\n' +
+    '3. Select "Don\'t optimize"\n\n' +
+    'For Google Pixel devices, also:\n' +
+    '• Settings → Battery → Battery Manager\n' +
+    '• Ensure app is NOT in "Restricted" list\n' +
+    '• Settings → Apps → This App → Battery → "Unrestricted"',
+    [
+      {
+        text: 'Remind Me Later',
+        style: 'cancel',
+        onPress: () => {
+          if (onComplete) onComplete(false);
+        },
+      },
+      {
+        text: 'Open Settings',
+        onPress: () => {
+          openBatterySettings();
+          if (onComplete) onComplete(true);
+        },
+      },
+    ]
+  );
 }
 
 export async function checkNotificationPermission() {

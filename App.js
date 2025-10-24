@@ -39,7 +39,8 @@ import {
   setupNotificationHandlers,
   openAppSettings,
   requestNotificationPermission,
-  openBatterySettings
+  openBatterySettings,
+  showBatteryOptimizationGuidance
 } from './ForegroundService';
 import {
   startBackgroundService,
@@ -1059,6 +1060,21 @@ export default function App() {
           : 'Standard Mode - Streaming HR only.';
       
       if (Platform.OS === 'android') {
+        // Check if user has configured battery optimization
+        const batteryConfigured = await AsyncStorage.getItem('BATTERY_OPTIMIZATION_CONFIGURED');
+        if (!batteryConfigured) {
+          showBatteryOptimizationGuidance(async (userOpenedSettings) => {
+            if (userOpenedSettings) {
+              // User opened settings - mark as configured
+              await AsyncStorage.setItem('BATTERY_OPTIMIZATION_CONFIGURED', 'true');
+              console.log('✅ User opened battery optimization settings');
+            } else {
+              // User dismissed - they'll see it again next connection
+              console.log('⚠️ User skipped battery optimization guidance');
+            }
+          });
+        }
+        
         try {
           const started = await startBackgroundService(device.name);
           if (started) {
