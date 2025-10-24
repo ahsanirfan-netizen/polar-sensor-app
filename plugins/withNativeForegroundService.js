@@ -421,41 +421,43 @@ function withNativeForegroundService(config) {
 
 // This function is called during expo prebuild to inject the Kotlin files
 function withKotlinFiles(config) {
-  return (config) => {
-    const platformProjectRoot = path.join(
-      config.modRequest.platformProjectRoot,
-      'app',
-      'src',
-      'main',
-      'java',
-      'com',
-      'polarsensor',
-      'app'
-    );
+  const platformProjectRoot = path.join(
+    config.modRequest.platformProjectRoot,
+    'app',
+    'src',
+    'main',
+    'java',
+    'com',
+    'polarsensor',
+    'app'
+  );
 
-    // Ensure directory exists
-    if (!fs.existsSync(platformProjectRoot)) {
-      fs.mkdirSync(platformProjectRoot, { recursive: true });
-    }
+  console.log('📁 Creating Kotlin files directory:', platformProjectRoot);
 
-    // Write the Kotlin files
-    fs.writeFileSync(
-      path.join(platformProjectRoot, 'NativeForegroundService.kt'),
-      FOREGROUND_SERVICE_KOTLIN
-    );
+  // Ensure directory exists
+  if (!fs.existsSync(platformProjectRoot)) {
+    fs.mkdirSync(platformProjectRoot, { recursive: true });
+    console.log('✅ Created directory');
+  } else {
+    console.log('✅ Directory already exists');
+  }
 
-    fs.writeFileSync(
-      path.join(platformProjectRoot, 'ForegroundServiceModule.kt'),
-      BRIDGE_MODULE_KOTLIN
-    );
+  // Write the Kotlin files
+  const serviceFile = path.join(platformProjectRoot, 'NativeForegroundService.kt');
+  fs.writeFileSync(serviceFile, FOREGROUND_SERVICE_KOTLIN);
+  console.log('✅ Written:', serviceFile);
 
-    fs.writeFileSync(
-      path.join(platformProjectRoot, 'ForegroundServicePackage.kt'),
-      PACKAGE_KOTLIN
-    );
+  const moduleFile = path.join(platformProjectRoot, 'ForegroundServiceModule.kt');
+  fs.writeFileSync(moduleFile, BRIDGE_MODULE_KOTLIN);
+  console.log('✅ Written:', moduleFile);
 
-    return config;
-  };
+  const packageFile = path.join(platformProjectRoot, 'ForegroundServicePackage.kt');
+  fs.writeFileSync(packageFile, PACKAGE_KOTLIN);
+  console.log('✅ Written:', packageFile);
+
+  console.log('✅ All Kotlin files generated successfully');
+
+  return config;
 }
 
 module.exports = function (config) {
@@ -471,10 +473,11 @@ module.exports = function (config) {
   
   const existingDangerousMod = config.mods.android.dangerous;
   config.mods.android.dangerous = async (config) => {
+    console.log('🔧 Running dangerous mod to generate Kotlin files...');
     if (existingDangerousMod) {
       config = await existingDangerousMod(config);
     }
-    return withKotlinFiles(config)(config);
+    return withKotlinFiles(config);
   };
   
   return config;
