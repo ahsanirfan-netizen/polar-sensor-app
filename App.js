@@ -114,6 +114,9 @@ export default function App() {
   const [foregroundServiceActive, setForegroundServiceActive] = useState(false);
   
   // Refs to store full raw chart data (avoids O(N) array copies in state)
+  // Limit to last 15 minutes of data to prevent memory leaks during overnight recording
+  // 52 Hz × 60 sec × 15 min = 46,800 samples max per chart
+  const MAX_CHART_SAMPLES = 46800; // ~15 minutes at 52 Hz
   const accChartDataRaw = useRef([]);
   const gyroChartDataRaw = useRef([]);
   const accChartUpdateCounter = useRef(0);
@@ -1640,6 +1643,11 @@ export default function App() {
             label: ''
           });
           
+          // Limit chart data to prevent memory leaks (keep last 15 minutes)
+          if (accChartDataRaw.current.length > MAX_CHART_SAMPLES) {
+            accChartDataRaw.current.shift();
+          }
+          
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           accChartUpdateCounter.current++;
           if (accChartUpdateCounter.current >= 20) {
@@ -1701,6 +1709,11 @@ export default function App() {
             timestamp: now,
             label: ''
           });
+          
+          // Limit chart data to prevent memory leaks (keep last 15 minutes)
+          if (accChartDataRaw.current.length > MAX_CHART_SAMPLES) {
+            accChartDataRaw.current.shift();
+          }
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           accChartUpdateCounter.current++;
@@ -1810,6 +1823,11 @@ export default function App() {
             label: ''
           });
           
+          // Limit chart data to prevent memory leaks (keep last 15 minutes)
+          if (gyroChartDataRaw.current.length > MAX_CHART_SAMPLES) {
+            gyroChartDataRaw.current.shift();
+          }
+          
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           gyroChartUpdateCounter.current++;
           if (gyroChartUpdateCounter.current >= 20) {
@@ -1867,6 +1885,11 @@ export default function App() {
             timestamp: now,
             label: ''
           });
+          
+          // Limit chart data to prevent memory leaks (keep last 15 minutes)
+          if (gyroChartDataRaw.current.length > MAX_CHART_SAMPLES) {
+            gyroChartDataRaw.current.shift();
+          }
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           gyroChartUpdateCounter.current++;
