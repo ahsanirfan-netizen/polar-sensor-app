@@ -843,7 +843,7 @@ export default function App() {
 
   const attemptReconnect = async () => {
     if (isManualDisconnectRef.current || !lastDeviceRef.current) {
-      console.log('Skipping reconnect - manual disconnect or no device');
+      console.log('🔄 Skipping reconnect - manual disconnect or no device');
       return;
     }
 
@@ -854,32 +854,39 @@ export default function App() {
     totalReconnectAttemptsRef.current = totalReconnectAttemptsRef.current + 1;
     setTotalReconnectAttempts(totalReconnectAttemptsRef.current);
     
-    console.log(`Reconnection attempt ${currentAttempt} for device ${deviceInfo.id}`);
+    console.log(`🔄 Reconnection attempt ${currentAttempt} for device ${deviceInfo.id}`);
     setReconnecting(true);
     setReconnectAttempts(currentAttempt);
 
     try {
-      const device = await bleManager.connectToDevice(deviceInfo.id);
+      console.log(`🔄 Step 1: Connecting to device...`);
+      const device = await bleManager.connectToDevice(deviceInfo.id, {
+        timeout: 10000 // 10 second timeout
+      });
+      
+      console.log(`🔄 Step 2: Discovering services...`);
       await device.discoverAllServicesAndCharacteristics();
       
       // Request maximum MTU for large delta-compressed packets
       try {
+        console.log(`🔄 Step 3: Requesting MTU...`);
         const mtu = await device.requestMTU(247);
         const mtuValue = typeof mtu === 'object' ? mtu.mtu || JSON.stringify(mtu) : mtu;
-        console.log(`MTU negotiated on reconnect: ${mtuValue} bytes`);
+        console.log(`✅ MTU negotiated on reconnect: ${mtuValue} bytes`);
       } catch (error) {
-        console.log('MTU request failed on reconnect:', error.message);
+        console.warn('⚠️ MTU request failed on reconnect:', error.message);
       }
       
       // Request high connection priority for faster packet delivery (7.5-10ms intervals)
       try {
-        await device.requestConnectionPriority(ConnectionPriority.High); // High=0, Balanced=1, LowPower=2
-        console.log('Connection priority: HIGH ✓ (reconnect)');
+        console.log(`🔄 Step 4: Setting connection priority...`);
+        await device.requestConnectionPriority(ConnectionPriority.High);
+        console.log('✅ Connection priority: HIGH (reconnect)');
       } catch (error) {
-        console.log('Connection priority request failed on reconnect:', error.message);
+        console.warn('⚠️ Connection priority request failed on reconnect:', error.message);
       }
       
-      console.log('Reconnected successfully!');
+      console.log('✅ Reconnected successfully!');
       successfulReconnectsRef.current = successfulReconnectsRef.current + 1;
       setSuccessfulReconnects(successfulReconnectsRef.current);
       
@@ -891,17 +898,26 @@ export default function App() {
       reconnectAttemptsRef.current = 0;
       setReconnectAttempts(0);
       
+      console.log(`🔄 Step 5: Setting up device monitoring...`);
       setupDeviceMonitoring(device, deviceInfo);
       
+      console.log(`✅ Reconnection complete - device ready`);
       Alert.alert('Reconnected', `Successfully reconnected to ${deviceInfo.name}`);
     } catch (error) {
-      console.error('Reconnection failed:', error);
+      console.error('❌ Reconnection failed:', error.message);
+      console.error('❌ Error type:', error.constructor.name);
+      console.error('❌ Error code:', error.errorCode || 'N/A');
       
       failedReconnectsRef.current = failedReconnectsRef.current + 1;
       setFailedReconnects(failedReconnectsRef.current);
       
       const backoffDelay = Math.min(2000 * Math.pow(1.5, currentAttempt - 1), 30000);
-      console.log(`Will retry in ${backoffDelay}ms after ${currentAttempt} failed attempts`);
+      console.log(`🔄 Will retry in ${(backoffDelay/1000).toFixed(1)}s (attempt ${currentAttempt})`);
+      
+      // Clear any existing timeout before setting a new one
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       
       reconnectTimeoutRef.current = setTimeout(() => {
         attemptReconnect();
@@ -913,7 +929,9 @@ export default function App() {
     lastDeviceRef.current = deviceInfo;
     
     device.onDisconnected(async (error, disconnectedDevice) => {
-      console.log('Device disconnected:', error?.message || 'Unknown reason');
+      console.log('🔌 Device disconnected:', error?.message || 'Unknown reason');
+      console.log('🔌 Disconnection type:', error?.errorCode || 'N/A');
+      console.log('🔌 Was manual disconnect:', isManualDisconnectRef.current);
       
       setIsRecording(false);
       if (dbBufferRef.current.length > 0) {
@@ -921,7 +939,7 @@ export default function App() {
       }
       
       if (!isManualDisconnectRef.current) {
-        console.log('Unexpected disconnect - will attempt reconnection');
+        console.log('🔌 Unexpected disconnect - will attempt reconnection');
         
         totalDisconnectionsRef.current = totalDisconnectionsRef.current + 1;
         setTotalDisconnections(totalDisconnectionsRef.current);
@@ -932,7 +950,7 @@ export default function App() {
           attemptReconnect();
         }, 2000);
       } else {
-        console.log('Manual disconnect - no reconnection');
+        console.log('🔌 Manual disconnect - no reconnection');
       }
     });
     
@@ -1440,7 +1458,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [sdkModeEnabled, connectedDevice]);
 
-  // Timer for elapsed time since sensor started
+  // Timer for elapsed time since sensor started + BLE keep-alive
   useEffect(() => {
     if (!connectedDevice) {
       setSensorElapsedTime('00:00:00');
@@ -1452,6 +1470,8 @@ export default function App() {
     if (!sensorStartTimeRef.current) {
       sensorStartTimeRef.current = Date.now();
     }
+    
+    let keepAliveCounter = 0;
     
     const timerInterval = setInterval(async () => {
       if (sensorStartTimeRef.current) {
@@ -1477,7 +1497,37 @@ export default function App() {
       }
     }, 1000);
     
-    return () => clearInterval(timerInterval);
+    // BLE Keep-Alive: Perform periodic connection check to prevent BLE stack suspension
+    // This is critical for overnight recording on Android
+    const keepAliveInterval = setInterval(async () => {
+      if (!connectedDevice) return;
+      
+      try {
+        keepAliveCounter++;
+        // Read device name every 30 seconds to keep BLE stack active
+        const isConnected = await connectedDevice.isConnected();
+        console.log(`🔋 BLE Keep-Alive #${keepAliveCounter}: Connection=${isConnected}`);
+        
+        if (isConnected) {
+          // Perform a lightweight read operation to keep BLE radio active
+          try {
+            await connectedDevice.readRSSI();
+            console.log(`🔋 RSSI read successful - BLE stack active`);
+          } catch (rssiError) {
+            console.warn('⚠️ RSSI read failed (non-critical):', rssiError.message);
+          }
+        } else {
+          console.error('🔋 Keep-alive detected disconnection!');
+        }
+      } catch (error) {
+        console.error('🔋 BLE Keep-Alive error:', error.message);
+      }
+    }, 30000); // Every 30 seconds
+    
+    return () => {
+      clearInterval(timerInterval);
+      clearInterval(keepAliveInterval);
+    };
   }, [connectedDevice]);
 
   const parseACCData = (data) => {
