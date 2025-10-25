@@ -21,6 +21,17 @@ This project is a React Native mobile application, built with Expo Development B
   - Then tap to select "Unrestricted"
   - If toggle is OFF, Android kills the app even if it says "Unrestricted"
 
+**Critical Fix #3: Crash Log Persistence for Debugging**
+- **Problem**: When app crashes overnight, all console logs are lost, making it impossible to debug what caused the crash
+- **Solution**: Implemented persistent crash log system that saves last 5 minutes of console logs to AsyncStorage
+- **Features**:
+  - Automatically saves logs every 10 seconds
+  - Keeps only last 5 minutes of logs (rolling window)
+  - On app restart, shows alert with crash log preview
+  - Full crash logs loaded into Debug Console for inspection
+  - Auto-clears stale logs if app has been quiet >5 minutes
+- **Result**: After overnight crash, user can see exactly what happened in the 5 minutes before the app was killed
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
