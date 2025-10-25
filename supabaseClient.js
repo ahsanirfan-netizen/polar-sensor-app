@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let supabaseUrl, supabaseAnonKey;
 
@@ -20,34 +20,35 @@ try {
     console.log('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
     console.log('SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing');
   } else {
-    const ExpoSecureStoreAdapter = {
+    // AsyncStorage adapter for Supabase auth (no size limit, unlike SecureStore's 2KB limit)
+    const AsyncStorageAdapter = {
       getItem: async (key) => {
         try {
-          return await SecureStore.getItemAsync(key);
+          return await AsyncStorage.getItem(key);
         } catch (error) {
-          console.error('SecureStore getItem error:', error);
+          console.error('AsyncStorage getItem error:', error);
           return null;
         }
       },
       setItem: async (key, value) => {
         try {
-          await SecureStore.setItemAsync(key, value);
+          await AsyncStorage.setItem(key, value);
         } catch (error) {
-          console.error('SecureStore setItem error:', error);
+          console.error('AsyncStorage setItem error:', error);
         }
       },
       removeItem: async (key) => {
         try {
-          await SecureStore.deleteItemAsync(key);
+          await AsyncStorage.removeItem(key);
         } catch (error) {
-          console.error('SecureStore removeItem error:', error);
+          console.error('AsyncStorage removeItem error:', error);
         }
       },
     };
 
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: ExpoSecureStoreAdapter,
+        storage: AsyncStorageAdapter,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
