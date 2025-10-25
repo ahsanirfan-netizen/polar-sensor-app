@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Use globalThis to persist across fast refresh
 if (!globalThis.__debugConsole) {
@@ -7,6 +8,7 @@ if (!globalThis.__debugConsole) {
     logBuffer: [],
     logListeners: [],
     intercepted: false,
+    persistenceInterval: null,
   };
 }
 
@@ -78,6 +80,66 @@ function safeStringify(arg) {
   }
 }
 
+// Save logs to AsyncStorage for crash recovery
+async function savePersistentLogs() {
+  try {
+    const now = Date.now();
+    const fiveMinutesAgo = now - (5 * 60 * 1000);
+    
+    // Filter logs from last 5 minutes with full timestamp
+    const recentLogs = globalThis.__debugConsole.logBuffer
+      .filter(log => log.fullTimestamp && log.fullTimestamp >= fiveMinutesAgo)
+      .map(log => ({
+        type: log.type,
+        message: log.message,
+        timestamp: log.timestamp,
+        fullTimestamp: log.fullTimestamp
+      }));
+    
+    if (recentLogs.length > 0) {
+      await AsyncStorage.setItem('DEBUG_CRASH_LOGS', JSON.stringify(recentLogs));
+      await AsyncStorage.setItem('DEBUG_LAST_SAVE', now.toString());
+    }
+  } catch (error) {
+    globalThis.__originalConsoleError('Failed to save crash logs:', error);
+  }
+}
+
+// Load crash logs from previous session
+export async function loadCrashLogs() {
+  try {
+    const crashLogs = await AsyncStorage.getItem('DEBUG_CRASH_LOGS');
+    const lastSave = await AsyncStorage.getItem('DEBUG_LAST_SAVE');
+    
+    if (crashLogs && lastSave) {
+      const logs = JSON.parse(crashLogs);
+      const saveTime = parseInt(lastSave);
+      const now = Date.now();
+      const minutesAgo = Math.round((now - saveTime) / 60000);
+      
+      return {
+        logs,
+        minutesAgo,
+        saveTime: new Date(saveTime).toLocaleString()
+      };
+    }
+    return null;
+  } catch (error) {
+    globalThis.__originalConsoleError('Failed to load crash logs:', error);
+    return null;
+  }
+}
+
+// Clear crash logs after viewing
+export async function clearCrashLogs() {
+  try {
+    await AsyncStorage.removeItem('DEBUG_CRASH_LOGS');
+    await AsyncStorage.removeItem('DEBUG_LAST_SAVE');
+  } catch (error) {
+    globalThis.__originalConsoleError('Failed to clear crash logs:', error);
+  }
+}
+
 function addLog(type, args) {
   const message = args.map(arg => safeStringify(arg)).join(' ');
   
@@ -85,7 +147,8 @@ function addLog(type, args) {
     id: Date.now() + Math.random(),
     type,
     message,
-    timestamp: new Date().toLocaleTimeString()
+    timestamp: new Date().toLocaleTimeString(),
+    fullTimestamp: Date.now() // For 5-minute filtering
   };
   
   globalThis.__debugConsole.logBuffer.push(log);
@@ -96,6 +159,13 @@ function addLog(type, args) {
   globalThis.__debugConsole.logListeners.forEach(listener => 
     listener(globalThis.__debugConsole.logBuffer)
   );
+}
+
+// Start persistent log saving (every 10 seconds)
+if (!globalThis.__debugConsole.persistenceInterval) {
+  globalThis.__debugConsole.persistenceInterval = setInterval(() => {
+    savePersistentLogs();
+  }, 10000); // Save every 10 seconds
 }
 
 export default function DebugConsole() {
