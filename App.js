@@ -34,7 +34,7 @@ import { supabase } from './supabaseClient';
 import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
-import DebugConsole from './DebugConsole';
+import DebugConsole, { loadCrashLogs, clearCrashLogs } from './DebugConsole';
 import { LineChart } from 'react-native-gifted-charts';
 import { 
   setupNotificationHandlers,
@@ -295,6 +295,7 @@ export default function App() {
     initDatabase();
     clearLegacySecureStore();
     checkForUnexpectedRestart();
+    checkForCrashLogs();
   }, []);
   
   const saveSessionState = async (deviceInfo, mode) => {
@@ -370,6 +371,43 @@ export default function App() {
       }
     } catch (error) {
       console.error('❌ Error checking for unexpected restart:', error);
+    }
+  };
+
+  const checkForCrashLogs = async () => {
+    try {
+      const crashData = await loadCrashLogs();
+      
+      if (crashData) {
+        console.log(`📋 Found crash logs from ${crashData.minutesAgo} minutes ago`);
+        console.log(`📋 Crash logs count: ${crashData.logs.length}`);
+        
+        // Format logs for display
+        const logPreview = crashData.logs.slice(-10).map(log => 
+          `[${log.timestamp}] ${log.message}`
+        ).join('\n');
+        
+        Alert.alert(
+          '⚠️ Crash Logs Found',
+          `Found ${crashData.logs.length} logs from the last 5 minutes before the app was killed.\n\nLast saved: ${crashData.saveTime}\n(${crashData.minutesAgo} minutes ago)\n\nLast 10 logs:\n\n${logPreview}\n\nOpen the Debug Console (🐛 button) to see all crash logs.`,
+          [
+            {
+              text: 'Clear Logs',
+              style: 'destructive',
+              onPress: async () => {
+                await clearCrashLogs();
+                console.log('✅ Crash logs cleared');
+              }
+            },
+            {
+              text: 'Keep Logs',
+              style: 'cancel'
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error checking for crash logs:', error);
     }
   };
   

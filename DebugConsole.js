@@ -99,6 +99,10 @@ async function savePersistentLogs() {
     if (recentLogs.length > 0) {
       await AsyncStorage.setItem('DEBUG_CRASH_LOGS', JSON.stringify(recentLogs));
       await AsyncStorage.setItem('DEBUG_LAST_SAVE', now.toString());
+    } else {
+      // Clear stale crash logs if no recent logs exist (app has been quiet >5 minutes)
+      await AsyncStorage.removeItem('DEBUG_CRASH_LOGS');
+      await AsyncStorage.removeItem('DEBUG_LAST_SAVE');
     }
   } catch (error) {
     globalThis.__originalConsoleError('Failed to save crash logs:', error);
@@ -172,17 +176,56 @@ export default function DebugConsole() {
   const [logs, setLogs] = useState(globalThis.__debugConsole.logBuffer);
   const [isVisible, setIsVisible] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [crashLogsLoaded, setCrashLogsLoaded] = useState(false);
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
     const listener = (newLogs) => setLogs([...newLogs]);
     globalThis.__debugConsole.logListeners.push(listener);
     
+    // Load crash logs into console on first mount
+    const loadCrashLogsIntoConsole = async () => {
+      if (!crashLogsLoaded) {
+        try {
+          const crashData = await loadCrashLogs();
+          if (crashData && crashData.logs.length > 0) {
+            // Add separator
+            globalThis.__debugConsole.logBuffer.unshift({
+              id: 'crash-separator',
+              type: 'warn',
+              message: `========== CRASH LOGS FROM ${crashData.saveTime} (${crashData.minutesAgo} min ago) ==========`,
+              timestamp: '---',
+              fullTimestamp: Date.now()
+            });
+            
+            // Add crash logs to beginning of buffer
+            crashData.logs.reverse().forEach(log => {
+              globalThis.__debugConsole.logBuffer.unshift({
+                id: `crash-${log.fullTimestamp}-${Math.random()}`,
+                type: log.type,
+                message: log.message,
+                timestamp: log.timestamp,
+                fullTimestamp: log.fullTimestamp
+              });
+            });
+            
+            setLogs([...globalThis.__debugConsole.logBuffer]);
+            setCrashLogsLoaded(true);
+            globalThis.__originalConsoleLog('📋 Crash logs loaded into Debug Console');
+          }
+        } catch (error) {
+          globalThis.__originalConsoleError('Failed to load crash logs into console:', error);
+        }
+      }
+    };
+    
+    loadCrashLogsIntoConsole();
+    
     return () => {
       const index = globalThis.__debugConsole.logListeners.indexOf(listener);
       if (index > -1) globalThis.__debugConsole.logListeners.splice(index, 1);
     };
-  }, []);
+  }, [crashLogsLoaded]);
 
   useEffect(() => {
     if (scrollViewRef.current && isVisible && autoScroll) {
