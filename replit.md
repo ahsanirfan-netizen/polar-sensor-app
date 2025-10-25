@@ -4,12 +4,22 @@ This project is a React Native mobile application, built with Expo Development B
 
 ## Recent Changes (October 25, 2025)
 
-**Critical Fix: SecureStore 2KB Limit Causing Silent Failures**
+**Critical Fix #1: SecureStore 2KB Limit Causing Silent Failures**
 - **Problem**: Supabase auth tokens exceeded SecureStore's 2KB per-key limit, causing hourly "Value being stored in SecureStore is larger than 2048 bytes" warnings
 - **Impact**: Silent storage failures prevented proper session persistence, potentially contributing to unexpected app crashes
 - **Solution**: Migrated Supabase auth storage from SecureStore to AsyncStorage (no size limit)
 - **Migration**: One-time cleanup on app start removes legacy SecureStore entries
-- **Result**: Eliminates storage warnings and ensures reliable auth session persistence
+- **Result**: Eliminates storage warnings and ensures reliable auth session persistence. App survival improved from 35 minutes to 78 minutes.
+
+**Critical Fix #2: Android 15 Foreground Service Enhancements**
+- **Problem**: Android 15 on Google Pixel 9 killing app after ~80 minutes despite proper foreground service and "Unrestricted" battery settings
+- **Solution 1**: Added `directBootAware` flag to service manifest - allows service to run even when device is locked/encrypted
+- **Solution 2**: Implemented `onTimeout()` callback to log if Android 15 is incorrectly applying timeouts to connectedDevice service type
+- **Solution 3**: Fixed config plugin to always update service attributes (not just add when missing)
+- **User Action Required**: Verify "Allow background usage" toggle is ON (two-step battery config on Android 15):
+  - Settings → Apps → Polar Sensor → App battery usage → "Allow background usage" must be toggled ON
+  - Then tap to select "Unrestricted"
+  - If toggle is OFF, Android kills the app even if it says "Unrestricted"
 
 ## User Preferences
 
