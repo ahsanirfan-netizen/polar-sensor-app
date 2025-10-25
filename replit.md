@@ -2,6 +2,15 @@
 
 This project is a React Native mobile application, built with Expo Development Build, that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). Its primary purpose is to provide real-time heart rate and other physiological data from the sensor. The application supports two mutually exclusive sensor modes: **Standard Mode** (configurable HR-only or HR+PPI) and **SDK Mode** (PPG + ACC + Gyro). It incorporates local data persistence, cloud sync to Supabase, and automated sleep analysis processing. The business vision is to provide a robust and flexible platform for health and fitness monitoring, leveraging advanced sensor data for deeper insights into sleep patterns and recovery.
 
+## Recent Changes (October 25, 2025)
+
+**Critical Fix: SecureStore 2KB Limit Causing Silent Failures**
+- **Problem**: Supabase auth tokens exceeded SecureStore's 2KB per-key limit, causing hourly "Value being stored in SecureStore is larger than 2048 bytes" warnings
+- **Impact**: Silent storage failures prevented proper session persistence, potentially contributing to unexpected app crashes
+- **Solution**: Migrated Supabase auth storage from SecureStore to AsyncStorage (no size limit)
+- **Migration**: One-time cleanup on app start removes legacy SecureStore entries
+- **Result**: Eliminates storage warnings and ensures reliable auth session persistence
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
