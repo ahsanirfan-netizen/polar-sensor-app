@@ -1,293 +1,4 @@
-const { withAndroidManifest, withMainApplication, withDangerousMod } = require('expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
-
-// Kotlin code for the native foreground service
-const FOREGROUND_SERVICE_KOTLIN = `package com.polarsensor.app
-
-import android.app.*
-import android.content.Context
-import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.os.Build
-import android.os.IBinder
-import android.os.PowerManager
-import android.util.Log
-import androidx.core.app.NotificationCompat
-
-class NativeForegroundService : Service() {
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var startTime: Long = 0
-    private var heartbeatCount: Int = 0
-    
-    companion object {
-        private const val TAG = "NativeForegroundService"
-        private const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "polar_sensor_foreground"
-        var isRunning = false
-            private set
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-        Log.d(TAG, "onCreate() - Service created")
-        createNotificationChannel()
-        acquireWakeLock()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand() - Service starting - Android ${Build.VERSION.SDK_INT}")
-        
-        when (intent?.action) {
-            "START_SERVICE" -> {
-                val deviceName = intent.getStringExtra("deviceName") ?: "Polar Sensor"
-                startForegroundService(deviceName)
-            }
-            "UPDATE_NOTIFICATION" -> {
-                val heartRate = intent.getStringExtra("heartRate")
-                val recordingTime = intent.getStringExtra("recordingTime")
-                val deviceName = intent.getStringExtra("deviceName") ?: "Polar Sensor"
-                updateNotification(heartRate, recordingTime, deviceName)
-            }
-            "STOP_SERVICE" -> {
-                stopForegroundService()
-            }
-        }
-        
-        // START_STICKY: Restart service if killed by Android
-        // START_REDELIVER_INTENT would re-deliver the last intent (not needed for BLE)
-        return START_STICKY
-    }
-    
-    // Android 15 timeout callback - called before service is killed
-    override fun onTimeout(startId: Int) {
-        Log.w(TAG, "onTimeout() called - Android 15 is about to kill the service!")
-        Log.w(TAG, "Service ran for ${(System.currentTimeMillis() - startTime) / 60000} minutes")
-        // Don't call stopSelf() - try to keep running
-        // Log this so we can see if it's being called
-    }
-
-    private fun startForegroundService(deviceName: String) {
-        Log.d(TAG, "Starting foreground service with FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE")
-        startTime = System.currentTimeMillis()
-        heartbeatCount = 0
-        isRunning = true
-        
-        val notification = createNotification(
-            "Connected to $deviceName",
-            "Collecting sensor data...",
-            deviceName
-        )
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, 
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
-        
-        Log.d(TAG, "Foreground service started successfully")
-    }
-
-    private fun updateNotification(heartRate: String?, recordingTime: String?, deviceName: String) {
-        heartbeatCount++
-        val elapsedMinutes = (System.currentTimeMillis() - startTime) / 60000
-        
-        Log.d(TAG, "Heartbeat #$heartbeatCount - Elapsed: $elapsedMinutes min - HR: $heartRate")
-        
-        val title = recordingTime?.let { "Recording: $it" } ?: "Connected to $deviceName"
-        val hrText = heartRate?.let { "HR: $it bpm" } ?: "HR: --"
-        val description = "$hrText | Heartbeat #$heartbeatCount"
-        
-        val notification = createNotification(title, description, deviceName)
-        
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun stopForegroundService() {
-        Log.d(TAG, "Stopping foreground service - Total heartbeats: $heartbeatCount")
-        isRunning = false
-        releaseWakeLock()
-        stopForeground(true)
-        stopSelf()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Polar Sensor Data Collection",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Persistent notification for BLE sensor data collection"
-                setShowBadge(false)
-            }
-            
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-            Log.d(TAG, "Notification channel created")
-        }
-    }
-
-    private fun createNotification(title: String, description: String, deviceName: String): Notification {
-        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(description)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
-    }
-
-    private fun acquireWakeLock() {
-        try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "$TAG::WakeLock"
-            ).apply {
-                acquire()
-                Log.d(TAG, "Wake lock acquired")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to acquire wake lock", e)
-        }
-    }
-
-    private fun releaseWakeLock() {
-        wakeLock?.let {
-            if (it.isHeld) {
-                it.release()
-                Log.d(TAG, "Wake lock released")
-            }
-        }
-        wakeLock = null
-    }
-
-    override fun onDestroy() {
-        Log.d(TAG, "onDestroy() - Service destroyed after $heartbeatCount heartbeats")
-        isRunning = false
-        releaseWakeLock()
-        super.onDestroy()
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        Log.d(TAG, "onTaskRemoved() - App task removed, continuing service")
-        super.onTaskRemoved(rootIntent)
-    }
-
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
-}
-`;
-
-// Kotlin code for the React Native bridge module
-const BRIDGE_MODULE_KOTLIN = `package com.polarsensor.app
-
-import android.content.Intent
-import android.os.Build
-import com.facebook.react.bridge.*
-
-class ForegroundServiceModule(reactContext: ReactApplicationContext) : 
-    ReactContextBaseJavaModule(reactContext) {
-
-    override fun getName(): String = "NativeForegroundService"
-
-    @ReactMethod
-    fun startService(deviceName: String, promise: Promise) {
-        try {
-            val intent = Intent(reactApplicationContext, NativeForegroundService::class.java).apply {
-                action = "START_SERVICE"
-                putExtra("deviceName", deviceName)
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                reactApplicationContext.startForegroundService(intent)
-            } else {
-                reactApplicationContext.startService(intent)
-            }
-            
-            promise.resolve(true)
-        } catch (e: Exception) {
-            promise.reject("START_SERVICE_ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun updateNotification(heartRate: String?, recordingTime: String?, deviceName: String?, promise: Promise) {
-        try {
-            val intent = Intent(reactApplicationContext, NativeForegroundService::class.java).apply {
-                action = "UPDATE_NOTIFICATION"
-                putExtra("heartRate", heartRate)
-                putExtra("recordingTime", recordingTime)
-                putExtra("deviceName", deviceName ?: "Polar Sensor")
-            }
-            
-            reactApplicationContext.startService(intent)
-            promise.resolve(true)
-        } catch (e: Exception) {
-            promise.reject("UPDATE_NOTIFICATION_ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun stopService(promise: Promise) {
-        try {
-            val intent = Intent(reactApplicationContext, NativeForegroundService::class.java).apply {
-                action = "STOP_SERVICE"
-            }
-            
-            reactApplicationContext.startService(intent)
-            promise.resolve(true)
-        } catch (e: Exception) {
-            promise.reject("STOP_SERVICE_ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun isRunning(promise: Promise) {
-        try {
-            promise.resolve(NativeForegroundService.isRunning)
-        } catch (e: Exception) {
-            promise.reject("IS_RUNNING_ERROR", e.message, e)
-        }
-    }
-}
-`;
-
-// Kotlin code for the package registration
-const PACKAGE_KOTLIN = `package com.polarsensor.app
-
-import com.facebook.react.ReactPackage
-import com.facebook.react.bridge.NativeModule
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.uimanager.ViewManager
-
-class ForegroundServicePackage : ReactPackage {
-    override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(ForegroundServiceModule(reactContext))
-    }
-
-    override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-        return emptyList()
-    }
-}
-`;
+const { withAndroidManifest, withMainApplication } = require('@expo/config-plugins');
 
 function withNativeForegroundService(config) {
   // Modify AndroidManifest.xml
@@ -380,13 +91,10 @@ function withNativeForegroundService(config) {
     }
 
     // Add package registration if not present
-    // Handle different Expo SDK versions and MainApplication.kt patterns
-    // Check for the actual add() call, not just the import!
     if (!modResults.contents.includes('ForegroundServicePackage()')) {
       let matched = false;
       
       // Pattern 1: PackageList(this).packages.apply { ... } (SDK 50-54)
-      // This is the most common pattern, match more flexibly
       const applyPattern = /PackageList\(this\)\.packages\.apply\s*\{/;
       if (applyPattern.test(modResults.contents)) {
         modResults.contents = modResults.contents.replace(
@@ -408,14 +116,13 @@ function withNativeForegroundService(config) {
       }
       
       // Pattern 3: return PackageList(this).packages (older versions)
-      // Rewrite to use val packages so the add() doesn't get dropped
       if (!matched && /return\s+PackageList\(this\)\.packages/i.test(modResults.contents)) {
         modResults.contents = modResults.contents.replace(
           /(override fun getPackages[^}]*)(return\s+)PackageList\(this\)\.packages/,
           `$1val packages = PackageList(this).packages\n          packages.${packageAdd}\n          ${2}packages`
         );
         matched = true;
-        console.log('✅ Using return packages pattern (older SDKs) - rewrote to use val packages');
+        console.log('✅ Using return packages pattern (older SDKs)');
       }
       
       if (matched) {
@@ -423,7 +130,6 @@ function withNativeForegroundService(config) {
       } else {
         console.error('❌ Could not find any known MainApplication.kt pattern!');
         console.error('❌ Please check the generated MainApplication.kt manually');
-        console.error('File preview:', modResults.contents.substring(0, 800));
       }
     } else {
       packageAdded = true;
@@ -439,54 +145,4 @@ function withNativeForegroundService(config) {
   return config;
 }
 
-module.exports = function (config) {
-  // First apply manifest and MainApplication changes
-  config = withNativeForegroundService(config);
-  
-  // Then use withDangerousMod to write Kotlin files
-  config = withDangerousMod(config, [
-    'android',
-    async (config) => {
-      console.log('🔧 Running dangerous mod to generate Kotlin files...');
-      const platformProjectRoot = path.join(
-        config.modRequest.platformProjectRoot,
-        'app',
-        'src',
-        'main',
-        'java',
-        'com',
-        'polarsensor',
-        'app'
-      );
-
-      console.log('📁 Creating Kotlin files directory:', platformProjectRoot);
-
-      // Ensure directory exists
-      if (!fs.existsSync(platformProjectRoot)) {
-        fs.mkdirSync(platformProjectRoot, { recursive: true });
-        console.log('✅ Created directory');
-      } else {
-        console.log('✅ Directory already exists');
-      }
-
-      // Write the Kotlin files
-      const serviceFile = path.join(platformProjectRoot, 'NativeForegroundService.kt');
-      fs.writeFileSync(serviceFile, FOREGROUND_SERVICE_KOTLIN);
-      console.log('✅ Written:', serviceFile);
-
-      const moduleFile = path.join(platformProjectRoot, 'ForegroundServiceModule.kt');
-      fs.writeFileSync(moduleFile, BRIDGE_MODULE_KOTLIN);
-      console.log('✅ Written:', moduleFile);
-
-      const packageFile = path.join(platformProjectRoot, 'ForegroundServicePackage.kt');
-      fs.writeFileSync(packageFile, PACKAGE_KOTLIN);
-      console.log('✅ Written:', packageFile);
-
-      console.log('✅ All Kotlin files generated successfully');
-      
-      return config;
-    }
-  ]);
-  
-  return config;
-};
+module.exports = withNativeForegroundService;
