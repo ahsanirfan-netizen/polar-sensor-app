@@ -291,7 +291,7 @@ class ForegroundServicePackage : ReactPackage {
 
 function withNativeForegroundService(config) {
   // Modify AndroidManifest.xml
-  config = withAndroidManifest(config, async (config) => {
+  config = withAndroidManifest(config, (config) => {
     const manifest = config.modResults;
     const { manifest: manifestTag } = manifest;
 
@@ -350,7 +350,7 @@ function withNativeForegroundService(config) {
   });
 
   // Add Kotlin files and register the package
-  config = withMainApplication(config, async (config) => {
+  config = withMainApplication(config, (config) => {
     const { modResults } = config;
     const packageImport = 'import com.polarsensor.app.ForegroundServicePackage';
     const packageAdd = 'add(ForegroundServicePackage())';
@@ -492,10 +492,10 @@ module.exports = function (config) {
   }
   
   const existingDangerousMod = config.mods.android.dangerous;
-  config.mods.android.dangerous = async (config) => {
+  config.mods.android.dangerous = (config) => {
     console.log('🔧 Running dangerous mod to generate Kotlin files...');
     if (existingDangerousMod) {
-      config = await existingDangerousMod(config);
+      config = existingDangerousMod(config);
     }
     return withKotlinFiles(config);
   };
