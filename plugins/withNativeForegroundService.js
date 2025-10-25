@@ -1,4 +1,4 @@
-const { withAndroidManifest, withMainApplication } = require('@expo/config-plugins');
+const { withAndroidManifest, withMainApplication, withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
@@ -439,66 +439,54 @@ function withNativeForegroundService(config) {
   return config;
 }
 
-// This function is called during expo prebuild to inject the Kotlin files
-function withKotlinFiles(config) {
-  const platformProjectRoot = path.join(
-    config.modRequest.platformProjectRoot,
-    'app',
-    'src',
-    'main',
-    'java',
-    'com',
-    'polarsensor',
-    'app'
-  );
-
-  console.log('📁 Creating Kotlin files directory:', platformProjectRoot);
-
-  // Ensure directory exists
-  if (!fs.existsSync(platformProjectRoot)) {
-    fs.mkdirSync(platformProjectRoot, { recursive: true });
-    console.log('✅ Created directory');
-  } else {
-    console.log('✅ Directory already exists');
-  }
-
-  // Write the Kotlin files
-  const serviceFile = path.join(platformProjectRoot, 'NativeForegroundService.kt');
-  fs.writeFileSync(serviceFile, FOREGROUND_SERVICE_KOTLIN);
-  console.log('✅ Written:', serviceFile);
-
-  const moduleFile = path.join(platformProjectRoot, 'ForegroundServiceModule.kt');
-  fs.writeFileSync(moduleFile, BRIDGE_MODULE_KOTLIN);
-  console.log('✅ Written:', moduleFile);
-
-  const packageFile = path.join(platformProjectRoot, 'ForegroundServicePackage.kt');
-  fs.writeFileSync(packageFile, PACKAGE_KOTLIN);
-  console.log('✅ Written:', packageFile);
-
-  console.log('✅ All Kotlin files generated successfully');
-
-  return config;
-}
-
 module.exports = function (config) {
+  // First apply manifest and MainApplication changes
   config = withNativeForegroundService(config);
   
-  // Hook into the dangerous mod to write files during prebuild
-  if (!config.mods) {
-    config.mods = {};
-  }
-  if (!config.mods.android) {
-    config.mods.android = {};
-  }
-  
-  const existingDangerousMod = config.mods.android.dangerous;
-  config.mods.android.dangerous = (config) => {
-    console.log('🔧 Running dangerous mod to generate Kotlin files...');
-    if (existingDangerousMod) {
-      config = existingDangerousMod(config);
+  // Then use withDangerousMod to write Kotlin files
+  config = withDangerousMod(config, [
+    'android',
+    async (config) => {
+      console.log('🔧 Running dangerous mod to generate Kotlin files...');
+      const platformProjectRoot = path.join(
+        config.modRequest.platformProjectRoot,
+        'app',
+        'src',
+        'main',
+        'java',
+        'com',
+        'polarsensor',
+        'app'
+      );
+
+      console.log('📁 Creating Kotlin files directory:', platformProjectRoot);
+
+      // Ensure directory exists
+      if (!fs.existsSync(platformProjectRoot)) {
+        fs.mkdirSync(platformProjectRoot, { recursive: true });
+        console.log('✅ Created directory');
+      } else {
+        console.log('✅ Directory already exists');
+      }
+
+      // Write the Kotlin files
+      const serviceFile = path.join(platformProjectRoot, 'NativeForegroundService.kt');
+      fs.writeFileSync(serviceFile, FOREGROUND_SERVICE_KOTLIN);
+      console.log('✅ Written:', serviceFile);
+
+      const moduleFile = path.join(platformProjectRoot, 'ForegroundServiceModule.kt');
+      fs.writeFileSync(moduleFile, BRIDGE_MODULE_KOTLIN);
+      console.log('✅ Written:', moduleFile);
+
+      const packageFile = path.join(platformProjectRoot, 'ForegroundServicePackage.kt');
+      fs.writeFileSync(packageFile, PACKAGE_KOTLIN);
+      console.log('✅ Written:', packageFile);
+
+      console.log('✅ All Kotlin files generated successfully');
+      
+      return config;
     }
-    return withKotlinFiles(config);
-  };
+  ]);
   
   return config;
 };
