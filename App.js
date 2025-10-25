@@ -24,6 +24,7 @@ import {
   AppState
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { BleManager, ConnectionPriority } from 'react-native-ble-plx';
 import * as Device from 'expo-device';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -65,6 +66,36 @@ const HEART_RATE_CHARACTERISTIC = '00002a37-0000-1000-8000-00805f9b34fb';
 const PMD_SERVICE = 'fb005c80-02e7-f387-1cad-8acd2d8df0c8';
 const PMD_CONTROL = 'fb005c81-02e7-f387-1cad-8acd2d8df0c8';
 const PMD_DATA = 'fb005c82-02e7-f387-1cad-8acd2d8df0c8';
+
+// Clear legacy SecureStore entries (one-time migration from SecureStore to AsyncStorage)
+const clearLegacySecureStore = async () => {
+  try {
+    const legacyCleared = await AsyncStorage.getItem('LEGACY_SECURESTORE_CLEARED');
+    if (!legacyCleared) {
+      console.log('🔄 Clearing legacy SecureStore entries...');
+      
+      // Supabase auth keys that may be in SecureStore
+      const supabaseKeys = [
+        'supabase.auth.token',
+        'sb-auth-token',
+        '@supabase/auth-token'
+      ];
+      
+      for (const key of supabaseKeys) {
+        try {
+          await SecureStore.deleteItemAsync(key);
+        } catch (err) {
+          // Key may not exist, ignore
+        }
+      }
+      
+      await AsyncStorage.setItem('LEGACY_SECURESTORE_CLEARED', 'true');
+      console.log('✅ Legacy SecureStore cleared');
+    }
+  } catch (error) {
+    console.error('❌ Error clearing legacy SecureStore:', error);
+  }
+};
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -262,6 +293,7 @@ export default function App() {
     };
     
     initDatabase();
+    clearLegacySecureStore();
     checkForUnexpectedRestart();
   }, []);
   
