@@ -36,7 +36,7 @@ class NativeForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand() - Service starting")
+        Log.d(TAG, "onStartCommand() - Service starting - Android ${Build.VERSION.SDK_INT}")
         
         when (intent?.action) {
             "START_SERVICE" -> {
@@ -54,7 +54,17 @@ class NativeForegroundService : Service() {
             }
         }
         
+        // START_STICKY: Restart service if killed by Android
+        // START_REDELIVER_INTENT would re-deliver the last intent (not needed for BLE)
         return START_STICKY
+    }
+    
+    // Android 15 timeout callback - called before service is killed
+    override fun onTimeout(startId: Int) {
+        Log.w(TAG, "onTimeout() called - Android 15 is about to kill the service!")
+        Log.w(TAG, "Service ran for ${(System.currentTimeMillis() - startTime) / 60000} minutes")
+        // Don't call stopSelf() - try to keep running
+        // Log this so we can see if it's being called
     }
 
     private fun startForegroundService(deviceName: String) {
@@ -311,20 +321,29 @@ function withNativeForegroundService(config) {
       application.service = [];
     }
 
-    const serviceExists = application.service.some(
+    const serviceIndex = application.service.findIndex(
       (service) => service.$?.['android:name'] === '.NativeForegroundService'
     );
 
-    if (!serviceExists) {
-      application.service.push({
-        $: {
-          'android:name': '.NativeForegroundService',
-          'android:enabled': 'true',
-          'android:exported': 'false',
-          'android:foregroundServiceType': 'connectedDevice',
-          'android:stopWithTask': 'false',
-        },
-      });
+    const serviceConfig = {
+      $: {
+        'android:name': '.NativeForegroundService',
+        'android:enabled': 'true',
+        'android:exported': 'false',
+        'android:foregroundServiceType': 'connectedDevice',
+        'android:stopWithTask': 'false',
+        'android:directBootAware': 'true',
+      },
+    };
+
+    if (serviceIndex >= 0) {
+      // Update existing service with all required attributes
+      application.service[serviceIndex] = serviceConfig;
+      console.log('✅ Updated existing NativeForegroundService in manifest');
+    } else {
+      // Add new service entry
+      application.service.push(serviceConfig);
+      console.log('✅ Added NativeForegroundService to manifest');
     }
 
     return config;
