@@ -174,6 +174,21 @@ export default function App() {
     return downsampled; // Return all downsampled points spanning full session
   };
 
+  // Helper function to trim chart buffer to MAX_CHART_SAMPLES
+  // Removes overflow in bulk instead of one item at a time
+  const trimChartBuffer = (ref) => {
+    const overflow = ref.current.length - MAX_CHART_SAMPLES;
+    if (overflow > 0) {
+      // Remove oldest samples in bulk
+      ref.current.splice(0, overflow);
+      
+      // Log large purges for diagnostics
+      if (overflow > 100) {
+        console.log(`⚠️ Chart buffer trimmed: removed ${overflow} old samples (was ${overflow + MAX_CHART_SAMPLES}, now ${ref.current.length})`);
+      }
+    }
+  };
+
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
   const connectedDeviceRef = useRef(connectedDevice);
@@ -417,6 +432,18 @@ export default function App() {
       
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString());
+        
+        // Clear chart buffers when entering background to prevent memory buildup
+        // Charts are diagnostic only - data is still recorded to database
+        const accLength = accChartDataRaw.current.length;
+        const gyroLength = gyroChartDataRaw.current.length;
+        if (accLength > 0 || gyroLength > 0) {
+          console.log(`🧹 Clearing chart buffers before background (ACC: ${accLength}, GYRO: ${gyroLength} samples)`);
+          accChartDataRaw.current = [];
+          gyroChartDataRaw.current = [];
+          setAccChartData([]);
+          setGyroChartData([]);
+        }
       } else if (nextAppState === 'active') {
         AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
           if (lastBackground) {
@@ -1738,9 +1765,7 @@ export default function App() {
           });
           
           // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          if (accChartDataRaw.current.length > MAX_CHART_SAMPLES) {
-            accChartDataRaw.current.shift();
-          }
+          trimChartBuffer(accChartDataRaw);
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           accChartUpdateCounter.current++;
@@ -1805,9 +1830,7 @@ export default function App() {
           });
           
           // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          if (accChartDataRaw.current.length > MAX_CHART_SAMPLES) {
-            accChartDataRaw.current.shift();
-          }
+          trimChartBuffer(accChartDataRaw);
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           accChartUpdateCounter.current++;
@@ -1918,9 +1941,7 @@ export default function App() {
           });
           
           // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          if (gyroChartDataRaw.current.length > MAX_CHART_SAMPLES) {
-            gyroChartDataRaw.current.shift();
-          }
+          trimChartBuffer(gyroChartDataRaw);
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           gyroChartUpdateCounter.current++;
@@ -1981,9 +2002,7 @@ export default function App() {
           });
           
           // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          if (gyroChartDataRaw.current.length > MAX_CHART_SAMPLES) {
-            gyroChartDataRaw.current.shift();
-          }
+          trimChartBuffer(gyroChartDataRaw);
           
           // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
           gyroChartUpdateCounter.current++;
