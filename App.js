@@ -454,6 +454,8 @@ export default function App() {
     }
   }, []);
 
+  const MAX_DB_BUFFER_SIZE = 5000; // Limit to ~2 minutes of data at 52 Hz
+
   const addToDbBuffer = (reading) => {
     // Merge sensor readings that arrive within 50ms window
     const readingTime = new Date(reading.timestamp).getTime();
@@ -489,6 +491,12 @@ export default function App() {
     }
     
     setDbBufferLength(dbBufferRef.current.length);
+    
+    // Force flush if buffer exceeds limit to prevent memory buildup
+    if (dbBufferRef.current.length >= MAX_DB_BUFFER_SIZE) {
+      console.log(`⚠️ DB buffer reached limit (${MAX_DB_BUFFER_SIZE}), forcing flush...`);
+      flushDbBuffer();
+    }
   };
 
   const flushDbBuffer = async () => {
