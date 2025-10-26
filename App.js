@@ -35,7 +35,6 @@ import AuthScreen from './AuthScreen';
 import SleepAnalysisScreen from './SleepAnalysisScreen';
 import { syncService } from './SyncService';
 import DebugConsole, { loadCrashLogs, clearCrashLogs } from './DebugConsole';
-import { LineChart } from 'react-native-gifted-charts';
 import { 
   setupNotificationHandlers,
   openAppSettings,
@@ -100,11 +99,6 @@ const clearLegacySecureStore = async () => {
 export default function App() {
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('sensor');
-  
-  // Calculate chart width based on screen size (with all padding/margins)
-  const screenWidth = Dimensions.get('window').width;
-  // Account for: dataContainer horizontal padding (40) + chartCard padding (32) + Y-axis labels (~40) + buffer (10)
-  const chartWidth = Math.max(screenWidth - 120, 250); // Minimum 250px for readability
   const [scanning, setScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -139,55 +133,11 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [lastSyncError, setLastSyncError] = useState(null);
   const [gyroDebugLogs, setGyroDebugLogs] = useState([]);
-  const [accChartData, setAccChartData] = useState([]);
-  const [gyroChartData, setGyroChartData] = useState([]);
   const [sensorElapsedTime, setSensorElapsedTime] = useState('00:00:00');
   const [isSensorFlat, setIsSensorFlat] = useState(false);
   const [foregroundServiceActive, setForegroundServiceActive] = useState(false);
   
-  // Refs to store full raw chart data (avoids O(N) array copies in state)
-  // Limit to last 15 minutes of data to prevent memory leaks during overnight recording
-  // 52 Hz × 60 sec × 15 min = 46,800 samples max per chart
-  const MAX_CHART_SAMPLES = 46800; // ~15 minutes at 52 Hz
-  const accChartDataRaw = useRef([]);
-  const gyroChartDataRaw = useRef([]);
-  const accChartUpdateCounter = useRef(0);
-  const gyroChartUpdateCounter = useRef(0);
   const sensorStartTimeRef = useRef(null);
-
-  // Helper function to downsample chart data for mobile display
-  // Samples evenly across the ENTIRE time range to show full session history
-  const downsampleChartData = (data, targetPoints = 150) => {
-    if (data.length <= targetPoints) {
-      return data;
-    }
-    const step = Math.ceil(data.length / targetPoints);
-    const downsampled = data.filter((_, index) => index % step === 0);
-    
-    // Always include the most recent sample to keep chart live
-    const lastSample = data[data.length - 1];
-    const lastDownsampled = downsampled[downsampled.length - 1];
-    if (lastSample.timestamp !== lastDownsampled.timestamp) {
-      downsampled.push(lastSample);
-    }
-    
-    return downsampled; // Return all downsampled points spanning full session
-  };
-
-  // Helper function to trim chart buffer to MAX_CHART_SAMPLES
-  // Removes overflow in bulk instead of one item at a time
-  const trimChartBuffer = (ref) => {
-    const overflow = ref.current.length - MAX_CHART_SAMPLES;
-    if (overflow > 0) {
-      // Remove oldest samples in bulk
-      ref.current.splice(0, overflow);
-      
-      // Log large purges for diagnostics
-      if (overflow > 100) {
-        console.log(`⚠️ Chart buffer trimmed: removed ${overflow} old samples (was ${overflow + MAX_CHART_SAMPLES}, now ${ref.current.length})`);
-      }
-    }
-  };
 
   const ppiEnabledRef = useRef(ppiEnabled);
   const isRecordingRef = useRef(isRecording);
@@ -432,18 +382,6 @@ export default function App() {
       
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString());
-        
-        // Clear chart buffers when entering background to prevent memory buildup
-        // Charts are diagnostic only - data is still recorded to database
-        const accLength = accChartDataRaw.current.length;
-        const gyroLength = gyroChartDataRaw.current.length;
-        if (accLength > 0 || gyroLength > 0) {
-          console.log(`🧹 Clearing chart buffers before background (ACC: ${accLength}, GYRO: ${gyroLength} samples)`);
-          accChartDataRaw.current = [];
-          gyroChartDataRaw.current = [];
-          setAccChartData([]);
-          setGyroChartData([]);
-        }
       } else if (nextAppState === 'active') {
         AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
           if (lastBackground) {
@@ -1755,25 +1693,6 @@ export default function App() {
             z: z / ACC_SCALE_FACTOR 
           };
           
-          // Add to chart data for EVERY sample (store in ref, update state periodically)
-          const now = Date.now();
-          const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-          accChartDataRaw.current.push({
-            value: magnitude,
-            timestamp: now,
-            label: ''
-          });
-          
-          // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          trimChartBuffer(accChartDataRaw);
-          
-          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-          accChartUpdateCounter.current++;
-          if (accChartUpdateCounter.current >= 20) {
-            accChartUpdateCounter.current = 0;
-            setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
-          }
-          
           // Update display with last sample in packet
           if (offset + 3 > data.length) {
             setAccelerometer(() => accData);
@@ -1819,25 +1738,6 @@ export default function App() {
             y: y / ACC_SCALE_FACTOR, 
             z: z / ACC_SCALE_FACTOR 
           };
-          
-          // Add to chart data for EVERY sample (store in ref, update state periodically)
-          const now = Date.now();
-          const magnitude = Math.sqrt(accData.x ** 2 + accData.y ** 2 + accData.z ** 2);
-          accChartDataRaw.current.push({
-            value: magnitude,
-            timestamp: now,
-            label: ''
-          });
-          
-          // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          trimChartBuffer(accChartDataRaw);
-          
-          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-          accChartUpdateCounter.current++;
-          if (accChartUpdateCounter.current >= 20) {
-            accChartUpdateCounter.current = 0;
-            setAccChartData(downsampleChartData(accChartDataRaw.current, 150));
-          }
           
           // Update display with last sample in packet
           if (i === sampleCount - 1) {
@@ -1931,25 +1831,6 @@ export default function App() {
           
           const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
           
-          // Add to chart data for EVERY sample (store in ref, update state periodically)
-          const now = Date.now();
-          const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-          gyroChartDataRaw.current.push({
-            value: magnitude,
-            timestamp: now,
-            label: ''
-          });
-          
-          // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          trimChartBuffer(gyroChartDataRaw);
-          
-          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-          gyroChartUpdateCounter.current++;
-          if (gyroChartUpdateCounter.current >= 20) {
-            gyroChartUpdateCounter.current = 0;
-            setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
-          }
-          
           // Update display and debug logs with last sample in packet
           if (offset + 3 > data.length) {
             setGyroscope(() => gyroDataDisplay);
@@ -1991,25 +1872,6 @@ export default function App() {
           }
           
           const gyroDataDisplay = { x: x / 1000, y: y / 1000, z: z / 1000 };
-          
-          // Add to chart data for EVERY sample (store in ref, update state periodically)
-          const now = Date.now();
-          const magnitude = Math.sqrt(gyroDataDisplay.x ** 2 + gyroDataDisplay.y ** 2 + gyroDataDisplay.z ** 2);
-          gyroChartDataRaw.current.push({
-            value: magnitude,
-            timestamp: now,
-            label: ''
-          });
-          
-          // Limit chart data to prevent memory leaks (keep last 15 minutes)
-          trimChartBuffer(gyroChartDataRaw);
-          
-          // Update chart state every 20 samples (~2.6 Hz instead of 52 Hz)
-          gyroChartUpdateCounter.current++;
-          if (gyroChartUpdateCounter.current >= 20) {
-            gyroChartUpdateCounter.current = 0;
-            setGyroChartData(downsampleChartData(gyroChartDataRaw.current, 150));
-          }
           
           // Update display and debug logs with last sample in packet
           if (i === sampleCount - 1) {
@@ -2128,14 +1990,6 @@ export default function App() {
       ppgTimestampsRef.current = [];
       setHrPeakDetection(null);
       setHrFFT(null);
-      
-      // Clear chart data
-      accChartDataRaw.current = [];
-      gyroChartDataRaw.current = [];
-      accChartUpdateCounter.current = 0;
-      gyroChartUpdateCounter.current = 0;
-      setAccChartData([]);
-      setGyroChartData([]);
       
       setIsRecording(false);
       if (dbBufferRef.current.length > 0) {
@@ -2534,83 +2388,6 @@ export default function App() {
                     {isSensorFlat ? '✓ Flat on Table' : '✗ Not Flat / Being Worn'}
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>📊 Accelerometer Magnitude (G)</Text>
-                <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
-                {accChartData.length > 0 ? (
-                  <View>
-                    <LineChart
-                      data={accChartData}
-                      width={chartWidth}
-                      spacing={accChartData.length > 1 ? Math.max(chartWidth / (accChartData.length - 1), 1) : chartWidth}
-                      height={180}
-                      curved
-                      thickness={2}
-                      color="#4CAF50"
-                      hideDataPoints
-                      xAxisColor="#e0e0e0"
-                      yAxisColor="#e0e0e0"
-                      backgroundColor="#fff"
-                      animateOnDataChange
-                      animationDuration={100}
-                      yAxisTextStyle={{color: '#666', fontSize: 10}}
-                      xAxisLabelTextStyle={{color: '#666', fontSize: 10}}
-                      noOfSections={4}
-                      maxValue={3}
-                      yAxisLabelPrefix=""
-                      yAxisLabelSuffix=" G"
-                    />
-                    <View style={styles.axisLabelContainer}>
-                      <Text style={styles.xAxisLabel}>Time (since start)</Text>
-                    </View>
-                    <View style={styles.timerContainer}>
-                      <Text style={styles.timerLabel}>Elapsed Time: </Text>
-                      <Text style={styles.timerValue}>{sensorElapsedTime}</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={styles.chartPlaceholder}>Waiting for accelerometer data...</Text>
-                )}
-              </View>
-
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>📈 Gyroscope Magnitude (deg/s)</Text>
-                <Text style={styles.chartSubtitle}>Real-time magnitude: √(x² + y² + z²)</Text>
-                {gyroChartData.length > 0 ? (
-                  <View>
-                    <LineChart
-                      data={gyroChartData}
-                      width={chartWidth}
-                      spacing={gyroChartData.length > 1 ? Math.max(chartWidth / (gyroChartData.length - 1), 1) : chartWidth}
-                      height={180}
-                      curved
-                      thickness={2}
-                      color="#2196F3"
-                      hideDataPoints
-                      xAxisColor="#e0e0e0"
-                      yAxisColor="#e0e0e0"
-                      backgroundColor="#fff"
-                      animateOnDataChange
-                      animationDuration={100}
-                      yAxisTextStyle={{color: '#666', fontSize: 10}}
-                      xAxisLabelTextStyle={{color: '#666', fontSize: 10}}
-                      noOfSections={4}
-                      yAxisLabelPrefix=""
-                      yAxisLabelSuffix=" °/s"
-                    />
-                    <View style={styles.axisLabelContainer}>
-                      <Text style={styles.xAxisLabel}>Time (since start)</Text>
-                    </View>
-                    <View style={styles.timerContainer}>
-                      <Text style={styles.timerLabel}>Elapsed Time: </Text>
-                      <Text style={styles.timerValue}>{sensorElapsedTime}</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={styles.chartPlaceholder}>Waiting for gyroscope data...</Text>
-                )}
               </View>
             </>
           ) : (
@@ -3177,58 +2954,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#333',
     marginBottom: 4,
-  },
-  chartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  chartSubtitle: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 12,
-  },
-  chartPlaceholder: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-    paddingVertical: 60,
-  },
-  axisLabelContainer: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  xAxisLabel: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  timerLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
   },
   timerValue: {
     fontSize: 16,

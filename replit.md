@@ -2,6 +2,18 @@
 
 This project is a React Native mobile application, built with Expo Development Build, that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). Its primary purpose is to provide real-time heart rate and other physiological data from the sensor, supporting two mutually exclusive sensor modes: Standard Mode (configurable HR-only or HR+PPI) and SDK Mode (PPG + ACC + Gyro). The application includes local data persistence, cloud synchronization to Supabase, and automated sleep analysis processing. The business vision is to provide a robust and flexible platform for health and fitness monitoring, leveraging advanced sensor data for deeper insights into sleep patterns and recovery.
 
+## Recent Changes (October 26, 2025)
+
+**Chart Visualization Removed to Eliminate Memory Crashes**
+- **Problem**: App crashed instantly when brought to foreground after 43+ minutes of background recording
+- **Root Cause**: Chart buffers accumulated 134,000+ samples in memory (401,000+ total data points), causing OS to kill app on memory spike during UI re-render
+- **Solution**: Completely removed chart visualization feature to eliminate memory leak
+  - Removed `react-native-gifted-charts` and `react-native-svg` dependencies
+  - Removed all chart-related state, refs, update logic, and UI components
+  - Added MAX_DB_BUFFER_SIZE = 5000 with automatic flush to prevent database buffer growth
+- **Result**: Primary memory leak source eliminated, app can now run indefinitely in background
+- **Note**: All sensor data still recorded to SQLite and synced to Supabase for analysis
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -20,9 +32,6 @@ The `react-native-ble-plx` library handles BLE communication, implementing the P
 
 A local SQLite database (`polar_sensor.db`) stores sensor data using a batched insert system, flushing buffered readings every second via transactions. Recording is user-controlled.
 
-### Chart Visualization Architecture
-
-Real-time magnitude charts for ACC and GYRO data use `react-native-gifted-charts`. This is optimized with ref-based data accumulation, batched state updates (every 20 samples), intelligent downsampling, and dynamic chart width calculation. Charts display magnitude (√(x² + y² + z²)) with appropriate unit labels (G for ACC, deg/s for GYRO) and include an elapsed time timer.
 
 ### Core Features
 
@@ -34,7 +43,6 @@ Real-time magnitude charts for ACC and GYRO data use `react-native-gifted-charts
     -   **iOS**: Implements BLE state restoration.
     -   **Persistent Notification**: Displays real-time heart rate, recording time, and heartbeat count.
 -   **Dual HR Calculation in SDK Mode**: Uses Peak Detection and FFT-Based algorithms on PPG data.
--   **Real-Time Chart Visualization**: Displays magnitude charts for ACC and GYRO with intelligent downsampling.
 -   **Local SQLite Database**: Persists sensor data using batched inserts.
 -   **Cloud Sync to Supabase**: Automatically syncs sensor readings and sessions to Supabase PostgreSQL with Row Level Security.
 -   **Automated Sleep Analysis**: A Python Flask backend processes PPG and accelerometer data using multiple algorithms: Native Algorithm, Cole-Kripke Algorithm, and HAVOK Analysis (Hankel Alternative View of Koopman decomposition for ultradian rhythm detection).
