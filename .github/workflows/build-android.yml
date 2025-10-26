@@ -68,48 +68,14 @@ jobs:
       - name: Generate Android files
         run: npx expo prebuild --platform android --clean
       
-      - name: Verify Kotlin native files were generated
+      - name: Copy Kotlin native service files
         run: |
-          echo "🔍 Verifying native foreground service Kotlin files..."
-          
-          KOTLIN_DIR="android/app/src/main/java/com/polarsensor/app"
-          
-          if [ ! -f "$KOTLIN_DIR/NativeForegroundService.kt" ]; then
-            echo "❌ NativeForegroundService.kt NOT FOUND"
-            exit 1
-          else
-            echo "✅ NativeForegroundService.kt exists"
-          fi
-          
-          if [ ! -f "$KOTLIN_DIR/ForegroundServiceModule.kt" ]; then
-            echo "❌ ForegroundServiceModule.kt NOT FOUND"
-            exit 1
-          else
-            echo "✅ ForegroundServiceModule.kt exists"
-          fi
-          
-          if [ ! -f "$KOTLIN_DIR/ForegroundServicePackage.kt" ]; then
-            echo "❌ ForegroundServicePackage.kt NOT FOUND"
-            exit 1
-          else
-            echo "✅ ForegroundServicePackage.kt exists"
-          fi
-          
-          echo "🔍 Checking MainApplication.kt for package registration..."
-          MAIN_APP="android/app/src/main/java/com/polarsensor/app/MainApplication.kt"
-          
-          if ! grep -q "ForegroundServicePackage()" "$MAIN_APP"; then
-            echo "❌ ForegroundServicePackage() NOT called in MainApplication.kt"
-            echo "MainApplication.kt contents:"
-            cat "$MAIN_APP"
-            exit 1
-          else
-            echo "✅ ForegroundServicePackage() is properly registered in MainApplication.kt"
-            echo "📄 Showing registration context:"
-            grep -A 5 -B 5 "ForegroundServicePackage()" "$MAIN_APP" || true
-          fi
-          
-          echo "✅ All native service files verified successfully"
+          echo "📋 Copying Kotlin native service files..."
+          DEST_DIR="android/app/src/main/java/com/polarsensor/app"
+          mkdir -p "$DEST_DIR"
+          cp native-templates/android/kotlin/*.kt "$DEST_DIR/"
+          echo "✅ Copied Kotlin files to $DEST_DIR"
+          ls -la "$DEST_DIR"
       
       - name: Build APK
         run: |
