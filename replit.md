@@ -2,17 +2,23 @@
 
 This project is a React Native mobile application, built with Expo Development Build, that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). Its primary purpose is to provide real-time heart rate and other physiological data from the sensor, supporting two mutually exclusive sensor modes: Standard Mode (configurable HR-only or HR+PPI) and SDK Mode (PPG + ACC + Gyro). The application includes local data persistence, cloud synchronization to Supabase, and automated sleep analysis processing. The business vision is to provide a robust and flexible platform for health and fitness monitoring, leveraging advanced sensor data for deeper insights into sleep patterns and recovery.
 
-## Recent Changes (October 26, 2025)
+## Recent Changes (October 27, 2025)
 
-**Chart Visualization Removed to Eliminate Memory Crashes**
-- **Problem**: App crashed instantly when brought to foreground after 43+ minutes of background recording
-- **Root Cause**: Chart buffers accumulated 134,000+ samples in memory (401,000+ total data points), causing OS to kill app on memory spike during UI re-render
-- **Solution**: Completely removed chart visualization feature to eliminate memory leak
-  - Removed `react-native-gifted-charts` and `react-native-svg` dependencies
-  - Removed all chart-related state, refs, update logic, and UI components
-  - Added MAX_DB_BUFFER_SIZE = 5000 with automatic flush to prevent database buffer growth
-- **Result**: Primary memory leak source eliminated, app can now run indefinitely in background
-- **Note**: All sensor data still recorded to SQLite and synced to Supabase for analysis
+**BLE Monitor Memory Leak Fixed - Critical Overnight Crash Resolved**
+- **Problem**: App crashed silently after ~1 hour of overnight recording (notification frozen, process killed by Android)
+- **Root Cause**: Three BLE characteristic monitors (`subscribeToHeartRate`, `subscribeToPMD`, `subscribeToPMDControl`) were NEVER cleaned up, causing memory to accumulate until Android's Low Memory Killer terminated the process
+- **Solution**: Implemented proper BLE monitor lifecycle management
+  - Added refs (`hrMonitorRef`, `pmdMonitorRef`, `pmdControlMonitorRef`) to track active subscriptions
+  - Each subscribe function now removes existing monitor before creating new one
+  - Added monitor cleanup in `disconnect()` function
+  - Added monitor cleanup in component unmount cleanup
+- **Result**: Memory leak eliminated, app should now survive full 8-hour overnight recordings
+- **Technical Details**: This is a known issue with `react-native-ble-plx` where unmanaged `monitorCharacteristicForService` calls accumulate memory over time. Proper cleanup via `subscription.remove()` is mandatory for long-running connections.
+
+**Previous Changes (October 26, 2025)**
+- Removed chart visualization to eliminate UI-related memory crash
+- Added MAX_DB_BUFFER_SIZE = 5000 with automatic flush
+- Added Debug Console crash log viewer with "💥 Crash" button
 
 ## User Preferences
 

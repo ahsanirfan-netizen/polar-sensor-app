@@ -162,6 +162,10 @@ export default function App() {
   const dbRef = useRef(null);
   const dbErrorAlertShownRef = useRef(false);
   const flushPromiseRef = useRef(null);
+  
+  const hrMonitorRef = useRef(null);
+  const pmdMonitorRef = useRef(null);
+  const pmdControlMonitorRef = useRef(null);
 
   useEffect(() => {
     ppiEnabledRef.current = ppiEnabled;
@@ -202,6 +206,15 @@ export default function App() {
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (hrMonitorRef.current) {
+        hrMonitorRef.current.remove();
+      }
+      if (pmdMonitorRef.current) {
+        pmdMonitorRef.current.remove();
+      }
+      if (pmdControlMonitorRef.current) {
+        pmdControlMonitorRef.current.remove();
       }
       if (connectedDevice) {
         connectedDevice.cancelConnection();
@@ -804,7 +817,12 @@ export default function App() {
 
   const subscribeToPMDControl = async (device) => {
     try {
-      device.monitorCharacteristicForService(
+      if (pmdControlMonitorRef.current) {
+        pmdControlMonitorRef.current.remove();
+        pmdControlMonitorRef.current = null;
+      }
+      
+      pmdControlMonitorRef.current = device.monitorCharacteristicForService(
         PMD_SERVICE,
         PMD_CONTROL,
         (error, characteristic) => {
@@ -1151,7 +1169,13 @@ export default function App() {
   const subscribeToHeartRate = async (device) => {
     try {
       console.log('Setting up HR characteristic monitor...');
-      device.monitorCharacteristicForService(
+      
+      if (hrMonitorRef.current) {
+        hrMonitorRef.current.remove();
+        hrMonitorRef.current = null;
+      }
+      
+      hrMonitorRef.current = device.monitorCharacteristicForService(
         HEART_RATE_SERVICE,
         HEART_RATE_CHARACTERISTIC,
         (error, characteristic) => {
@@ -1216,7 +1240,12 @@ export default function App() {
 
   const subscribeToPMD = async (device) => {
     try {
-      device.monitorCharacteristicForService(
+      if (pmdMonitorRef.current) {
+        pmdMonitorRef.current.remove();
+        pmdMonitorRef.current = null;
+      }
+      
+      pmdMonitorRef.current = device.monitorCharacteristicForService(
         PMD_SERVICE,
         PMD_DATA,
         (error, characteristic) => {
@@ -1937,6 +1966,20 @@ export default function App() {
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
+        }
+        
+        console.log('Cleaning up BLE monitors...');
+        if (hrMonitorRef.current) {
+          hrMonitorRef.current.remove();
+          hrMonitorRef.current = null;
+        }
+        if (pmdMonitorRef.current) {
+          pmdMonitorRef.current.remove();
+          pmdMonitorRef.current = null;
+        }
+        if (pmdControlMonitorRef.current) {
+          pmdControlMonitorRef.current.remove();
+          pmdControlMonitorRef.current = null;
         }
         
         if (sdkModeEnabled) {
