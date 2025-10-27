@@ -238,6 +238,38 @@ export default function DebugConsole() {
     setLogs([]);
   };
 
+  const showCrashLogs = async () => {
+    try {
+      const crashData = await loadCrashLogs();
+      if (crashData && crashData.logs.length > 0) {
+        const logText = crashData.logs.map(log => 
+          `[${log.timestamp}] ${log.message}`
+        ).join('\n\n');
+        
+        Alert.alert(
+          `⚠️ Crash Logs (${crashData.minutesAgo} min ago)`,
+          `Found ${crashData.logs.length} logs from the last 5 minutes before crash.\n\nLast saved: ${crashData.saveTime}\n\n${logText.slice(0, 3000)}${logText.length > 3000 ? '\n\n... (truncated)' : ''}`,
+          [
+            {
+              text: 'Clear Logs',
+              style: 'destructive',
+              onPress: async () => {
+                await clearCrashLogs();
+                Alert.alert('Cleared', 'Crash logs have been cleared.');
+              }
+            },
+            { text: 'OK', style: 'cancel' }
+          ],
+          { cancelable: true }
+        );
+      } else {
+        Alert.alert('No Crash Logs', 'No crash logs found from previous session.');
+      }
+    } catch (error) {
+      Alert.alert('Error', `Failed to load crash logs: ${error.message}`);
+    }
+  };
+
   const getLogColor = (type) => {
     switch (type) {
       case 'error': return '#ff6b6b';
@@ -281,16 +313,22 @@ export default function DebugConsole() {
               </Text>
               <View style={styles.headerButtons}>
                 <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={showCrashLogs}
+                >
+                  <Text style={styles.actionButtonText}>💥 Crash</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
                   style={[styles.actionButton, autoScroll && styles.actionButtonActive]}
                   onPress={() => setAutoScroll(!autoScroll)}
                 >
-                  <Text style={styles.actionButtonText}>{autoScroll ? '⏸ Pause' : '▶ Auto'}</Text>
+                  <Text style={styles.actionButtonText}>{autoScroll ? '⏸' : '▶'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={clearLogs}
                 >
-                  <Text style={styles.actionButtonText}>Clear</Text>
+                  <Text style={styles.actionButtonText}>🗑</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.closeButton}
