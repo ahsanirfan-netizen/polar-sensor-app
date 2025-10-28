@@ -53,8 +53,22 @@ class NativeForegroundService : Service() {
     }
     
     override fun onTimeout(startId: Int) {
-        Log.w(TAG, "onTimeout() called - Android 15 is about to kill the service!")
-        Log.w(TAG, "Service ran for ${(System.currentTimeMillis() - startTime) / 60000} minutes")
+        val runtimeMinutes = (System.currentTimeMillis() - startTime) / 60000
+        Log.e(TAG, "⚠️⚠️⚠️ onTimeout() called - Android is killing the service!")
+        Log.e(TAG, "⚠️ Service ran for $runtimeMinutes minutes before timeout")
+        Log.e(TAG, "⚠️ Total heartbeats: $heartbeatCount")
+        
+        try {
+            val notification = createNotification(
+                "Service Timeout Warning",
+                "Android attempted to stop service after $runtimeMinutes min",
+                "Polar Sensor"
+            )
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update notification in onTimeout", e)
+        }
     }
 
     private fun startForegroundService(deviceName: String) {
@@ -150,8 +164,8 @@ class NativeForegroundService : Service() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "$TAG::WakeLock"
             ).apply {
-                acquire()
-                Log.d(TAG, "Wake lock acquired")
+                acquire(10 * 60 * 60 * 1000L)
+                Log.d(TAG, "Wake lock acquired for 10 hours")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to acquire wake lock", e)
@@ -169,7 +183,17 @@ class NativeForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "onDestroy() - Service destroyed after $heartbeatCount heartbeats")
+        val runtimeMinutes = if (startTime > 0) {
+            (System.currentTimeMillis() - startTime) / 60000
+        } else {
+            0
+        }
+        
+        Log.w(TAG, "⚠️ onDestroy() - Service being destroyed")
+        Log.w(TAG, "⚠️ Runtime: $runtimeMinutes minutes")
+        Log.w(TAG, "⚠️ Total heartbeats: $heartbeatCount")
+        Log.w(TAG, "⚠️ Stack trace: ${Thread.currentThread().stackTrace.take(5).joinToString()}")
+        
         isRunning = false
         releaseWakeLock()
         super.onDestroy()

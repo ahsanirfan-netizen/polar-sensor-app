@@ -2,18 +2,27 @@
 
 This project is a React Native mobile application, built with Expo Development Build, that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). Its primary purpose is to provide real-time heart rate and other physiological data from the sensor, supporting two mutually exclusive sensor modes: Standard Mode (configurable HR-only or HR+PPI) and SDK Mode (PPG + ACC + Gyro). The application includes local data persistence, cloud synchronization to Supabase, and automated sleep analysis processing. The business vision is to provide a robust and flexible platform for health and fitness monitoring, leveraging advanced sensor data for deeper insights into sleep patterns and recovery.
 
-## Recent Changes (October 27, 2025)
+## Recent Changes (October 28, 2025)
 
-**BLE Monitor Memory Leak Fixed - Critical Overnight Crash Resolved**
-- **Problem**: App crashed silently after ~1 hour of overnight recording (notification frozen, process killed by Android)
-- **Root Cause**: Three BLE characteristic monitors (`subscribeToHeartRate`, `subscribeToPMD`, `subscribeToPMDControl`) were NEVER cleaned up, causing memory to accumulate until Android's Low Memory Killer terminated the process
-- **Solution**: Implemented proper BLE monitor lifecycle management
-  - Added refs (`hrMonitorRef`, `pmdMonitorRef`, `pmdControlMonitorRef`) to track active subscriptions
-  - Each subscribe function now removes existing monitor before creating new one
-  - Added monitor cleanup in `disconnect()` function
-  - Added monitor cleanup in component unmount cleanup
-- **Result**: Memory leak eliminated, app should now survive full 8-hour overnight recordings
-- **Technical Details**: This is a known issue with `react-native-ble-plx` where unmanaged `monitorCharacteristicForService` calls accumulate memory over time. Proper cleanup via `subscription.remove()` is mandatory for long-running connections.
+**Improved Overnight Survival from 1 Hour to 4.8 Hours**
+- **Progress**: Successfully extended overnight recording from 58 minutes to 288 minutes (4.8 hours)
+- **Fixes Applied**:
+  1. BLE Monitor Memory Leak (Oct 27): Added proper cleanup for 3 BLE monitors that were leaking memory
+  2. Enhanced Native Logging: Added detailed logging in Kotlin foreground service to capture timeout/destroy events
+  3. Wake Lock Timeout: Extended wake lock from indefinite to 10-hour timeout for better system compatibility
+- **Current Status**: App survives 4.8 hours but still crashes before 8-hour target
+- **Next Investigation**: Likely Android 15 Doze mode or Pixel 9-specific battery optimization killing process after ~5 hours despite unrestricted battery settings
+
+**Crash Pattern Analysis**:
+- First crash: 58 minutes (1 hour)
+- Current crash: 288 minutes (4.8 hours) - **5x improvement**
+- Target: 480 minutes (8 hours)
+- All crashes are silent process deaths (no error logs) = Android Low Memory Killer or Doze mode
+
+**Previous Changes (October 27, 2025)**
+- Fixed BLE monitor memory leak (3 monitors never cleaned up)
+- Added refs for `hrMonitorRef`, `pmdMonitorRef`, `pmdControlMonitorRef`
+- Added monitor cleanup in disconnect and unmount
 
 **Previous Changes (October 26, 2025)**
 - Removed chart visualization to eliminate UI-related memory crash
