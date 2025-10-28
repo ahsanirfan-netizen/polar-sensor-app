@@ -45,7 +45,11 @@ import {
 import {
   startBackgroundService,
   stopBackgroundService,
-  updateBackgroundNotification
+  updateBackgroundNotification,
+  checkExitReasons,
+  getCurrentMemoryInfo,
+  checkAndRequestBatteryExemption,
+  checkAndRequestExactAlarmPermission
 } from './BackgroundService';
 
 const bleManager = new BleManager({
@@ -221,6 +225,21 @@ export default function App() {
       }
       bleManager.destroy();
     };
+  }, []);
+
+  useEffect(() => {
+    const runDiagnostics = async () => {
+      console.log('🔍 Running startup diagnostics...');
+      
+      await checkExitReasons();
+      await getCurrentMemoryInfo();
+      await checkAndRequestBatteryExemption();
+      await checkAndRequestExactAlarmPermission();
+      
+      console.log('✅ Diagnostics complete');
+    };
+    
+    runDiagnostics();
   }, []);
 
   useKeepAwake();

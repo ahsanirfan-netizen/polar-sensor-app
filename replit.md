@@ -4,20 +4,28 @@ This project is a React Native mobile application, built with Expo Development B
 
 ## Recent Changes (October 28, 2025)
 
-**Improved Overnight Survival from 1 Hour to 4.8 Hours**
-- **Progress**: Successfully extended overnight recording from 58 minutes to 288 minutes (4.8 hours)
-- **Fixes Applied**:
-  1. BLE Monitor Memory Leak (Oct 27): Added proper cleanup for 3 BLE monitors that were leaking memory
-  2. Enhanced Native Logging: Added detailed logging in Kotlin foreground service to capture timeout/destroy events
-  3. Wake Lock Timeout: Extended wake lock from indefinite to 10-hour timeout for better system compatibility
-- **Current Status**: App survives 4.8 hours but still crashes before 8-hour target
-- **Next Investigation**: Likely Android 15 Doze mode or Pixel 9-specific battery optimization killing process after ~5 hours despite unrestricted battery settings
+**Full Diagnostic Suite Implemented**
+- **Objective**: Identify why Android kills the app after 4.8 hours and enable 8+ hour overnight recordings
+- **Diagnostic Components Added**:
+  1. **Process Exit Diagnostics**: Captures `ActivityManager.getHistoricalProcessExitReasons()` on app startup to identify exact reason Android killed the process (LOW_MEMORY, ANR, SIGNALED, etc.)
+  2. **Battery Optimization Check**: Programmatically verifies and requests battery optimization exemption on startup
+  3. **Watchdog Service**: AlarmManager-based monitoring that checks service health every 5 minutes and logs memory status (survives Doze mode)
+  4. **Memory Monitoring**: Logs heap usage, system memory, and low-memory warnings every 5 minutes to logcat
+  5. **Enhanced Native Logging**: Foreground service logs timeout/destroy events with stack traces and runtime statistics
 
-**Crash Pattern Analysis**:
+- **How to Use Diagnostics**:
+  1. Build APK with diagnostics: `eas build --platform android --profile development`
+  2. Install and run overnight test
+  3. If app crashes, immediately run: `adb bugreport > bugreport-$(date +%Y%m%d).zip`
+  4. Open app to see exit reason diagnostics in Debug Console
+  5. Extract bugreport.zip and search for "WatchdogReceiver" to see memory snapshots before crash
+
+**Previous Progress (4.8 Hour Survival)**:
 - First crash: 58 minutes (1 hour)
 - Current crash: 288 minutes (4.8 hours) - **5x improvement**
 - Target: 480 minutes (8 hours)
-- All crashes are silent process deaths (no error logs) = Android Low Memory Killer or Doze mode
+- Root cause: Silent process death (likely Android 15 Doze mode or Low Memory Killer)
+- Fixes applied: BLE monitor cleanup, wake lock timeout, enhanced logging
 
 **Previous Changes (October 27, 2025)**
 - Fixed BLE monitor memory leak (3 monitors never cleaned up)

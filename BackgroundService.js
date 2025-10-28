@@ -66,6 +66,14 @@ export async function startBackgroundService(deviceName = 'Polar Sensor') {
     console.log('✅ Native foreground service started successfully');
     console.log('🔧 Service type: FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE');
     console.log('🔋 Wake lock: PARTIAL_WAKE_LOCK acquired');
+    
+    try {
+      await NativeForegroundService.startWatchdog();
+      console.log('⏰ Watchdog started - will check service every 5 minutes');
+    } catch (error) {
+      console.warn('⚠️ Failed to start watchdog (non-critical):', error.message);
+    }
+    
     return true;
   } catch (error) {
     console.error('❌ Error starting native foreground service:', error);
@@ -112,6 +120,13 @@ export async function stopBackgroundService() {
 
   try {
     if (isBackgroundServiceRunning) {
+      try {
+        await NativeForegroundService.stopWatchdog();
+        console.log('⏰ Watchdog stopped');
+      } catch (error) {
+        console.warn('⚠️ Failed to stop watchdog (non-critical):', error.message);
+      }
+      
       await NativeForegroundService.stopService();
       isBackgroundServiceRunning = false;
       console.log('✅ Native foreground service stopped successfully');
@@ -131,5 +146,104 @@ export async function isServiceRunning() {
   } catch (error) {
     console.error('Error checking service status:', error);
     return isBackgroundServiceRunning;
+  }
+}
+
+export async function checkExitReasons() {
+  if (Platform.OS !== 'android' || !NativeForegroundService) {
+    return null;
+  }
+
+  try {
+    const exitReasonsJson = await NativeForegroundService.getExitReasons();
+    const exitReasons = JSON.parse(exitReasonsJson);
+    
+    if (exitReasons && exitReasons.length > 0) {
+      console.log(`📋 Found ${exitReasons.length} previous app terminations:`);
+      exitReasons.forEach((exit, index) => {
+        console.log(`\n${index + 1}. ${exit.timestamp}`);
+        console.log(`   Reason: ${exit.reason}`);
+        console.log(`   Importance: ${exit.importance}`);
+        console.log(`   Memory: RSS=${exit.rss}, PSS=${exit.pss}`);
+        if (exit.description && exit.description !== 'No description') {
+          console.log(`   Description: ${exit.description}`);
+        }
+      });
+    } else {
+      console.log('📋 No previous app terminations found');
+    }
+    
+    return exitReasons;
+  } catch (error) {
+    console.error('Error checking exit reasons:', error);
+    return null;
+  }
+}
+
+export async function getCurrentMemoryInfo() {
+  if (Platform.OS !== 'android' || !NativeForegroundService) {
+    return null;
+  }
+
+  try {
+    const memoryInfoJson = await NativeForegroundService.getCurrentMemoryInfo();
+    const memoryInfo = JSON.parse(memoryInfoJson);
+    
+    console.log('💾 Current Memory Status:');
+    console.log(`   Heap Used: ${memoryInfo.heapUsedMB}MB / ${memoryInfo.heapMaxMB}MB`);
+    console.log(`   Heap Free: ${memoryInfo.heapFreeMB}MB`);
+    console.log(`   System Available: ${memoryInfo.availableMemoryMB}MB / ${memoryInfo.totalMemoryMB}MB`);
+    console.log(`   Low Memory: ${memoryInfo.lowMemory ? 'YES ⚠️' : 'NO ✅'}`);
+    
+    return memoryInfo;
+  } catch (error) {
+    console.error('Error getting memory info:', error);
+    return null;
+  }
+}
+
+export async function checkAndRequestBatteryExemption() {
+  if (Platform.OS !== 'android' || !NativeForegroundService) {
+    return true;
+  }
+
+  try {
+    const isDisabled = await NativeForegroundService.isBatteryOptimizationDisabled();
+    
+    if (isDisabled) {
+      console.log('✅ Battery optimization already disabled');
+      return true;
+    } else {
+      console.log('⚠️ Battery optimization is enabled - requesting exemption...');
+      const result = await NativeForegroundService.requestBatteryOptimizationExemption();
+      console.log(`🔋 Battery exemption request: ${result}`);
+      return result === 'already_disabled';
+    }
+  } catch (error) {
+    console.error('Error checking battery optimization:', error);
+    return false;
+  }
+}
+
+export async function checkAndRequestExactAlarmPermission() {
+  if (Platform.OS !== 'android' || !NativeForegroundService) {
+    return true;
+  }
+
+  try {
+    const canSchedule = await NativeForegroundService.canScheduleExactAlarms();
+    
+    if (canSchedule) {
+      console.log('✅ Exact alarm permission granted');
+      return true;
+    } else {
+      console.log('⚠️ Exact alarm permission not granted - requesting...');
+      const result = await NativeForegroundService.requestExactAlarmPermission();
+      console.log(`⏰ Exact alarm permission request: ${result}`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error checking exact alarm permission:', error);
+    return false;
   }
 }

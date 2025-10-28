@@ -57,6 +57,53 @@ function withNativeForegroundService(config) {
       console.log('✅ Added NativeForegroundService to manifest');
     }
 
+    // Add watchdog receiver
+    if (!application.receiver) {
+      application.receiver = [];
+    }
+
+    const receiverIndex = application.receiver.findIndex(
+      (receiver) => receiver.$?.['android:name'] === '.WatchdogReceiver'
+    );
+
+    const receiverConfig = {
+      $: {
+        'android:name': '.WatchdogReceiver',
+        'android:enabled': 'true',
+        'android:exported': 'false',
+      },
+    };
+
+    if (receiverIndex >= 0) {
+      application.receiver[receiverIndex] = receiverConfig;
+      console.log('✅ Updated WatchdogReceiver in manifest');
+    } else {
+      application.receiver.push(receiverConfig);
+      console.log('✅ Added WatchdogReceiver to manifest');
+    }
+
+    // Add SCHEDULE_EXACT_ALARM permission for watchdog (Android 12+)
+    const scheduleAlarmExists = manifestTag['uses-permission'].some(
+      (perm) => perm.$?.['android:name'] === 'android.permission.SCHEDULE_EXACT_ALARM'
+    );
+
+    if (!scheduleAlarmExists) {
+      manifestTag['uses-permission'].push({
+        $: { 'android:name': 'android.permission.SCHEDULE_EXACT_ALARM' },
+      });
+    }
+
+    // Add REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission for battery exemption
+    const batteryOptExists = manifestTag['uses-permission'].some(
+      (perm) => perm.$?.['android:name'] === 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
+    );
+
+    if (!batteryOptExists) {
+      manifestTag['uses-permission'].push({
+        $: { 'android:name': 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' },
+      });
+    }
+
     return config;
   });
 
