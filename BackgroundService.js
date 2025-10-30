@@ -156,9 +156,20 @@ export async function checkExitReasons() {
 
   try {
     const exitReasonsJson = await NativeForegroundService.getExitReasons();
+    
+    if (!exitReasonsJson || typeof exitReasonsJson !== 'string') {
+      console.log('📋 No exit reasons data available');
+      return null;
+    }
+    
     const exitReasons = JSON.parse(exitReasonsJson);
     
-    if (exitReasons && exitReasons.length > 0) {
+    if (exitReasons.error) {
+      console.warn(`⚠️ Exit reasons error: ${exitReasons.error}`);
+      return null;
+    }
+    
+    if (Array.isArray(exitReasons) && exitReasons.length > 0) {
       console.log(`📋 Found ${exitReasons.length} previous app terminations:`);
       exitReasons.forEach((exit, index) => {
         console.log(`\n${index + 1}. ${exit.timestamp}`);
@@ -175,7 +186,7 @@ export async function checkExitReasons() {
     
     return exitReasons;
   } catch (error) {
-    console.error('Error checking exit reasons:', error);
+    console.error('❌ Error checking exit reasons:', error.message || error);
     return null;
   }
 }
@@ -187,7 +198,18 @@ export async function getCurrentMemoryInfo() {
 
   try {
     const memoryInfoJson = await NativeForegroundService.getCurrentMemoryInfo();
+    
+    if (!memoryInfoJson || typeof memoryInfoJson !== 'string') {
+      console.log('💾 No memory info data available');
+      return null;
+    }
+    
     const memoryInfo = JSON.parse(memoryInfoJson);
+    
+    if (memoryInfo.error) {
+      console.warn(`⚠️ Memory info error: ${memoryInfo.error}`);
+      return null;
+    }
     
     console.log('💾 Current Memory Status:');
     console.log(`   Heap Used: ${memoryInfo.heapUsedMB}MB / ${memoryInfo.heapMaxMB}MB`);
@@ -197,7 +219,7 @@ export async function getCurrentMemoryInfo() {
     
     return memoryInfo;
   } catch (error) {
-    console.error('Error getting memory info:', error);
+    console.error('❌ Error getting memory info:', error.message || error);
     return null;
   }
 }
@@ -220,7 +242,7 @@ export async function checkAndRequestBatteryExemption() {
       return result === 'already_disabled';
     }
   } catch (error) {
-    console.error('Error checking battery optimization:', error);
+    console.error('❌ Error checking battery optimization:', error.message || error);
     return false;
   }
 }
@@ -243,7 +265,7 @@ export async function checkAndRequestExactAlarmPermission() {
       return false;
     }
   } catch (error) {
-    console.error('Error checking exact alarm permission:', error);
+    console.error('❌ Error checking exact alarm permission:', error.message || error);
     return false;
   }
 }
