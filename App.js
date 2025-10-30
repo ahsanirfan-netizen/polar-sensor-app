@@ -231,15 +231,36 @@ export default function App() {
     const runDiagnostics = async () => {
       console.log('🔍 Running startup diagnostics...');
       
-      await checkExitReasons();
-      await getCurrentMemoryInfo();
-      await checkAndRequestBatteryExemption();
-      await checkAndRequestExactAlarmPermission();
+      try {
+        await checkExitReasons();
+      } catch (error) {
+        console.error('Failed to check exit reasons:', error);
+      }
+      
+      try {
+        await getCurrentMemoryInfo();
+      } catch (error) {
+        console.error('Failed to get memory info:', error);
+      }
+      
+      try {
+        await checkAndRequestBatteryExemption();
+      } catch (error) {
+        console.error('Failed to check battery exemption:', error);
+      }
+      
+      try {
+        await checkAndRequestExactAlarmPermission();
+      } catch (error) {
+        console.error('Failed to check alarm permission:', error);
+      }
       
       console.log('✅ Diagnostics complete');
     };
     
-    runDiagnostics();
+    runDiagnostics().catch(error => {
+      console.error('Diagnostics failed:', error);
+    });
   }, []);
 
   useKeepAwake();
