@@ -731,38 +731,9 @@ export default function App() {
     }
   };
 
-  const scanForDevices = async () => {
+  const scanForDevices = () => {
     setDevices([]);
     setScanning(true);
-    
-    try {
-      const state = await bleManager.state();
-      console.log('BLE State:', state);
-      
-      if (state !== 'PoweredOn') {
-        setScanning(false);
-        Alert.alert(
-          'Bluetooth Not Ready',
-          `Bluetooth is ${state}. Please make sure Bluetooth is turned on and try again.`,
-          [
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'android') {
-                  bleManager.enable().catch(err => {
-                    console.error('Failed to enable Bluetooth:', err);
-                  });
-                }
-              }
-            },
-            { text: 'OK' }
-          ]
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking BLE state:', error);
-    }
     
     bleManager.startDeviceScan(null, null, (error, device) => {
       if (error) {
