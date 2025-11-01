@@ -871,9 +871,13 @@ export default function App() {
             return;
           }
           
-          if (characteristic && characteristic.value) {
-            const data = Buffer.from(characteristic.value, 'base64');
-            console.log('PMD Control Response:', Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+          try {
+            if (characteristic && characteristic.value) {
+              const data = Buffer.from(characteristic.value, 'base64');
+              console.log('PMD Control Response:', Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+            }
+          } catch (parseError) {
+            console.error('PMD Control data parsing error:', parseError.message);
           }
         }
       );
@@ -1224,52 +1228,56 @@ export default function App() {
             return;
           }
           
-          if (characteristic && characteristic.value) {
-            console.log('HR data received');
-            incrementPacketCount();
-            
-            const data = Buffer.from(characteristic.value, 'base64');
-            
-            const flags = data[0];
-            const hrFormat = flags & 0x01;
-            const sensorContactStatus = (flags >> 1) & 0x03;
-            const energyExpendedPresent = (flags >> 3) & 0x01;
-            const rrIntervalPresent = (flags >> 4) & 0x01;
-            
-            let offset = 1;
-            
-            let hr;
-            if (hrFormat === 0) {
-              hr = data[offset];
-              offset += 1;
-            } else {
-              hr = data.readUInt16LE(offset);
-              offset += 2;
-            }
-            
-            if (!ppiEnabledRef.current) {
-              console.log('Heart Rate from BLE service:', hr);
-              setHeartRate(hr);
-            } else {
-              console.log('Heart Rate from BLE service:', hr, '(ignored - using PPI-calculated HR)');
-            }
-            
-            if (energyExpendedPresent) {
-              offset += 2;
-            }
-            
-            if (rrIntervalPresent && offset < data.length) {
-              const rrIntervals = [];
-              while (offset + 1 < data.length) {
-                const rr1024 = data.readUInt16LE(offset);
-                const rrMs = Math.round((rr1024 / 1024) * 1000);
-                rrIntervals.push(rrMs);
+          try {
+            if (characteristic && characteristic.value) {
+              console.log('HR data received');
+              incrementPacketCount();
+              
+              const data = Buffer.from(characteristic.value, 'base64');
+              
+              const flags = data[0];
+              const hrFormat = flags & 0x01;
+              const sensorContactStatus = (flags >> 1) & 0x03;
+              const energyExpendedPresent = (flags >> 3) & 0x01;
+              const rrIntervalPresent = (flags >> 4) & 0x01;
+              
+              let offset = 1;
+              
+              let hr;
+              if (hrFormat === 0) {
+                hr = data[offset];
+                offset += 1;
+              } else {
+                hr = data.readUInt16LE(offset);
                 offset += 2;
               }
-              if (rrIntervals.length > 0) {
-                setPpi(rrIntervals[rrIntervals.length - 1]);
+              
+              if (!ppiEnabledRef.current) {
+                console.log('Heart Rate from BLE service:', hr);
+                setHeartRate(hr);
+              } else {
+                console.log('Heart Rate from BLE service:', hr, '(ignored - using PPI-calculated HR)');
+              }
+              
+              if (energyExpendedPresent) {
+                offset += 2;
+              }
+              
+              if (rrIntervalPresent && offset < data.length) {
+                const rrIntervals = [];
+                while (offset + 1 < data.length) {
+                  const rr1024 = data.readUInt16LE(offset);
+                  const rrMs = Math.round((rr1024 / 1024) * 1000);
+                  rrIntervals.push(rrMs);
+                  offset += 2;
+                }
+                if (rrIntervals.length > 0) {
+                  setPpi(rrIntervals[rrIntervals.length - 1]);
+                }
               }
             }
+          } catch (parseError) {
+            console.error('HR data parsing error:', parseError.message);
           }
         }
       );
@@ -1294,29 +1302,33 @@ export default function App() {
             return;
           }
           
-          if (characteristic && characteristic.value) {
-            const data = Buffer.from(characteristic.value, 'base64');
-            const measurementType = data[0];
-            
-            switch (measurementType) {
-              case 0x03:
-                parsePPIData(data);
-                break;
-              case 0x01:
-                parsePPGData(data);
-                break;
-              case 0x02:
-                parseACCData(data);
-                break;
-              case 0x05:
-                parseGyroData(data);
-                break;
-              case 0x06:
-                parseMagData(data);
-                break;
-              default:
-                console.log('Unknown measurement type:', measurementType);
+          try {
+            if (characteristic && characteristic.value) {
+              const data = Buffer.from(characteristic.value, 'base64');
+              const measurementType = data[0];
+              
+              switch (measurementType) {
+                case 0x03:
+                  parsePPIData(data);
+                  break;
+                case 0x01:
+                  parsePPGData(data);
+                  break;
+                case 0x02:
+                  parseACCData(data);
+                  break;
+                case 0x05:
+                  parseGyroData(data);
+                  break;
+                case 0x06:
+                  parseMagData(data);
+                  break;
+                default:
+                  console.log('Unknown measurement type:', measurementType);
+              }
             }
+          } catch (parseError) {
+            console.error('PMD data parsing error:', parseError.message);
           }
         }
       );

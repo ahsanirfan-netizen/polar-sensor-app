@@ -2,7 +2,16 @@
 
 This project is a React Native mobile application, built with Expo Development Build, that connects to a Polar Verity Sense heart rate sensor via Bluetooth Low Energy (BLE). Its primary purpose is to provide real-time heart rate and other physiological data from the sensor, supporting two mutually exclusive sensor modes: Standard Mode (configurable HR-only or HR+PPI) and SDK Mode (PPG + ACC + Gyro). The application includes local data persistence, cloud synchronization to Supabase, and automated sleep analysis processing. The business vision is to provide a robust and flexible platform for health and fitness monitoring, leveraging advanced sensor data for deeper insights into sleep patterns and recovery.
 
-## Recent Changes (October 28, 2025)
+## Recent Changes (November 1, 2025)
+
+**Fixed Critical BLE Data Parsing Bug**
+- **Root Cause Identified**: App was crashing after ~3 hours with "CRASH (uncaught exception)" due to unhandled errors in BLE monitor callbacks
+- **Diagnostic Success**: Exit reason tracking revealed the crash was NOT Android killing the app, but an uncaught JavaScript exception in data parsing
+- **Fix Applied**: Added comprehensive try-catch blocks to all BLE monitor callbacks (HR, PMD Data, PMD Control) to prevent malformed sensor data from crashing the app
+- **Impact**: Malformed or corrupted BLE packets will now be logged as errors instead of crashing the entire application
+- **Testing**: Ready for overnight test to verify 8+ hour stability
+
+**Previous Changes (October 28, 2025)
 
 **Full Diagnostic Suite Implemented**
 - **Objective**: Identify why Android kills the app after 4.8 hours and enable 8+ hour overnight recordings
