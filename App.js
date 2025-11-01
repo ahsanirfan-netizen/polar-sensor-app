@@ -244,7 +244,25 @@ export default function App() {
       }
       
       try {
-        await checkAndRequestBatteryExemption();
+        const batteryExempted = await checkAndRequestBatteryExemption();
+        
+        if (!batteryExempted) {
+          setTimeout(() => {
+            Alert.alert(
+              '🔋 Battery Optimization Required',
+              'For overnight recordings (8+ hours), you MUST:\n\n1. Grant battery optimization exemption (just requested)\n2. Go to App Settings > Battery > Select "Unrestricted"\n3. Disable "Adaptive Battery" in phone settings\n\nWithout these steps, Android will kill the app after ~3 hours during sleep mode.\n\nTap OK after completing these settings.',
+              [
+                {
+                  text: 'Open Settings',
+                  onPress: () => openBatterySettings()
+                },
+                {
+                  text: 'OK'
+                }
+              ]
+            );
+          }, 2000);
+        }
       } catch (error) {
         console.error('Failed to check battery exemption:', error);
       }

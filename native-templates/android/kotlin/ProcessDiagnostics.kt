@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import androidx.annotation.RequiresApi
 import org.json.JSONArray
@@ -107,6 +108,46 @@ object ProcessDiagnostics {
             Log.e(TAG, "Failed to get memory info", e)
             JSONObject().apply {
                 put("error", "Failed to get memory info: ${e.message}")
+            }.toString()
+        }
+    }
+    
+    fun getBatteryOptimizationStatus(context: Context): String {
+        return try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val packageName = context.packageName
+            
+            val isIgnoringBatteryOptimizations = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                powerManager.isIgnoringBatteryOptimizations(packageName)
+            } else {
+                true
+            }
+            
+            val isDeviceIdleMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                powerManager.isDeviceIdleMode
+            } else {
+                false
+            }
+            
+            val isPowerSaveMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                powerManager.isPowerSaveMode
+            } else {
+                false
+            }
+            
+            val jsonObject = JSONObject()
+            jsonObject.put("ignoringBatteryOptimizations", isIgnoringBatteryOptimizations)
+            jsonObject.put("deviceIdleMode", isDeviceIdleMode)
+            jsonObject.put("powerSaveMode", isPowerSaveMode)
+            jsonObject.put("packageName", packageName)
+            
+            val status = jsonObject.toString()
+            Log.i(TAG, "Battery Optimization Status: $status")
+            status
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get battery optimization status", e)
+            JSONObject().apply {
+                put("error", "Failed to get battery optimization status: ${e.message}")
             }.toString()
         }
     }

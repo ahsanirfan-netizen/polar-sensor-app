@@ -160,6 +160,16 @@ class ForegroundServiceModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getBatteryOptimizationStatus(promise: Promise) {
+        try {
+            val status = ProcessDiagnostics.getBatteryOptimizationStatus(reactApplicationContext)
+            promise.resolve(status)
+        } catch (e: Exception) {
+            promise.reject("BATTERY_STATUS_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun canScheduleExactAlarms(promise: Promise) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

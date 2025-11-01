@@ -224,21 +224,59 @@ export async function getCurrentMemoryInfo() {
   }
 }
 
+export async function getBatteryOptimizationStatus() {
+  if (Platform.OS !== 'android' || !NativeForegroundService) {
+    return null;
+  }
+
+  try {
+    const statusJson = await NativeForegroundService.getBatteryOptimizationStatus();
+    
+    if (!statusJson || typeof statusJson !== 'string') {
+      console.log('🔋 No battery optimization data available');
+      return null;
+    }
+    
+    const status = JSON.parse(statusJson);
+    
+    if (status.error) {
+      console.warn(`⚠️ Battery optimization status error: ${status.error}`);
+      return null;
+    }
+    
+    console.log('🔋 Battery Optimization Status:');
+    console.log(`   Ignoring Battery Optimizations: ${status.ignoringBatteryOptimizations ? 'YES ✅' : 'NO ❌'}`);
+    console.log(`   Device Idle Mode (Doze): ${status.deviceIdleMode ? 'YES (Active)' : 'NO'}`);
+    console.log(`   Power Save Mode: ${status.powerSaveMode ? 'YES' : 'NO'}`);
+    
+    return status;
+  } catch (error) {
+    console.error('❌ Error getting battery optimization status:', error.message || error);
+    return null;
+  }
+}
+
 export async function checkAndRequestBatteryExemption() {
   if (Platform.OS !== 'android' || !NativeForegroundService) {
     return true;
   }
 
   try {
-    const isDisabled = await NativeForegroundService.isBatteryOptimizationDisabled();
+    const status = await getBatteryOptimizationStatus();
     
-    if (isDisabled) {
+    if (status && status.ignoringBatteryOptimizations) {
       console.log('✅ Battery optimization already disabled');
       return true;
     } else {
       console.log('⚠️ Battery optimization is enabled - requesting exemption...');
       const result = await NativeForegroundService.requestBatteryOptimizationExemption();
       console.log(`🔋 Battery exemption request: ${result}`);
+      
+      if (result === 'requested') {
+        console.warn('⚠️ CRITICAL: You must grant battery optimization exemption for overnight recordings!');
+        console.warn('⚠️ After granting, go to App Info > Battery > Unrestricted');
+      }
+      
       return result === 'already_disabled';
     }
   } catch (error) {

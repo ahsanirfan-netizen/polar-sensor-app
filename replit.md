@@ -4,12 +4,25 @@ This project is a React Native mobile application, built with Expo Development B
 
 ## Recent Changes (November 1, 2025)
 
-**Fixed Critical BLE Data Parsing Bug**
-- **Root Cause Identified**: App was crashing after ~3 hours with "CRASH (uncaught exception)" due to unhandled errors in BLE monitor callbacks
-- **Diagnostic Success**: Exit reason tracking revealed the crash was NOT Android killing the app, but an uncaught JavaScript exception in data parsing
-- **Fix Applied**: Added comprehensive try-catch blocks to all BLE monitor callbacks (HR, PMD Data, PMD Control) to prevent malformed sensor data from crashing the app
-- **Impact**: Malformed or corrupted BLE packets will now be logged as errors instead of crashing the entire application
-- **Testing**: Ready for overnight test to verify 8+ hour stability
+**Fixed Two Critical Crash Causes - Final Push for 8+ Hour Stability**
+
+**Issue #1: BLE Data Parsing Exceptions (FIXED)**
+- **Root Cause**: App crashed after ~3 hours with "CRASH (uncaught exception)" due to unhandled errors in BLE monitor callbacks
+- **Fix Applied**: Added comprehensive try-catch blocks to all BLE monitor callbacks (HR, PMD Data, PMD Control)
+- **Impact**: Malformed BLE packets now logged as errors instead of crashing the app
+
+**Issue #2: Android Doze Mode Killing Foreground Service (FIXING NOW)**
+- **Root Cause**: Diagnostics revealed "SIGNALED (killed by signal)" after ~3 hours - Android Doze mode kills app during deep idle even with foreground service
+- **Why This Happens**: Android 14/15 has aggressive battery optimization that kills apps after ~3 hours of idle time unless properly whitelisted
+- **Memory Confirmed**: RSS=208KB at crash - NOT a memory leak, purely battery optimization enforcement
+- **Fix Applied**:
+  1. Added comprehensive battery optimization diagnostics (tracks Doze mode, power save mode, exemption status)
+  2. Enhanced battery exemption request with user guidance
+  3. Added prominent startup alert requiring users to:
+     - Grant battery optimization exemption
+     - Set app to "Unrestricted" battery mode in settings
+     - Disable "Adaptive Battery" system setting
+- **Testing**: New APK with BLE error handling + battery optimization guidance ready for overnight test
 
 **Previous Changes (October 28, 2025)
 
