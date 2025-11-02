@@ -297,16 +297,14 @@ export default function DebugConsole() {
         animationType="slide"
         onRequestClose={() => setIsVisible(false)}
       >
-        <TouchableOpacity 
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setIsVisible(false)}
-        >
+        <View style={styles.overlay}>
           <TouchableOpacity 
-            style={styles.consolePanel}
+            style={styles.overlayDismissArea}
             activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
+            onPress={() => setIsVisible(false)}
+          />
+          
+          <View style={styles.consolePanel}>
             <View style={styles.header}>
               <Text style={styles.headerText}>
                 🐛 Debug Console ({logs.length} logs)
@@ -343,6 +341,8 @@ export default function DebugConsole() {
               ref={scrollViewRef}
               style={styles.logContainer}
               contentContainerStyle={styles.logContent}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
             >
               {logs.map((log) => (
                 <View key={log.id} style={styles.logEntry}>
@@ -355,8 +355,8 @@ export default function DebugConsole() {
                 </View>
               ))}
             </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -390,6 +390,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
+  },
+  overlayDismissArea: {
+    flex: 1,
   },
   consolePanel: {
     backgroundColor: '#1a1a1a',
