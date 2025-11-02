@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Use globalThis to persist across fast refresh
@@ -177,7 +177,7 @@ export default function DebugConsole() {
   const [isVisible, setIsVisible] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [crashLogsLoaded, setCrashLogsLoaded] = useState(false);
-  const scrollViewRef = useRef(null);
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     const listener = (newLogs) => setLogs([...newLogs]);
@@ -228,8 +228,10 @@ export default function DebugConsole() {
   }, [crashLogsLoaded]);
 
   useEffect(() => {
-    if (scrollViewRef.current && isVisible && autoScroll) {
-      scrollViewRef.current.scrollToEnd({ animated: false });
+    if (flatListRef.current && isVisible && autoScroll && logs.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
     }
   }, [logs, isVisible, autoScroll]);
 
@@ -337,24 +339,29 @@ export default function DebugConsole() {
               </View>
             </View>
             
-            <ScrollView 
-              ref={scrollViewRef}
+            <FlatList
+              ref={flatListRef}
+              data={logs}
               style={styles.logContainer}
               contentContainerStyle={styles.logContent}
-              nestedScrollEnabled={true}
-              showsVerticalScrollIndicator={true}
-            >
-              {logs.map((log) => (
-                <View key={log.id} style={styles.logEntry}>
-                  <Text style={[styles.timestamp, { color: getLogColor(log.type) }]}>
-                    [{log.timestamp}]
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.logEntry}>
+                  <Text style={[styles.timestamp, { color: getLogColor(item.type) }]}>
+                    [{item.timestamp}]
                   </Text>
-                  <Text style={[styles.logMessage, { color: getLogColor(log.type) }]}>
-                    {log.message}
+                  <Text style={[styles.logMessage, { color: getLogColor(item.type) }]}>
+                    {item.message}
                   </Text>
                 </View>
-              ))}
-            </ScrollView>
+              )}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
+              removeClippedSubviews={false}
+              windowSize={10}
+              maxToRenderPerBatch={20}
+              initialNumToRender={20}
+            />
           </View>
         </View>
       </Modal>
@@ -449,6 +456,7 @@ const styles = StyleSheet.create({
   },
   logContent: {
     padding: 12,
+    flexGrow: 1,
   },
   logEntry: {
     flexDirection: 'row',
