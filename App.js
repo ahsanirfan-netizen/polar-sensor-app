@@ -52,6 +52,28 @@ import {
   checkAndRequestExactAlarmPermission
 } from './BackgroundService';
 
+// Global error handler to prevent crashes from uncaught exceptions
+import { ErrorUtils } from 'react-native';
+
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  console.error('🚨 GLOBAL ERROR CAUGHT:', error.message);
+  console.error('🚨 Fatal:', isFatal);
+  console.error('🚨 Stack:', error.stack);
+  
+  // Log to AsyncStorage for crash diagnostics
+  AsyncStorage.setItem('LAST_GLOBAL_ERROR', JSON.stringify({
+    message: error.message,
+    stack: error.stack,
+    isFatal,
+    timestamp: new Date().toISOString()
+  })).catch(e => console.error('Failed to save error:', e));
+  
+  // Don't re-throw if not fatal - keep app running
+  if (!isFatal) {
+    console.log('🚨 Non-fatal error caught - continuing execution');
+  }
+});
+
 const bleManager = new BleManager({
   restoreStateIdentifier: 'polar-sensor-ble-state',
   restoreStateFunction: (restoredState) => {
@@ -449,19 +471,27 @@ export default function App() {
   
   useEffect(() => {
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      console.log(`📱 App state changed to: ${nextAppState}`);
-      
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString());
-      } else if (nextAppState === 'active') {
-        AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
-          if (lastBackground) {
-            const bgTime = new Date(lastBackground);
-            const now = new Date();
-            const minutesInBackground = (now - bgTime) / 1000 / 60;
-            console.log(`📱 App was in background for ${minutesInBackground.toFixed(1)} minutes`);
-          }
-        });
+      try {
+        console.log(`📱 App state changed to: ${nextAppState}`);
+        
+        if (nextAppState === 'background' || nextAppState === 'inactive') {
+          AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString()).catch(error => {
+            console.error('Failed to save background time:', error);
+          });
+        } else if (nextAppState === 'active') {
+          AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
+            if (lastBackground) {
+              const bgTime = new Date(lastBackground);
+              const now = new Date();
+              const minutesInBackground = (now - bgTime) / 1000 / 60;
+              console.log(`📱 App was in background for ${minutesInBackground.toFixed(1)} minutes`);
+            }
+          }).catch(error => {
+            console.error('Failed to get background time:', error);
+          });
+        }
+      } catch (error) {
+        console.error('AppState change handler error:', error);
       }
     });
     

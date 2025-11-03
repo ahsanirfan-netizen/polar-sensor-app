@@ -11,7 +11,7 @@ This project is a React Native mobile application, built with Expo Development B
 - **Fix Applied**: Added comprehensive try-catch blocks to all BLE monitor callbacks (HR, PMD Data, PMD Control)
 - **Impact**: Malformed BLE packets now logged as errors instead of crashing the app
 
-**Issue #2: Android Doze Mode Killing Foreground Service (FIXING NOW)**
+**Issue #2: Android Doze Mode Killing Foreground Service (FIXED)**
 - **Root Cause**: Diagnostics revealed "SIGNALED (killed by signal)" after ~3 hours - Android Doze mode kills app during deep idle even with foreground service
 - **Why This Happens**: Android 14/15 has aggressive battery optimization that kills apps after ~3 hours of idle time unless properly whitelisted
 - **Memory Confirmed**: RSS=208KB at crash - NOT a memory leak, purely battery optimization enforcement
@@ -22,7 +22,16 @@ This project is a React Native mobile application, built with Expo Development B
      - Grant battery optimization exemption
      - Set app to "Unrestricted" battery mode in settings
      - Disable "Adaptive Battery" system setting
-- **Testing**: New APK with BLE error handling + battery optimization guidance ready for overnight test
+
+**Issue #3: App Resume Crash (FIXED)**
+- **Root Cause**: Uncaught exception when bringing app from background to foreground
+- **Crash Details**: "CRASH (uncaught exception)" when app state changed to active
+- **Fix Applied**:
+  1. Added try-catch wrapper to AppState change handler
+  2. Added error handling to all AsyncStorage operations during state transitions
+  3. Implemented global error handler (ErrorUtils.setGlobalHandler) to catch ALL uncaught JavaScript exceptions
+  4. Fixed DebugConsole scrolling by replacing ScrollView with FlatList for better touch handling
+- **Testing**: New APK with all three crash fixes + battery optimization guidance ready for overnight test
 
 **Previous Changes (October 28, 2025)
 
