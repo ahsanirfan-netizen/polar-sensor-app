@@ -24,13 +24,12 @@ This project is a React Native mobile application, built with Expo Development B
      - Disable "Adaptive Battery" system setting
 
 **Issue #3: App Resume Crash (FIXED)**
-- **Root Cause**: Uncaught exception when bringing app from background to foreground
-- **Crash Details**: "CRASH (uncaught exception)" when app state changed to active
+- **Root Cause**: AppState listener causing uncaught exception when app resumed from background to foreground
+- **Crash Details**: "CRASH (uncaught exception)" consistently when bringing app to foreground; foreground service continued running fine
 - **Fix Applied**:
-  1. Added try-catch wrapper to AppState change handler
-  2. Added error handling to all AsyncStorage operations during state transitions
-  3. Implemented global error handler (ErrorUtils.setGlobalHandler) to catch ALL uncaught JavaScript exceptions
-  4. Fixed DebugConsole scrolling by replacing ScrollView with FlatList for better touch handling
+  1. Disabled AppState change listener (was only used for background time logging, not critical functionality)
+  2. Implemented global error handler (ErrorUtils.setGlobalHandler) to catch future uncaught JavaScript exceptions
+  3. Fixed DebugConsole scrolling by replacing ScrollView with FlatList for better touch handling
 - **Testing**: New APK with all three crash fixes + battery optimization guidance ready for overnight test
 
 **Previous Changes (October 28, 2025)

@@ -472,36 +472,41 @@ export default function App() {
     }
   };
   
-  useEffect(() => {
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      try {
-        console.log(`📱 App state changed to: ${nextAppState}`);
-        
-        if (nextAppState === 'background' || nextAppState === 'inactive') {
-          AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString()).catch(error => {
-            console.error('Failed to save background time:', error);
-          });
-        } else if (nextAppState === 'active') {
-          AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
-            if (lastBackground) {
-              const bgTime = new Date(lastBackground);
-              const now = new Date();
-              const minutesInBackground = (now - bgTime) / 1000 / 60;
-              console.log(`📱 App was in background for ${minutesInBackground.toFixed(1)} minutes`);
-            }
-          }).catch(error => {
-            console.error('Failed to get background time:', error);
-          });
-        }
-      } catch (error) {
-        console.error('AppState change handler error:', error);
-      }
-    });
-    
-    return () => {
-      appStateSubscription?.remove();
-    };
-  }, []);
+  // AppState listener disabled - was causing crashes on app resume
+  // useEffect(() => {
+  //   const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+  //     try {
+  //       console.log(`📱 App state changed to: ${nextAppState}`);
+  //       
+  //       if (nextAppState === 'background' || nextAppState === 'inactive') {
+  //         AsyncStorage.setItem('LAST_APP_BACKGROUND', new Date().toISOString()).catch(error => {
+  //           console.error('Failed to save background time:', error);
+  //         });
+  //       } else if (nextAppState === 'active') {
+  //         AsyncStorage.getItem('LAST_APP_BACKGROUND').then(lastBackground => {
+  //           try {
+  //             if (lastBackground) {
+  //               const bgTime = new Date(lastBackground);
+  //               const now = new Date();
+  //               const minutesInBackground = (now - bgTime) / 1000 / 60;
+  //               console.log(`📱 App was in background for ${minutesInBackground.toFixed(1)} minutes`);
+  //             }
+  //           } catch (innerError) {
+  //             console.error('Error calculating background time:', innerError);
+  //           }
+  //         }).catch(error => {
+  //           console.error('Failed to get background time:', error);
+  //         });
+  //       }
+  //     } catch (error) {
+  //       console.error('AppState change handler error:', error);
+  //     }
+  //   });
+  //   
+  //   return () => {
+  //     appStateSubscription?.remove();
+  //   };
+  // }, []);
   
   useEffect(() => {
     if (Platform.OS === 'android') {
