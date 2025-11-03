@@ -53,26 +53,29 @@ import {
 } from './BackgroundService';
 
 // Global error handler to prevent crashes from uncaught exceptions
-import { ErrorUtils } from 'react-native';
-
-ErrorUtils.setGlobalHandler((error, isFatal) => {
-  console.error('🚨 GLOBAL ERROR CAUGHT:', error.message);
-  console.error('🚨 Fatal:', isFatal);
-  console.error('🚨 Stack:', error.stack);
+// ErrorUtils is a global object in React Native, not an import
+if (global.ErrorUtils) {
+  const defaultHandler = global.ErrorUtils.getGlobalHandler();
   
-  // Log to AsyncStorage for crash diagnostics
-  AsyncStorage.setItem('LAST_GLOBAL_ERROR', JSON.stringify({
-    message: error.message,
-    stack: error.stack,
-    isFatal,
-    timestamp: new Date().toISOString()
-  })).catch(e => console.error('Failed to save error:', e));
-  
-  // Don't re-throw if not fatal - keep app running
-  if (!isFatal) {
-    console.log('🚨 Non-fatal error caught - continuing execution');
-  }
-});
+  global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+    console.error('🚨 GLOBAL ERROR CAUGHT:', error.message);
+    console.error('🚨 Fatal:', isFatal);
+    console.error('🚨 Stack:', error.stack);
+    
+    // Log to AsyncStorage for crash diagnostics
+    AsyncStorage.setItem('LAST_GLOBAL_ERROR', JSON.stringify({
+      message: error.message,
+      stack: error.stack,
+      isFatal,
+      timestamp: new Date().toISOString()
+    })).catch(e => console.error('Failed to save error:', e));
+    
+    // Call default handler if fatal
+    if (isFatal) {
+      defaultHandler(error, isFatal);
+    }
+  });
+}
 
 const bleManager = new BleManager({
   restoreStateIdentifier: 'polar-sensor-ble-state',
