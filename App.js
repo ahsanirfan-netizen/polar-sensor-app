@@ -77,6 +77,28 @@ if (global.ErrorUtils) {
   });
 }
 
+// Global unhandled promise rejection handler
+// This catches async errors that aren't wrapped in try-catch
+const tracking = require('react-native/Libraries/Core/Devtools/getDevServer');
+if (global.HermesInternal || tracking) {
+  const originalHandler = global.Promise.prototype._unhandledRejectionHandler || (() => {});
+  
+  global.Promise.prototype._unhandledRejectionHandler = function(error) {
+    console.error('🚨 UNHANDLED PROMISE REJECTION:', error);
+    console.error('🚨 Stack:', error?.stack);
+    
+    // Log to AsyncStorage for crash diagnostics
+    AsyncStorage.setItem('LAST_PROMISE_REJECTION', JSON.stringify({
+      message: error?.message || String(error),
+      stack: error?.stack,
+      timestamp: new Date().toISOString()
+    })).catch(e => console.error('Failed to save rejection:', e));
+    
+    // Don't throw - just log
+    originalHandler.call(this, error);
+  };
+}
+
 const bleManager = new BleManager({
   restoreStateIdentifier: 'polar-sensor-ble-state',
   restoreStateFunction: (restoredState) => {
@@ -632,7 +654,15 @@ export default function App() {
     if (!isRecording) return;
     
     const interval = setInterval(() => {
-      flushDbBuffer();
+      try {
+        flushDbBuffer().catch(error => {
+          console.error('Database flush error in interval:', error);
+          // Don't throw - keep interval running
+        });
+      } catch (error) {
+        console.error('Database flush interval error:', error);
+        // Don't throw - keep interval running
+      }
     }, 1000);
     
     return () => clearInterval(interval);
