@@ -1650,8 +1650,13 @@ export default function App() {
     if (!sdkModeEnabled || !connectedDevice) return;
     
     const interval = setInterval(() => {
-      calculateHRPeakDetection();
-      calculateHRFFT();
+      try {
+        calculateHRPeakDetection();
+        calculateHRFFT();
+      } catch (error) {
+        console.error('SDK Mode HR calculation error:', error);
+        // Don't throw - keep interval running
+      }
     }, 2000);
     
     return () => clearInterval(interval);
@@ -1673,64 +1678,74 @@ export default function App() {
     let keepAliveCounter = 0;
     
     const timerInterval = setInterval(async () => {
-      if (sensorStartTimeRef.current) {
-        const elapsed = Math.floor((Date.now() - sensorStartTimeRef.current) / 1000);
-        const hours = Math.floor(elapsed / 3600);
-        const minutes = Math.floor((elapsed % 3600) / 60);
-        const seconds = elapsed % 60;
-        
-        const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        setSensorElapsedTime(formatted);
-        
-        // Use ref to avoid crash if device disconnects during timer execution
-        const currentDevice = connectedDeviceRef.current;
-        if (Platform.OS === 'android' && currentDevice) {
-          try {
-            await updateBackgroundNotification({
-              heartRate: heartRate,
-              recordingTime: formatted,
-              deviceName: currentDevice.name || 'Polar Sensor'
-            });
-          } catch (notifError) {
-            console.error('Failed to update background notification:', notifError);
+      try {
+        if (sensorStartTimeRef.current) {
+          const elapsed = Math.floor((Date.now() - sensorStartTimeRef.current) / 1000);
+          const hours = Math.floor(elapsed / 3600);
+          const minutes = Math.floor((elapsed % 3600) / 60);
+          const seconds = elapsed % 60;
+          
+          const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+          setSensorElapsedTime(formatted);
+          
+          // Use ref to avoid crash if device disconnects during timer execution
+          const currentDevice = connectedDeviceRef.current;
+          if (Platform.OS === 'android' && currentDevice) {
+            try {
+              await updateBackgroundNotification({
+                heartRate: heartRate,
+                recordingTime: formatted,
+                deviceName: currentDevice.name || 'Polar Sensor'
+              });
+            } catch (notifError) {
+              console.error('Failed to update background notification:', notifError);
+            }
           }
         }
+      } catch (error) {
+        console.error('Timer interval error:', error);
+        // Don't throw - keep timer running
       }
     }, 1000);
     
     // BLE Keep-Alive: Perform periodic connection check to prevent BLE stack suspension
     // This is critical for overnight recording on Android
     const keepAliveInterval = setInterval(async () => {
-      // Use ref to get CURRENT device, not captured closure value
-      const currentDevice = connectedDeviceRef.current;
-      
-      if (!currentDevice) {
-        console.log('🔋 Keep-alive: No device connected (skipping)');
-        return;
-      }
-      
       try {
-        keepAliveCounter++;
+        // Use ref to get CURRENT device, not captured closure value
+        const currentDevice = connectedDeviceRef.current;
         
-        // Check if device is still connected
-        const isConnected = await currentDevice.isConnected();
-        console.log(`🔋 BLE Keep-Alive #${keepAliveCounter}: Connection=${isConnected}`);
-        
-        if (!isConnected) {
-          console.warn('🔋 Keep-alive: Device shows disconnected');
+        if (!currentDevice) {
+          console.log('🔋 Keep-alive: No device connected (skipping)');
           return;
         }
         
-        // Perform a lightweight read operation to keep BLE radio active
         try {
-          const rssi = await currentDevice.readRSSI();
-          console.log(`🔋 RSSI read successful: ${rssi} dBm - BLE stack active`);
-        } catch (rssiError) {
-          console.warn('⚠️ RSSI read failed (non-critical):', rssiError.message);
+          keepAliveCounter++;
+          
+          // Check if device is still connected
+          const isConnected = await currentDevice.isConnected();
+          console.log(`🔋 BLE Keep-Alive #${keepAliveCounter}: Connection=${isConnected}`);
+          
+          if (!isConnected) {
+            console.warn('🔋 Keep-alive: Device shows disconnected');
+            return;
+          }
+          
+          // Perform a lightweight read operation to keep BLE radio active
+          try {
+            const rssi = await currentDevice.readRSSI();
+            console.log(`🔋 RSSI read successful: ${rssi} dBm - BLE stack active`);
+          } catch (rssiError) {
+            console.warn('⚠️ RSSI read failed (non-critical):', rssiError.message);
+          }
+        } catch (error) {
+          console.error('🔋 BLE Keep-Alive error:', error.message);
+          // Don't throw - let the interval continue
         }
-      } catch (error) {
-        console.error('🔋 BLE Keep-Alive error:', error.message);
-        // Don't throw - let the interval continue
+      } catch (outerError) {
+        console.error('🔋 Keep-alive outer error:', outerError);
+        // Ultimate safety net - don't let interval crash
       }
     }, 30000); // Every 30 seconds
     

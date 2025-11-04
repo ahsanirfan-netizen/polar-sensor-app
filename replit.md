@@ -25,12 +25,25 @@ This project is a React Native mobile application, built with Expo Development B
 
 **Issue #3: App Resume Crash (FIXED)**
 - **Root Cause**: AppState listener causing uncaught exception when app resumed from background to foreground
-- **Crash Details**: "CRASH (uncaught exception)" consistently when bringing app to foreground; foreground service continued running fine
+- **Crash Details**: "CRASH (uncaught exception)" when bringing app to foreground with "FOREGROUND" importance
 - **Fix Applied**:
   1. Disabled AppState change listener (was only used for background time logging, not critical functionality)
   2. Implemented global error handler (ErrorUtils.setGlobalHandler) to catch future uncaught JavaScript exceptions
   3. Fixed DebugConsole scrolling by replacing ScrollView with FlatList for better touch handling
-- **Testing**: New APK with all three crash fixes + battery optimization guidance ready for overnight test
+
+**Issue #4: Foreground Service Timer Crashes (FIXED)**
+- **Root Cause**: Uncaught exceptions in setInterval timer callbacks after ~3.5 hours of recording
+- **Crash Details**: "CRASH (uncaught exception)" with "FOREGROUND_SERVICE" importance at 02:07:19 (RSS=571KB)
+- **Affected Timers**:
+  1. Notification update timer (runs every 1 second)
+  2. BLE keep-alive timer (runs every 30 seconds)
+  3. SDK Mode HR calculation timer (runs every 2 seconds)
+- **Fix Applied**:
+  1. Added comprehensive try-catch wrapper to notification update timer (prevents crashes from updateBackgroundNotification or time formatting errors)
+  2. Added dual-layer error handling to BLE keep-alive timer (outer catch for device ref access, inner catch for BLE operations)
+  3. Added error handling to SDK Mode HR calculation timer (prevents crashes from peak detection or FFT calculation errors)
+  4. All timers now log errors instead of crashing, allowing continuous operation
+- **Testing**: New APK with all four crash fixes + battery optimization guidance ready for overnight test
 
 **Previous Changes (October 28, 2025)
 
